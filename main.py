@@ -48,7 +48,7 @@ class Confirm(discord.ui.View):
     # We also send the user an ephemeral message that we're confirming their choice.
     @discord.ui.button(label='Yes', style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('The server will restart.', ephemeral=True)
+        await interaction.response.send_message('Restart command sent. Watch for restart message.', ephemeral=True)
         self.value = True
         self.stop()
 
@@ -71,6 +71,23 @@ last_run = datetime.datetime(1990, 1, 1)
 async def on_ready():
     print(f'Logged in as {client.user} (ID: {client.user.id})')
     print('------')
+
+
+@client.tree.command()
+async def server_message(interaction: discord.Interaction, message: str):
+    """Send message to everyone in the server."""
+    # Only discord mods can use the command
+    if interaction.user.get_role(MOD_ROLE_ID) == None:
+        await interaction.response.send_message('You are not worthy.', ephemeral=True)
+        return
+
+    # Not sure how dangerous this line is, maybe I can sanatize it somehow?
+    server_msg = 'servermsg \"' + message + '\"'
+    await interaction.response.defer()
+    cmd = ["/home/pzserver/pzserver", "send", server_msg]
+    response = subprocess.run(cmd, capture_output=True)
+    status = response.stdout.decode("utf-8")
+    await interaction.followup.send(status)
 
 
 @client.tree.command()
@@ -140,8 +157,8 @@ async def server_restart(interaction: discord.Interaction):
         status = response.stdout.decode("utf-8")
 
         # Announce restart
-        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
-        # await interaction.followup.send(status)
+        await interaction.followup.send(status)
+        # await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
     else:
         print('Cancelled...')
 
