@@ -48,7 +48,7 @@ class Confirm(discord.ui.View):
     # We also send the user an ephemeral message that we're confirming their choice.
     @discord.ui.button(label='Yes', style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('Restart command sent. Watch for restart message.', ephemeral=True)
+        await interaction.response.send_message('Restart confirmed.', ephemeral=True)
         self.value = True
         self.stop()
 
@@ -75,7 +75,7 @@ async def on_ready():
 
 @client.tree.command()
 async def server_message(interaction: discord.Interaction, message: str):
-    """Send message to everyone in the server."""
+    """Send a message to everyone in the server."""
     # Only discord mods can use the command
     if interaction.user.get_role(MOD_ROLE_ID) == None:
         await interaction.response.send_message('You are not worthy.', ephemeral=True)
@@ -83,11 +83,14 @@ async def server_message(interaction: discord.Interaction, message: str):
 
     # Not sure how dangerous this line is, maybe I can sanatize it somehow?
     server_msg = 'servermsg \"' + message + '\"'
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
     cmd = ["/home/pzserver/pzserver", "send", server_msg]
     response = subprocess.run(cmd, capture_output=True)
-    status = response.stdout.decode("utf-8")
-    await interaction.followup.send(status)
+    last_line = response.stdout.decode("utf-8").split('\r')[-1]
+    status = f'Sent message: {message}' if 'OK' in last_line else 'Something wrong maybe\n' + last_line
+    # TODO: Figure out the logging module instead of printing
+    print(response)
+    await interaction.followup.send(status, ephemeral=True)
 
 
 @client.tree.command()
@@ -108,12 +111,15 @@ async def server_check(interaction: discord.Interaction):
 
     # Call the command and send the result
     # Update last_run before calling the command so var gets set ASAP
+    await interaction.response.defer(ephemeral=True)
     last_run = datetime.datetime.now()
-    await interaction.response.defer()
     cmd = ["/home/pzserver/pzserver", "monitor"]
     response = subprocess.run(cmd, capture_output=True)
-    status = response.stdout.decode("utf-8")
-    await interaction.followup.send(status)
+    last_line = response.stdout.decode("utf-8").split('\r')[-1]
+    status = 'Server is up and running.' if 'OK' in last_line else 'Something wrong maybe\n' + last_line
+    # TODO: Figure out the logging module instead of printing
+    print(response)
+    await interaction.followup.send(status, ephemeral=True)
 
 
 @client.tree.command()
@@ -151,14 +157,18 @@ async def server_restart(interaction: discord.Interaction):
         # Call the restart command, assuming server is running.
         # If it's not running, command will prompt for yes or no to start server.
         # I am ignoring this unil I learn more how to deal with that.
+        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(f'Restart initiated by {interaction.user.display_name}...')
         last_run = datetime.datetime.now()
         cmd = ["/home/pzserver/pzserver", "restart"]
         response = subprocess.run(cmd, capture_output=True)
-        status = response.stdout.decode("utf-8")
+        last_line = response.stdout.decode("utf-8").split('\r')[-1]
+        status = 'Success!\nServer was shut down and is now starting back up!.' if 'OK' in last_line else 'Something wrong maybe...\n' + last_line
+        # TODO: Figure out the logging module instead of printing
+        print(response)
 
         # Announce restart
-        await interaction.followup.send(status)
-        # await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
+        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
+        # await interaction.followup.send(status)
     else:
         print('Cancelled...')
 
