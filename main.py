@@ -87,7 +87,7 @@ async def server_message(interaction: discord.Interaction, message: str):
     cmd = ["/home/pzserver/pzserver", "send", server_msg]
     response = subprocess.run(cmd, capture_output=True)
     last_line = response.stdout.decode("utf-8").split('\r')[-1]
-    status = f'Sent message: {message}' if 'OK' in last_line else 'Something wrong maybe\n' + last_line
+    status = f'Sent message:\n> {message}' if 'OK' in last_line else 'Something wrong maybe\n' + last_line
     # TODO: Figure out the logging module instead of printing
     print(response)
     await interaction.followup.send(status, ephemeral=True)
@@ -162,7 +162,7 @@ async def server_restart(interaction: discord.Interaction):
         cmd = ["/home/pzserver/pzserver", "restart"]
         response = subprocess.run(cmd, capture_output=True)
         last_line = response.stdout.decode("utf-8").split('\r')[-1]
-        status = 'Success!\nServer was shut down and is now starting back up!.' if 'OK' in last_line else 'Something wrong maybe...\n' + last_line
+        status = 'Success! Server was shut down and is now starting back up.' if 'OK' in last_line else 'Something wrong maybe...\n' + last_line
         # TODO: Figure out the logging module instead of printing
         print(response)
 
