@@ -63,8 +63,9 @@ class Confirm(discord.ui.View):
 intents = discord.Intents.default()
 client = MyClient(intents=intents)
 
-# Keep track of when commands are run, only allow once per 5min interval
-last_run = datetime.datetime(1990, 1, 1)
+# Keep track of when command(s) are run, only allow once per 5min interval
+last_run_light = datetime.datetime(1990, 1, 1)
+last_run_heavy = datetime.datetime(1990, 1, 1)
 
 
 @client.event
@@ -74,56 +75,49 @@ async def on_ready():
 
 
 @client.tree.command()
-async def server_message(interaction: discord.Interaction, message: str):
+@app_commands.choices(server=[
+    app_commands.Choice(name='Light', value=1),
+    app_commands.Choice(name='Heavy', value=2),
+])
+@app_commands.describe(
+    server='Which server should revieve this message?',
+    message='What would you like to say.',
+)
+async def send_message(interaction: discord.Interaction, server: app_commands.Choice[int], message: str):
     """Send a message to everyone in the server."""
+
     # Only discord mods can use the command
+    # This gets taken care of when setuping up bot but its nice to have still
+    # Oh also the framwork has a special check function to do this already I should use
     if interaction.user.get_role(MOD_ROLE_ID) == None:
         await interaction.response.send_message('You are not worthy.', ephemeral=True)
         return
 
-    # Not sure how dangerous this line is, maybe I can sanatize it somehow?
-    server_msg = 'servermsg \"' + message + '\"'
+    # Respond to request to tell the user to wait a moment
+    # This def needs to be called before doing work that takes time,
+    # but I wonder if it may as well be first line of the function?
     await interaction.response.defer(ephemeral=True)
-    cmd = ["/home/pzserver/pzserver", "send", server_msg]
+
+    # Send command and respond to result
+    server_msg = '\'servermsg \"' + message + '\"\''
+    destination_server = server.name.lower()
+    cmd = ["runuser", "-l", f"pzserver{destination_server}", "-c",
+           f"/home/pzserver{destination_server}/pzserver send {server_msg}"]
     response = subprocess.run(cmd, capture_output=True)
     last_line = response.stdout.decode("utf-8").split('\r')[-1]
-    status = f'Sent message:\n> {message}' if 'OK' in last_line else 'Something wrong maybe\n' + last_line
+    status = f'Sent to {destination_server} server:\n> {message}' if 'OK' in last_line else 'Something wrong maybe\n' + last_line
+
     # TODO: Figure out the logging module instead of printing
     print(response)
     await interaction.followup.send(status, ephemeral=True)
 
 
 @client.tree.command()
-async def server_check(interaction: discord.Interaction):
-    """Check status of server, restart if crashed."""
-
-    # Only discord mods can use the command
-    if interaction.user.get_role(MOD_ROLE_ID) == None:
-        await interaction.response.send_message('You are not worthy.', ephemeral=True)
-        return
-
-    # Rate limit the command
-    global last_run
-    elapsed_time = datetime.datetime.now() - last_run
-    if elapsed_time.seconds < 300:
-        await interaction.response.send_message(f'Please wait {300 - elapsed_time.seconds} more seconds.', ephemeral=True)
-        return
-
-    # Call the command and send the result
-    # Update last_run before calling the command so var gets set ASAP
-    await interaction.response.defer(ephemeral=True)
-    last_run = datetime.datetime.now()
-    cmd = ["/home/pzserver/pzserver", "monitor"]
-    response = subprocess.run(cmd, capture_output=True)
-    last_line = response.stdout.decode("utf-8").split('\r')[-1]
-    status = 'Server is up and running.' if 'OK' in last_line else 'Something wrong maybe\n' + last_line
-    # TODO: Figure out the logging module instead of printing
-    print(response)
-    await interaction.followup.send(status, ephemeral=True)
-
-
-@client.tree.command()
-async def server_restart(interaction: discord.Interaction):
+@app_commands.choices(server=[
+    app_commands.Choice(name='Light', value=1),
+    app_commands.Choice(name='Heavy', value=2),
+])
+async def restart_server(interaction: discord.Interaction, server: app_commands.Choice[int]):
     """Restarts the server!!!"""
 
     # Only discord mods can use the command
@@ -131,8 +125,11 @@ async def server_restart(interaction: discord.Interaction):
         await interaction.response.send_message('You are not worthy.', ephemeral=True)
         return
 
+    destination_server = server.name.lower()
+
     # Place rate limit the command
-    global last_run
+    global last_run_light, last_run_heavy
+    last_run = last_run_light if destination_server == 'light' else last_run_heavy
     elapsed_time = datetime.datetime.now() - last_run
     if elapsed_time.seconds < 300:
         await interaction.response.send_message(f'Please wait {300 - elapsed_time.seconds} more seconds.', ephemeral=True)
@@ -154,21 +151,30 @@ async def server_restart(interaction: discord.Interaction):
         print('Timed out...')
     elif view.value:
         print('Confirmed...')
+
         # Call the restart command, assuming server is running.
         # If it's not running, command will prompt for yes or no to start server.
         # I am ignoring this unil I learn more how to deal with that.
         await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(f'Restart initiated by {interaction.user.display_name}...')
-        last_run = datetime.datetime.now()
-        cmd = ["/home/pzserver/pzserver", "restart"]
+
+        # Update last run time of command
+        if destination_server == 'light':
+            last_run_light = datetime.datetime.now()
+        elif destination_server == 'heavy':
+            last_run_heavy = datetime.datetime.now()
+
+        # Send command and respond to result
+        cmd = ["runuser", "-l", f"pzserver{destination_server}", "-c",
+               f"/home/pzserver{destination_server}/pzserver restart"]
         response = subprocess.run(cmd, capture_output=True)
         last_line = response.stdout.decode("utf-8").split('\r')[-1]
-        status = 'Success! Server was shut down and is now starting back up.' if 'OK' in last_line else 'Something wrong maybe...\n' + last_line
-        # TODO: Figure out the logging module instead of printing
+        status = f'Success! The **{destination_server}** server was shut down and is now starting back up.' if 'OK' in last_line else 'Something wrong maybe...\n' + last_line
+
+        # # TODO: Figure out the logging module instead of printing
         print(response)
 
         # Announce restart
         await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
-        # await interaction.followup.send(status)
     else:
         print('Cancelled...')
 
