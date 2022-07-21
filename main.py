@@ -101,7 +101,7 @@ async def send_message(interaction: discord.Interaction, server: app_commands.Ch
     # Send command and respond to result
     server_msg = '\'servermsg \"' + message + '\"\''
     destination_server = server.name.lower()
-    cmd = ["runuser", "-l", f"pzserver{destination_server}", "-c",
+    cmd = ["runuser", f"pzserver{destination_server}", "-c",
            f"/home/pzserver{destination_server}/pzserver send {server_msg}"]
     response = subprocess.run(cmd, capture_output=True)
     last_line = response.stdout.decode("utf-8").split('\r')[-1]
@@ -164,7 +164,7 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
             last_run_heavy = datetime.datetime.now()
 
         # Send command and respond to result
-        cmd = ["runuser", "-l", f"pzserver{destination_server}", "-c",
+        cmd = ["runuser", f"pzserver{destination_server}", "-c",
                f"/home/pzserver{destination_server}/pzserver restart"]
         response = subprocess.run(cmd, capture_output=True)
         last_line = response.stdout.decode("utf-8").split('\r')[-1]
