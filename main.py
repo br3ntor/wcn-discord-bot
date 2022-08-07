@@ -109,7 +109,7 @@ async def send_message(interaction: discord.Interaction, server: app_commands.Ch
 
     # TODO: Figure out the logging module instead of printing
     print(response)
-    await interaction.followup.send(status, ephemeral=True)
+    await interaction.followup.send(status)
 
 
 @client.tree.command()
