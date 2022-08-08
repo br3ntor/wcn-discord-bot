@@ -96,7 +96,7 @@ async def send_message(interaction: discord.Interaction, server: app_commands.Ch
     # Respond to request to tell the user to wait a moment
     # This def needs to be called before doing work that takes time,
     # but I wonder if it may as well be first line of the function?
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
 
     # Send command and respond to result
     server_msg = '\'servermsg \"' + message + '\"\''
@@ -121,7 +121,7 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
     """Restarts the server!!!"""
 
     # Only discord mods can use the command
-    if interaction.user.get_role(MOD_ROLE_ID) == None:
+    if interaction.user.get_role(MOD_ROLE_ID) is None:
         await interaction.response.send_message('You are not worthy.', ephemeral=True)
         return
 
@@ -137,7 +137,7 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
 
     # Send the question with buttons
     view = Confirm()
-    await interaction.response.send_message('Restart server?', view=view, ephemeral=True)
+    await interaction.response.send_message(f'Restart {destination_server} server?', view=view, ephemeral=True)
     await view.wait()
 
     # Disable buttons after click
@@ -155,7 +155,7 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
         # Call the restart command, assuming server is running.
         # If it's not running, command will prompt for yes or no to start server.
         # I am ignoring this unil I learn more how to deal with that.
-        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(f'Restart initiated by {interaction.user.display_name}...')
+        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(f'{destination_server.capitalize()} server restart initiated by {interaction.user.display_name}...')
 
         # Update last run time of command
         if destination_server == 'light':
