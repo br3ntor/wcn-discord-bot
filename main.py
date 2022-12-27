@@ -165,7 +165,7 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
 
         # Send command and respond to result
         cmd = ["runuser", f"pzserver{destination_server}", "-c",
-               f"/home/pzserver{destination_server}/pzserver restart"]
+               f"/home/pzserver{destination_server}/pzserver stop"]
         response = subprocess.run(cmd, capture_output=True)
         last_line = response.stdout.decode("utf-8").split('\r')[-1]
         status = f'Success! The **{destination_server}** server was shut down and is now starting back up.' if 'OK' in last_line else 'Something wrong maybe...\n' + last_line
