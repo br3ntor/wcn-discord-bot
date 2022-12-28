@@ -163,12 +163,13 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
         elif destination_server == 'heavy':
             last_run_heavy = datetime.datetime.now()
 
-        # Send command and respond to result
-        cmd = ["runuser", f"pzserver{destination_server}", "-c",
-               f"/home/pzserver{destination_server}/pzserver stop"]
-        response = subprocess.run(cmd, capture_output=True)
-        last_line = response.stdout.decode("utf-8").split('\r')[-1]
-        status = f'Success! The **{destination_server}** server was shut down and is now starting back up.' if 'OK' in last_line else 'Something wrong maybe...\n' + last_line
+        response = subprocess.run(
+            f"systemctl restart pzserver{destination_server}")
+
+        if response.returncode == 0:
+            status = f'Success! The **{destination_server}** server was shut down and is now starting back up.'
+        else:
+            status = 'Something wrong maybe...\n' + response.returncode
 
         # # TODO: Figure out the logging module instead of printing
         print(response)
