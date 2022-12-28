@@ -168,7 +168,7 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
         response = subprocess.run(cmd)
 
         succeeded = f'Success! The **{destination_server}** server was shut down and is now starting back up.'
-        failed = 'Something wrong maybe...\n' + response.returncode
+        failed = 'Something wrong maybe...'
         status = succeeded if response.returncode == 0 else failed
 
         # # TODO: Figure out the logging module instead of printing
