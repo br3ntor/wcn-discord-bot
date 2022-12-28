@@ -155,7 +155,8 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
         # Call the restart command, assuming server is running.
         # If it's not running, command will prompt for yes or no to start server.
         # I am ignoring this unil I learn more how to deal with that.
-        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(f'{destination_server.capitalize()} server restart initiated by {interaction.user.display_name}...')
+        initiated_by = f'{destination_server.capitalize()} server restart initiated by {interaction.user.display_name}...'
+        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(initiated_by)
 
         # Update last run time of command
         if destination_server == 'light':
@@ -166,10 +167,9 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
         cmd = ["systemctl", "restart", f"pzserver{destination_server}"]
         response = subprocess.run(cmd)
 
-        if response.returncode == 0:
-            status = f'Success! The **{destination_server}** server was shut down and is now starting back up.'
-        else:
-            status = 'Something wrong maybe...\n' + response.returncode
+        succeeded = f'Success! The **{destination_server}** server was shut down and is now starting back up.'
+        failed = 'Something wrong maybe...\n' + response.returncode
+        status = succeeded if response.returncode == 0 else failed
 
         # # TODO: Figure out the logging module instead of printing
         print(response)
