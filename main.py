@@ -163,8 +163,8 @@ async def restart_server(interaction: discord.Interaction, server: app_commands.
         elif destination_server == 'heavy':
             last_run_heavy = datetime.datetime.now()
 
-        response = subprocess.run(
-            f"systemctl restart pzserver{destination_server}")
+        cmd = ["systemctl", "restart", f"pzserver{destination_server}"]
+        response = subprocess.run(cmd)
 
         if response.returncode == 0:
             status = f'Success! The **{destination_server}** server was shut down and is now starting back up.'
