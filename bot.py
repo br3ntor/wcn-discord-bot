@@ -3,8 +3,6 @@ import discord
 from discord import app_commands
 from commands import *
 
-# from commands import parrot, send_message, restart_server
-
 MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD")))
 
 
