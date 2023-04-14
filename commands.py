@@ -12,6 +12,8 @@ ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL"))
 last_run_light = datetime.datetime(1990, 1, 1)
 last_run_heavy = datetime.datetime(1990, 1, 1)
 
+# TODO: Give each command it's own file
+
 
 # Define a simple View that gives us a confirmation menu
 class Confirm(discord.ui.View):

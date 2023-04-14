@@ -2,7 +2,7 @@ import os
 import discord
 from discord import app_commands
 
-from commands import parrot, send_message
+from commands import parrot, send_message, restart_server
 
 MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD")))
 
@@ -34,6 +34,7 @@ intents = discord.Intents.default()
 client = MyClient(intents=intents)
 client.tree.add_command(parrot)
 client.tree.add_command(send_message)
+client.tree.add_command(restart_server)
 
 
 # NOTE: I wonder how to keep these in their own file?
