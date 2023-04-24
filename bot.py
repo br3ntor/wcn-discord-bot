@@ -1,7 +1,8 @@
 import os
 import discord
 from discord import app_commands
-from commands import *
+import commands
+
 
 MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD")))
 
@@ -31,12 +32,13 @@ class MyClient(discord.Client):
 
 intents = discord.Intents.default()
 client = MyClient(intents=intents)
-client.tree.add_command(speak)
-client.tree.add_command(send_message)
-client.tree.add_command(restart_server)
-client.tree.add_command(cat_fact)
-client.tree.add_command(get_playerlist)
-client.tree.add_command(reset_password)
+
+
+# Add all commands to client tree
+for command_name in commands.__all__:
+    attr = getattr(commands, command_name)
+    if isinstance(attr, app_commands.Command):
+        client.tree.add_command(attr)
 
 
 # NOTE: I wonder how to keep these in their own file?
