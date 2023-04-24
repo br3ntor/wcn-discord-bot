@@ -11,6 +11,8 @@ last_run_light = datetime.datetime(1990, 1, 1)
 last_run_heavy = datetime.datetime(1990, 1, 1)
 
 
+# TODO: Extend this class to also take an action_to_confirm to build that into the
+# yes or no response message
 # Define a simple View that gives us a confirmation menu
 class Confirm(discord.ui.View):
     def __init__(self):
@@ -55,7 +57,9 @@ async def restart_server(
 
     destination_server = server.name.lower()
 
-    # Place rate limit the command
+    # Place a rate limit on the command
+    # TODO: Try the cooldown decorator
+    # https://discordpy.readthedocs.io/en/stable/interactions/api.html#discord.app_commands.checks.cooldown
     global last_run_light, last_run_heavy
     last_run = last_run_light if destination_server == "light" else last_run_heavy
     elapsed_time = datetime.datetime.now() - last_run

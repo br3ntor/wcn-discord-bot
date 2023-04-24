@@ -36,6 +36,7 @@ client.tree.add_command(send_message)
 client.tree.add_command(restart_server)
 client.tree.add_command(cat_fact)
 client.tree.add_command(get_playerlist)
+client.tree.add_command(reset_password)
 
 
 # NOTE: I wonder how to keep these in their own file?
