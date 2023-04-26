@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import discord
 from discord import app_commands
@@ -35,7 +36,8 @@ async def send_message(
     await interaction.response.defer()
 
     # Send command and respond to result
-    server_msg = "'servermsg \"" + message + "\"'"
+    valid_msg = re.sub(r"[^a-zA-Z!?\s]", "", message)
+    server_msg = "'servermsg \"" + valid_msg + "\"'"
     destination_server = server.name.lower()
     cmd = [
         "runuser",
