@@ -2,9 +2,25 @@ import os
 import discord
 from discord import app_commands
 from steam import game_servers as gs
+from tabulate import tabulate
+import time
 
 VANILLA_SERVER = os.getenv("VANILLA_SERVER")
 MODDED_SERVERS = os.getenv("MODDED_SERVERS")
+
+
+def format_time(seconds):
+    time_str = time.strftime("%Hhr %Mmin", time.gmtime(seconds))
+    return time_str
+
+
+def format_message(player_table, server_name):
+    msg = f"""```md
+{server_name} has {len(player_table)} players connected
+
+{tabulate(player_table, headers=["Name", "Duration"])}
+    ```"""
+    return msg
 
 
 @app_commands.command()
@@ -24,10 +40,13 @@ async def get_playerlist(
         "light": (MODDED_SERVERS, 16261),
         "heavy": (MODDED_SERVERS, 27901),
     }
+
     server_players = gs.a2s_players(servers[server.name.lower()])
-    players = [p["name"] for p in server_players if p["name"]]
-    list_message = ", ".join(players) if players else "No body on :("
-    print(list_message)
-    await interaction.response.send_message(
-        f"{server.name} players online: {list_message}"
-    )
+
+    player_table = []
+    for player in server_players:
+        player_table.append([player["name"], format_time(player["duration"])])
+
+    formated_message = format_message(player_table, server.name)
+
+    await interaction.response.send_message(formated_message)
