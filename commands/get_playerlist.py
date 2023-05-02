@@ -16,7 +16,7 @@ def format_time(seconds):
 
 def format_message(player_table, server_name):
     msg = f"""```md
-{server_name} has {len(player_table)} players connected
+I can see {len(player_table)} players on the {server_name} server.
 
 {tabulate(player_table, headers=["Name", "Duration"])}
     ```"""
@@ -45,7 +45,8 @@ async def get_playerlist(
 
     player_table = []
     for player in server_players:
-        player_table.append([player["name"], format_time(player["duration"])])
+        if player["name"]:
+            player_table.append([player["name"], format_time(player["duration"])])
 
     formated_message = format_message(player_table, server.name)
 
