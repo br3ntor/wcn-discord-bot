@@ -31,8 +31,8 @@ def get_mod_ids(server: str) -> list:
     with open(server_file) as stream:
         config.read_string("[default]\n" + stream.read())
 
-    workshop_items = config["default"]["WorkshopItems"].split(";")
-    return workshop_items
+    workshop_ids = config["default"]["WorkshopItems"].split(";")
+    return workshop_ids
 
 
 def get_mod_data(workshop_ids: list) -> list:
@@ -47,13 +47,18 @@ def get_mod_data(workshop_ids: list) -> list:
     return workshop_items
 
 
-# TODO: Sort and add links
 def parse_workshop_data(workshop_items: list) -> str:
-    mods = ""
+    mods = []
     for item in workshop_items["response"]["publishedfiledetails"]:
         if "title" in item:
-            mods += item["title"] + "\n\n"
-    return mods
+            mods.append(
+                f"[{item['title']}](https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']})\n\n"
+            )
+
+    # Need to make this into text again
+    sorted_mods = "".join(sorted(mods))
+
+    return sorted_mods
 
 
 def update_gist(server_name: str, payload: str) -> None:
