@@ -36,7 +36,7 @@ async def send_message(
     await interaction.response.defer()
 
     # Send command and respond to result
-    valid_msg = re.sub(r"[^a-zA-Z!?\s]", "", message)
+    valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
     server_msg = "'servermsg \"" + valid_msg + "\"'"
     destination_server = server.name.lower()
     cmd = [
