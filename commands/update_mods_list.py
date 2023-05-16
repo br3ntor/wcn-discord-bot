@@ -36,6 +36,7 @@ def get_mod_ids(server: str) -> list:
 
 
 def get_mod_data(workshop_ids: list) -> list:
+    """Calls steam api to get mod data."""
     api = WebAPI(STEAM_KEY)
 
     item_count = len(workshop_ids)
@@ -48,12 +49,15 @@ def get_mod_data(workshop_ids: list) -> list:
 
 
 def parse_workshop_data(workshop_items: list) -> str:
+    """Parse workshop mod data to markdown for gist."""
     mods = []
     for item in workshop_items["response"]["publishedfiledetails"]:
         if "title" in item:
             mods.append(
                 f"[{item['title']}](https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']})\n\n"
             )
+
+    mods.insert(0, f"**Mod Count: {len(mods)}**\n\n")
 
     # Need to make this into text again
     sorted_mods = "".join(sorted(mods))
@@ -62,6 +66,7 @@ def parse_workshop_data(workshop_items: list) -> str:
 
 
 def update_gist(server_name: str, payload: str) -> None:
+    """Update gist with new mod list!"""
     url = f"https://api.github.com/gists/{server_gist_ids[server_name]}"
 
     headers = {
@@ -87,11 +92,11 @@ def update_gist(server_name: str, payload: str) -> None:
         app_commands.Choice(name="Heavy", value=2),
     ]
 )
-async def list_mods(
+async def update_mods_list(
     interaction: discord.Interaction,
     server: app_commands.Choice[int],
 ):
-    """Prints a list of mods on the server."""
+    """Updates the list of mods for a server."""
     server_name = server.name.lower()
     url = f"https://gist.github.com/br3ntor/{server_gist_ids[server_name]}"
 
