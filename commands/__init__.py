@@ -5,6 +5,9 @@ from .restart_server import restart_server
 from .get_playerlist import get_playerlist
 from .reset_password import reset_password
 from .update_mods_list import update_mods_list
+from .auto_restart_server import auto_restart_server
+from .auto_restart_server import canel_auto_restart
+
 
 __all__ = [
     "cat_fact",
@@ -14,4 +17,6 @@ __all__ = [
     "get_playerlist",
     "reset_password",
     "update_mods_list",
+    "auto_restart_server",
+    "canel_auto_restart",
 ]
