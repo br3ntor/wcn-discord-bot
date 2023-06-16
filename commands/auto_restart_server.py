@@ -100,7 +100,7 @@ class RestartServerView(discord.ui.View):
 
 
 @app_commands.command()
-async def under_construction(
+async def auto_server_restart(
     interaction: discord.Interaction,
 ):
     """Restarts server in 5min."""
@@ -174,7 +174,8 @@ async def under_construction(
                 )
 
             # Send command every n seconds if seconds are less than b
-            if seconds_left % 5 == 0 and seconds_left <= 15:
+            # if seconds_left % 5 == 0 and seconds_left <= 15:
+            if seconds_left <= 15:
                 await interaction.channel.send(
                     f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds (Not really though)"
                 )
@@ -185,9 +186,9 @@ async def under_construction(
         countdown_isrunning[view.server] = False
 
         try:
-            # cmd = ["systemctl", "restart", f"pzserver{view.server}"]
-            # process = await asyncio.create_subprocess_exec(*cmd)
-            # await process.wait()
+            cmd = ["systemctl", "restart", f"pzserver{view.server}"]
+            process = await asyncio.create_subprocess_exec(*cmd)
+            await process.wait()
 
             restart_msg = (
                 f"Success! The {emoji}**{view.server.upper()}** server "
