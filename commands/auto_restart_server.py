@@ -7,7 +7,7 @@ from discord import app_commands
 ANNOUNCE_CHANNEL = int(os.getenv("SPAM_CHANNEL"))
 
 
-COUNT_DOWN_TIME = 90  # seconds
+COUNT_DOWN_TIME = 300  # seconds
 
 # Track if countdown timer is running
 countdown_isrunning = {"light": False, "heavy": False}
@@ -16,6 +16,7 @@ countdown_isrunning = {"light": False, "heavy": False}
 abort_signal = False
 
 
+# TODO: Add try catch for proper error handeling, maybe return true or success message
 async def send_server_msg(server, message):
     server_msg = "'servermsg \"" + message + "\"'"
     cmd = [
@@ -112,7 +113,7 @@ async def auto_server_restart(
     view = RestartServerView()
 
     await interaction.response.send_message(
-        "So you want to restart the...", view=view, ephemeral=False
+        "So you want to restart the...", view=view, ephemeral=True
     )
     await view.wait()
 
@@ -130,7 +131,7 @@ async def auto_server_restart(
         emoji = "🥗" if view.server == "light" else "🍖"
         init_msg = (
             f"Restart initiated for the {emoji}**{view.server.upper()}** "
-            f"server, restarting in {COUNT_DOWN_TIME} seconds. (JUST KIDDING)"
+            f"server, restarting in {COUNT_DOWN_TIME} seconds."
         )
 
         # Send players on server first restart warning
@@ -143,9 +144,9 @@ async def auto_server_restart(
 
         # Start tracking
         countdown_isrunning[view.server] = True
-
         start_time = asyncio.get_event_loop().time()
         end_time = start_time + COUNT_DOWN_TIME
+        ran_once = False
 
         while asyncio.get_event_loop().time() < end_time:
             if abort_signal == True:
@@ -162,22 +163,23 @@ async def auto_server_restart(
             )
 
             # At the 1 minute mark
-            if seconds_left == 60:
+            if seconds_left <= 60 and ran_once == False:
+                ran_once = True
                 await send_server_msg(
                     view.server, f"The server will restart in {seconds_left} seconds!"
                 )
                 await interaction.channel.send(
-                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds (Not really though)"
+                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds."
                 )
                 await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(
-                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds (Not really though)"
+                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds."
                 )
 
             # Send command every n seconds if seconds are less than b
             # if seconds_left % 5 == 0 and seconds_left <= 15:
-            if seconds_left <= 15:
+            if seconds_left <= 20:
                 await interaction.channel.send(
-                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds (Not really though)"
+                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds."
                 )
 
             await asyncio.sleep(5)
