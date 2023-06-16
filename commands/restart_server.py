@@ -1,6 +1,6 @@
 import os
-import subprocess
 import datetime
+import asyncio
 import discord
 from discord import app_commands
 
@@ -79,8 +79,7 @@ async def restart_server(
     # Disable buttons after click
     for button in view.children:
         button.disabled = True
-    original_message = await interaction.original_message()
-    await original_message.edit(view=view)
+    await interaction.edit_original_response(view=view)
 
     # Action taken based on interaction results
     if view.value is None:
@@ -100,17 +99,22 @@ async def restart_server(
         elif destination_server == "heavy":
             last_run_heavy = datetime.datetime.now()
 
-        cmd = ["systemctl", "restart", f"pzserver{destination_server}"]
-        response = subprocess.run(cmd)
+        try:
+            cmd = ["systemctl", "restart", f"pzserver{destination_server}"]
+            process = await asyncio.create_subprocess_exec(*cmd)
+            await process.wait()
 
-        succeeded = f"Success! The **{destination_server}** server was shut down and is now starting back up."
-        failed = "Something wrong maybe..."
-        status = succeeded if response.returncode == 0 else failed
+            succeeded = f"Success! The **{destination_server}** server was shut down and is now starting back up."
+            failed = "Something went wrong, maybe..."
+            status = succeeded if process.returncode == 0 else failed
 
-        # # TODO: Figure out the logging module instead of printing
-        print(response)
+            # TODO: Figure out the logging module instead of printing
+            print(process)
 
-        # Announce restart
-        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
+            # Announce restart
+            await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
+        except asyncio.SubprocessError as e:
+            print(f"Subprocess error occurred: {e}")
+
     else:
         print("Cancelled...")

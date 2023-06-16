@@ -1,5 +1,4 @@
 import os
-import subprocess
 import asyncio
 from math import ceil
 import discord
@@ -11,11 +10,27 @@ ANNOUNCE_CHANNEL = int(os.getenv("SPAM_CHANNEL"))
 COUNT_DOWN_TIME = 90  # seconds
 
 # Track if countdown timer is running
-light_count_down_started = False
-heavy_count_down_started = False
+countdown_isrunning = {"light": False, "heavy": False}
 
-# If this is ever true we will abort shutdown
+# Will abort any restart function if a count_down_started is True
 abort_signal = False
+
+
+async def send_server_msg(server, message):
+    server_msg = "'servermsg \"" + message + "\"'"
+    cmd = [
+        "runuser",
+        f"pzserver{server}",
+        "-c",
+        f"/home/pzserver{server}/pzserver send {server_msg}",
+    ]
+    process = await asyncio.create_subprocess_exec(
+        *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
+    )
+    # Get the output of the subprocess.
+    output, error = await process.communicate()
+    print(output.decode())
+    print(error.decode())
 
 
 class RestartServerView(discord.ui.View):
@@ -89,12 +104,11 @@ async def under_construction(
     interaction: discord.Interaction,
 ):
     """Restarts server in 5min."""
-    global light_count_down_started, heavy_count_down_started, abort_signal
+    global abort_signal, countdown_isrunning
 
-    # This coveres both, I think...
     abort_signal = False
 
-    # Create the view containing our dropdown
+    # Create the view containing our dropdown and buttons
     view = RestartServerView()
 
     await interaction.response.send_message(
@@ -102,7 +116,7 @@ async def under_construction(
     )
     await view.wait()
 
-    # Still not sure if this should be at the end of select_channels...
+    # Disable all elements after button is pressed
     for element in view.children:
         element.disabled = True
     await interaction.edit_original_response(view=view)
@@ -118,23 +132,29 @@ async def under_construction(
             f"Restart initiated for the {emoji}**{view.server.upper()}** "
             f"server, restarting in {COUNT_DOWN_TIME} seconds. (JUST KIDDING)"
         )
+
+        # Send players on server first restart warning
+        await send_server_msg(
+            view.server, f"Server will restart in {COUNT_DOWN_TIME} seconds."
+        )
+
+        # Send message to discord members announcing restart
         await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(init_msg)
 
         # Start tracking
-        if view.server == "light":
-            light_count_down_started = True
-        elif view.server == "heavy":
-            heavy_count_down_started = True
+        countdown_isrunning[view.server] = True
 
-        # start_time = time.time()
         start_time = asyncio.get_event_loop().time()
-        end_time = start_time + COUNT_DOWN_TIME  # 5 minutes = 300 seconds
+        end_time = start_time + COUNT_DOWN_TIME
 
         while asyncio.get_event_loop().time() < end_time:
             if abort_signal == True:
-                await interaction.channel.send("Auto restart ABORTED 👼")
+                countdown_isrunning[view.server] = False
+                await interaction.channel.send(
+                    f"Auto restart ABORTED 👼 for the {emoji}**{view.server}** server."
+                )
                 return await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(
-                    "Auto restart ABORTED 👼"
+                    f"Auto restart ABORTED 👼 for the {emoji}**{view.server}** server."
                 )
 
             seconds_left = ceil(
@@ -143,7 +163,13 @@ async def under_construction(
 
             # At the 1 minute mark
             if seconds_left == 60:
+                await send_server_msg(
+                    view.server, f"The server will restart in {seconds_left} seconds!"
+                )
                 await interaction.channel.send(
+                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds (Not really though)"
+                )
+                await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(
                     f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds (Not really though)"
                 )
 
@@ -152,38 +178,39 @@ async def under_construction(
                 await interaction.channel.send(
                     f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds (Not really though)"
                 )
-            # time.sleep(5)  # Pause for n seconds
+
             await asyncio.sleep(5)
 
         # Countdown is over so lets reset count_down trackers
-        if view.server == "light":
-            light_count_down_started = False
-        elif view.server == "heavy":
-            heavy_count_down_started = False
+        countdown_isrunning[view.server] = False
 
-        # And finally I think we can call the command, but dont forget to make async
-        # https://chat.openai.com/share/718cf2d0-65b6-44f4-9d27-8868c25a6071
+        try:
+            # cmd = ["systemctl", "restart", f"pzserver{view.server}"]
+            # process = await asyncio.create_subprocess_exec(*cmd)
+            # await process.wait()
 
-        # cmd = ["systemctl", "restart", f"pzserver{view.server}"]
-        # response = subprocess.run(cmd)
+            restart_msg = (
+                f"Success! The {emoji}**{view.server.upper()}** server "
+                "was restarted and is now loading back up."
+            )
+            await interaction.followup.send(restart_msg)
+            await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(restart_msg)
+        except asyncio.SubprocessError as e:
+            print(f"Subprocess error occurred: {e}")
 
-        restart_msg = f"The {emoji}**{view.server.upper()}** server will restart in **NOW**! (FAKE MSG)"
-        await interaction.followup.send(restart_msg)
-        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(restart_msg)
     else:
         print("Cancelled...")
 
 
-# @app_commands.choices(
-#     server=[
-#         app_commands.Choice(name="Light", value=1),
-#         app_commands.Choice(name="Heavy", value=2),
-#         app_commands.Choice(name="Both", value=3),
-#     ]
-# )
 @app_commands.command()
 async def canel_auto_restart(interaction: discord.Interaction):
     """ZOMG CANCEL B4 IT TOO LATE!!!."""
     global abort_signal
-    abort_signal = True
-    await interaction.response.send_message("Abort signal sent!")
+
+    if countdown_isrunning["light"] or countdown_isrunning["heavy"]:
+        abort_signal = True
+        await interaction.response.send_message("Abort signal sent!")
+    else:
+        await interaction.response.send_message(
+            "There is no countdown happening, this is you 🤡"
+        )

@@ -1,6 +1,6 @@
 import os
 import re
-import subprocess
+import asyncio
 import discord
 from discord import app_commands
 
@@ -45,14 +45,25 @@ async def send_message(
         "-c",
         f"/home/pzserver{destination_server}/pzserver send {server_msg}",
     ]
-    response = subprocess.run(cmd, capture_output=True)
-    last_line = response.stdout.decode("utf-8").split("\r")[-1]
-    status = (
-        f"Sent to {destination_server} server:\n> {message}"
-        if "OK" in last_line
-        else "Something wrong maybe\n" + last_line
+
+    process = await asyncio.create_subprocess_exec(
+        *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
     )
 
-    # TODO: Figure out the logging module instead of printing
-    print(response)
+    # Get the output of the subprocess.
+    output, error = await process.communicate()
+
+    # I don't think this is needed but doesn't hurt either
+    await process.wait()
+
+    print(output.decode())
+    print(error.decode())
+
+    emoji = "🥗" if destination_server == "light" else "🍖"
+    status = (
+        f"Message sent to {emoji}**{destination_server.upper()}** server:\n> {message}"
+        if "OK" in output.decode()
+        else "Something wrong maybe\n" + output.decode()
+    )
+
     await interaction.followup.send(status)
