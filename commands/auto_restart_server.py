@@ -4,7 +4,7 @@ from math import ceil
 import discord
 from discord import app_commands
 
-ANNOUNCE_CHANNEL = int(os.getenv("SPAM_CHANNEL"))
+ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL"))
 
 
 COUNT_DOWN_TIME = 300  # seconds
@@ -63,6 +63,8 @@ class RestartServerView(discord.ui.View):
                 element.disabled = False
             if isinstance(element, discord.ui.Select):
                 emoji = "🥗" if select.values[0].lower() == "light" else "🍖"
+                # TODO: I learned there is a default option in the discord.SelectOption method.
+                # Another option might be to set that instead of placeholder?
                 element.placeholder = f"{emoji} {select.values[0]} Server"
 
         self.server = select.values[0].lower()
@@ -101,7 +103,7 @@ class RestartServerView(discord.ui.View):
 
 
 @app_commands.command()
-async def auto_server_restart(
+async def restart_server_auto(
     interaction: discord.Interaction,
 ):
     """Restarts server in 5min."""
@@ -150,6 +152,7 @@ async def auto_server_restart(
 
         while asyncio.get_event_loop().time() < end_time:
             if abort_signal == True:
+                # TODO: Consider adding server message to inform players of abort in game
                 countdown_isrunning[view.server] = False
                 await interaction.channel.send(
                     f"Auto restart ABORTED 👼 for the {emoji}**{view.server}** server."

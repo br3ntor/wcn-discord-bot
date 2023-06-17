@@ -5,7 +5,7 @@ from .restart_server import restart_server
 from .get_playerlist import get_playerlist
 from .reset_password import reset_password
 from .update_mods_list import update_mods_list
-from .auto_restart_server import auto_server_restart
+from .auto_restart_server import restart_server_auto
 from .auto_restart_server import canel_auto_restart
 
 
@@ -17,6 +17,6 @@ __all__ = [
     "get_playerlist",
     "reset_password",
     "update_mods_list",
-    "auto_server_restart",
+    "restart_server_auto",
     "canel_auto_restart",
 ]
