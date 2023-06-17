@@ -133,12 +133,12 @@ async def restart_server_auto(
         emoji = "🥗" if view.server == "light" else "🍖"
         init_msg = (
             f"Restart initiated for the {emoji}**{view.server.upper()}** "
-            f"server, restarting in {COUNT_DOWN_TIME} seconds."
+            f"server, restarting in {COUNT_DOWN_TIME//60} minutes."
         )
 
         # Send players on server first restart warning
         await send_server_msg(
-            view.server, f"Server will restart in {COUNT_DOWN_TIME} seconds."
+            view.server, f"Server will restart in {COUNT_DOWN_TIME//60} minutes."
         )
 
         # Send message to discord members announcing restart
