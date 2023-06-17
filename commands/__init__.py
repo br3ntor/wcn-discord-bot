@@ -5,8 +5,8 @@ from .restart_server import restart_server
 from .get_playerlist import get_playerlist
 from .reset_password import reset_password
 from .update_mods_list import update_mods_list
-from .auto_restart_server import restart_server_auto
-from .auto_restart_server import canel_auto_restart
+from .restart_server_auto import restart_server_auto
+from .restart_server_auto import canel_auto_restart
 
 
 __all__ = [
