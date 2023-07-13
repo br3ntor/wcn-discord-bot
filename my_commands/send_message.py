@@ -38,6 +38,7 @@ async def send_message(
     # Send command and respond to result
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
     server_msg = "'servermsg \"" + valid_msg + "\"'"
+    # server_msg = f"'servermsg \"{valid_msg}\"'"
     destination_server = server.name.lower()
     cmd = [
         "runuser",

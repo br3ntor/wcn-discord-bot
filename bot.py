@@ -1,7 +1,9 @@
 import os
 import discord
 from discord import app_commands
-import commands
+
+# My command modules folder
+import my_commands
 
 
 MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD")))
@@ -25,6 +27,13 @@ class MyClient(discord.Client):
     # Instead of specifying a guild to every command, we copy over our global commands instead.
     # By doing so, we don't have to wait up to an hour until they are shown to the end-user.
     async def setup_hook(self):
+        for command_name in my_commands.__all__:
+            attr = getattr(my_commands, command_name)
+            if isinstance(attr, app_commands.Command) or isinstance(
+                attr, app_commands.Group
+            ):
+                self.tree.add_command(attr)
+
         # This copies the global commands over to your guild.
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
@@ -35,10 +44,10 @@ client = MyClient(intents=intents)
 
 
 # Add all commands to client tree
-for command_name in commands.__all__:
-    attr = getattr(commands, command_name)
-    if isinstance(attr, app_commands.Command):
-        client.tree.add_command(attr)
+# for command_name in my_commands.__all__:
+#     attr = getattr(my_commands, command_name)
+#     if isinstance(attr, app_commands.Command):
+#         client.tree.add_command(attr)
 
 
 # NOTE: I wonder how to keep these in their own file?

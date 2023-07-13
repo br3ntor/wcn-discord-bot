@@ -7,7 +7,7 @@ from .reset_password import reset_password
 from .update_mods_list import update_mods_list
 from .restart_server_auto import restart_server_auto
 from .restart_server_auto import canel_auto_restart
-from .admin import admin
+from .admin import admin_group
 
 __all__ = [
     "cat_fact",
@@ -19,5 +19,5 @@ __all__ = [
     "update_mods_list",
     "restart_server_auto",
     "canel_auto_restart",
-    "admin",
+    "admin_group"
 ]
