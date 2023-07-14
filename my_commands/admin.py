@@ -41,6 +41,12 @@ async def toggle(
         await interaction.response.send_message("Quotes not allowed.")
         return
 
+    if not user_exists(server.name.lower(), player):
+        await interaction.response.send_message(
+            f"username {player} not found in database"
+        )
+        return
+
     await interaction.response.defer()
 
     access_level = "admin" if accesslevel.value == 1 else "none"
@@ -102,3 +108,17 @@ async def get_admins(server: str) -> str:
             async for row in cursor:
                 the_boys.append(row[0])
             return ", ".join(sorted(the_boys, key=str.casefold))
+
+
+async def user_exists(server: str, usr: str) -> bool:
+    """Check if a user exists in whitelist of server."""
+    async with aiosqlite.connect(
+        f"/home/pzserver{server}/Zomboid/db/pzserver.db"
+    ) as db:
+        async with db.execute(
+            f"SELECT * FROM whitelist WHERE username='{usr}'"
+        ) as cursor:
+            user_row = await cursor.fetchone()
+            if user_row is not None:
+                return True
+            return False
