@@ -1,7 +1,3 @@
-# TODO: Add in checks before giving or removing a players admin
-#   Namely, write a function that calls db to check if player exists
-#   and their accesslevel status.
-
 import discord
 from discord import app_commands
 import asyncio
@@ -37,17 +33,16 @@ async def toggle(
     player: str,
 ):
     """Add or remove admin acccesslevel from player."""
-    if re.match(r"[\"']", player):
+    if re.search(r"[\"']", player):
         await interaction.response.send_message("Quotes not allowed.")
         return
 
-    if not user_exists(server.name.lower(), player):
-        await interaction.response.send_message(
-            f"username {player} not found in database"
-        )
-        return
-
+    # Should be called before the first db call
     await interaction.response.defer()
+
+    if not await user_exists(server.name.lower(), player):
+        await interaction.followup.send(f"username: {player} not found in database")
+        return
 
     access_level = "admin" if accesslevel.value == 1 else "none"
     server_msg = f"'setaccesslevel \"{player}\" {access_level}'"
@@ -116,7 +111,7 @@ async def user_exists(server: str, usr: str) -> bool:
         f"/home/pzserver{server}/Zomboid/db/pzserver.db"
     ) as db:
         async with db.execute(
-            f"SELECT * FROM whitelist WHERE username='{usr}'"
+            "SELECT * FROM whitelist WHERE username=?", [usr]
         ) as cursor:
             user_row = await cursor.fetchone()
             if user_row is not None:
