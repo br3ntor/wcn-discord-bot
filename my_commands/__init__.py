@@ -8,6 +8,7 @@ from .update_mods_list import update_mods_list
 from .restart_server_auto import restart_server_auto
 from .restart_server_auto import canel_auto_restart
 from .admin import admin_group
+from .update_sandbox_gist import update_sandbox_gist
 
 __all__ = [
     "cat_fact",
@@ -19,5 +20,6 @@ __all__ = [
     "update_mods_list",
     "restart_server_auto",
     "canel_auto_restart",
-    "admin_group"
+    "admin_group",
+    "update_sandbox_gist",
 ]
