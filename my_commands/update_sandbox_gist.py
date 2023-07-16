@@ -22,8 +22,6 @@ def get_sandboxsettings(server: str):
 
 async def update_gist(server_name: str, payload: str) -> None:
     """Update gist with current server sandbox settings."""
-    url = f"https://api.github.com/gists/{server_gist_ids[server_name]}"
-
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {GITHUB_PAT}",
@@ -36,6 +34,7 @@ async def update_gist(server_name: str, payload: str) -> None:
     }
 
     async with aiohttp.ClientSession() as session:
+        url = f"https://api.github.com/gists/{server_gist_ids[server_name]}"
         async with session.patch(url, headers=headers, json=payload) as resp:
             print(resp.status)
             # print(await resp.text())
