@@ -9,6 +9,7 @@ from .restart_server_auto import restart_server_auto
 from .restart_server_auto import canel_auto_restart
 from .admin import admin_group
 from .update_sandbox_gist import update_sandbox_gist
+from .ban import ban_group
 
 __all__ = [
     "cat_fact",
@@ -22,4 +23,5 @@ __all__ = [
     "canel_auto_restart",
     "admin_group",
     "update_sandbox_gist",
+    "ban_group",
 ]

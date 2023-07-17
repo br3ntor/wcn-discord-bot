@@ -43,13 +43,6 @@ intents = discord.Intents.default()
 client = MyClient(intents=intents)
 
 
-# Add all commands to client tree
-# for command_name in my_commands.__all__:
-#     attr = getattr(my_commands, command_name)
-#     if isinstance(attr, app_commands.Command):
-#         client.tree.add_command(attr)
-
-
 # NOTE: I wonder how to keep these in their own file?
 @client.event
 async def on_ready():

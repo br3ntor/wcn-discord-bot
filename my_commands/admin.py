@@ -3,7 +3,7 @@ from discord import app_commands
 import asyncio
 import aiosqlite
 import re
-
+from utils.db_helpers import user_exists
 
 admin_group = app_commands.Group(
     name="admin", description="Commands to control in-game accesslevel."
@@ -105,15 +105,15 @@ async def get_admins(server: str) -> str:
             return ", ".join(sorted(the_boys, key=str.casefold))
 
 
-async def user_exists(server: str, usr: str) -> bool:
-    """Check if a user exists in whitelist of server."""
-    async with aiosqlite.connect(
-        f"/home/pzserver{server}/Zomboid/db/pzserver.db"
-    ) as db:
-        async with db.execute(
-            "SELECT * FROM whitelist WHERE username=?", [usr]
-        ) as cursor:
-            user_row = await cursor.fetchone()
-            if user_row is not None:
-                return True
-            return False
+# async def user_exists(server: str, usr: str) -> bool:
+#     """Check if a user exists in whitelist of server."""
+#     async with aiosqlite.connect(
+#         f"/home/pzserver{server}/Zomboid/db/pzserver.db"
+#     ) as db:
+#         async with db.execute(
+#             "SELECT * FROM whitelist WHERE username=?", [usr]
+#         ) as cursor:
+#             user_row = await cursor.fetchone()
+#             if user_row is not None:
+#                 return True
+#             return False
