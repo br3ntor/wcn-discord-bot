@@ -3,7 +3,7 @@ from discord import app_commands
 import asyncio
 import aiosqlite
 import re
-from utils.db_helpers import user_exists
+from utils.db_helpers import get_user
 
 admin_group = app_commands.Group(
     name="admin", description="Commands to control in-game accesslevel."
@@ -32,7 +32,7 @@ async def toggle(
     accesslevel: app_commands.Choice[int],
     player: str,
 ):
-    """Add or remove admin acccesslevel from player."""
+    """Give or remove admin powers."""
     if re.search(r"[\"']", player):
         await interaction.response.send_message("Quotes not allowed.")
         return
@@ -40,7 +40,7 @@ async def toggle(
     # Should be called before the first db call
     await interaction.response.defer()
 
-    if not await user_exists(server.name.lower(), player):
+    if not await get_user(server.name.lower(), player):
         await interaction.followup.send(f"username: {player} not found in database")
         return
 
@@ -71,7 +71,7 @@ async def toggle(
 
     emoji = "🥗" if destination_server == "light" else "🍖"
     status = (
-        f"{player} accesslevel has been set to {access_level} on the {emoji}{destination_server} server"
+        f"{player} accesslevel has been set to **{access_level}** on the {emoji}**{destination_server}** server"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )
@@ -81,7 +81,7 @@ async def toggle(
 
 @admin_group.command()
 async def list(interaction: discord.Interaction):
-    """Get a list of admins on modded serveres."""
+    """Get a list of admins on modded servers."""
     light_boys = await get_admins("light")
     heavy_boys = await get_admins("heavy")
     await interaction.response.send_message(
@@ -103,17 +103,3 @@ async def get_admins(server: str) -> str:
             async for row in cursor:
                 the_boys.append(row[0])
             return ", ".join(sorted(the_boys, key=str.casefold))
-
-
-# async def user_exists(server: str, usr: str) -> bool:
-#     """Check if a user exists in whitelist of server."""
-#     async with aiosqlite.connect(
-#         f"/home/pzserver{server}/Zomboid/db/pzserver.db"
-#     ) as db:
-#         async with db.execute(
-#             "SELECT * FROM whitelist WHERE username=?", [usr]
-#         ) as cursor:
-#             user_row = await cursor.fetchone()
-#             if user_row is not None:
-#                 return True
-#             return False
