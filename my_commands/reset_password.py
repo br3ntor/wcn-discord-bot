@@ -17,7 +17,9 @@ async def reset_password(
     attempted_reset_response = sql_reset_pwd(server.name, playername)
     await interaction.response.send_message(attempted_reset_response)
 
-# TODO: Refactor this with aiosqlite. Since the db is close and access is fast it works fine as is but...
+
+# TODO: Refactor this with aiosqlite. Since the db is close and access
+# is fast it works fine as is but...
 def sql_reset_pwd(server: str, player: str) -> str:
     db_path = {
         "light": "/home/pzserverlight/Zomboid/db/pzserver.db",
@@ -51,7 +53,10 @@ def sql_reset_pwd(server: str, player: str) -> str:
 
     if pwd is None:
         print(f"reset {player} on {server}")
-        return f"{player}'s password has been reset on the {server} server. They may login with any new password."
+        return (
+            f"{player}'s password has been reset on the {server} server. "
+            "They may login with any new password."
+        )
     else:
         print("Something went wrong")
         return "Something went wrong, contact brent"

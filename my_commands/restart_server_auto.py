@@ -63,8 +63,9 @@ class RestartServerView(discord.ui.View):
                 element.disabled = False
             if isinstance(element, discord.ui.Select):
                 emoji = "🥗" if select.values[0].lower() == "light" else "🍖"
-                # TODO: I learned there is a default option in the discord.SelectOption method.
-                # Another option might be to set that instead of placeholder?
+                # TODO: I learned there is a default option in the
+                # discord.SelectOption method Another option might
+                # be to set that instead of placeholder?
                 element.placeholder = f"{emoji} {select.values[0]} Server"
 
         self.server = select.values[0].lower()
@@ -90,7 +91,8 @@ class RestartServerView(discord.ui.View):
         self.value = True
         self.stop()
 
-    # This one is similar to the confirmation button except sets the inner value to `False`
+    # This one is similar to the confirmation button except
+    # sets the inner value to `False`
     @discord.ui.button(
         label="No", style=discord.ButtonStyle.grey, disabled=False, emoji="🤡"
     )
@@ -151,8 +153,9 @@ async def restart_server_auto(
         ran_once = False
 
         while asyncio.get_event_loop().time() < end_time:
-            if abort_signal == True:
-                # TODO: Consider adding server message to inform players of abort in game
+            if abort_signal:
+                # TODO: Consider adding server message to
+                # inform players of abort in game
                 countdown_isrunning[view.server] = False
                 await interaction.channel.send(
                     f"Auto restart ABORTED 👼 for the {emoji}**{view.server}** server."
@@ -166,23 +169,26 @@ async def restart_server_auto(
             )
 
             # At the 1 minute mark
-            if seconds_left <= 60 and ran_once == False:
+            if seconds_left <= 60 and ran_once is False:
                 ran_once = True
                 await send_server_msg(
                     view.server, f"The server will restart in {seconds_left} seconds!"
                 )
                 await interaction.channel.send(
-                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds."
+                    f"The {emoji}**{view.server.upper()}** "
+                    f"server will restart in {seconds_left} seconds."
                 )
                 await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(
-                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds."
+                    f"The {emoji}**{view.server.upper()}** server will restart in "
+                    f"{seconds_left} seconds."
                 )
 
             # Send command every n seconds if seconds are less than b
             # if seconds_left % 5 == 0 and seconds_left <= 15:
             if seconds_left <= 20:
                 await interaction.channel.send(
-                    f"The {emoji}**{view.server.upper()}** server will restart in {seconds_left} seconds."
+                    f"The {emoji}**{view.server.upper()}** server will restart in "
+                    f"{seconds_left} seconds."
                 )
 
             await asyncio.sleep(5)

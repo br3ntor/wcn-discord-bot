@@ -24,8 +24,9 @@ class MyClient(discord.Client):
         self.tree = app_commands.CommandTree(self)
 
     # In this basic example, we just synchronize the app commands to one guild.
-    # Instead of specifying a guild to every command, we copy over our global commands instead.
-    # By doing so, we don't have to wait up to an hour until they are shown to the end-user.
+    # Instead of specifying a guild to every command, we copy over our global
+    # commands instead. By doing so, we don't have to wait up to an hour until
+    # they are shown to the end-user.
     async def setup_hook(self):
         for command_name in my_commands.__all__:
             attr = getattr(my_commands, command_name)

@@ -26,7 +26,7 @@ async def send_message(
     # Only discord mods can use the command
     # This gets taken care of when setuping up bot but its nice to have still
     # Oh also the framwork has a special check function to do this already I should use
-    if interaction.user.get_role(MOD_ROLE_ID) == None:
+    if interaction.user.get_role(MOD_ROLE_ID) is None:
         await interaction.response.send_message("You are not worthy.", ephemeral=True)
         return
 

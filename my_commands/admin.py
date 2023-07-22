@@ -71,7 +71,8 @@ async def toggle(
 
     emoji = "🥗" if destination_server == "light" else "🍖"
     status = (
-        f"{player} accesslevel has been set to **{access_level}** on the {emoji}**{destination_server}** server"
+        f"{player} accesslevel has been set to **{access_level}** "
+        f"on the {emoji}**{destination_server}** server"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )

@@ -30,7 +30,8 @@ class Confirm(discord.ui.View):
         self.value = True
         self.stop()
 
-    # This one is similar to the confirmation button except sets the inner value to `False`
+    # This one is similar to the confirmation button except
+    # sets the inner value to `False`
     @discord.ui.button(label="No", style=discord.ButtonStyle.grey)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("Restart canceled.", ephemeral=True)
@@ -90,7 +91,10 @@ async def restart_server(
         # Call the restart command, assuming server is running.
         # If it's not running, command will prompt for yes or no to start server.
         # I am ignoring this unil I learn more how to deal with that.
-        initiated_by = f"{destination_server.capitalize()} server restart initiated by {interaction.user.display_name}..."
+        initiated_by = (
+            f"{destination_server.capitalize()} server restart "
+            f"initiated by {interaction.user.display_name}..."
+        )
         await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(initiated_by)
 
         # Update last run time of command
@@ -104,7 +108,10 @@ async def restart_server(
             process = await asyncio.create_subprocess_exec(*cmd)
             await process.wait()
 
-            succeeded = f"Success! The **{destination_server}** server was shut down and is now starting back up."
+            succeeded = (
+                f"Success! The **{destination_server}** server was shut down "
+                f"and is now starting back up."
+            )
             failed = "Something went wrong, maybe..."
             status = succeeded if process.returncode == 0 else failed
 

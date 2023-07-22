@@ -63,11 +63,12 @@ async def issue(
     banned_player = await get_banned_user(server.name.lower(), id)
     emoji = "🥗" if destination_server == "light" else "🍖"
     msg = (
-        f"Player **{player}** has been **banned** from the {emoji}**{server.name}** server\n"
+        f"Player **{player}** has been **banned** from the "
+        f"{emoji}**{server.name}** server\n"
         f"Username: {player}\n"
         f"SteamID: {id}"
         if banned_player is not None
-        else f"Command was sent but user not found in bannedid's db. What happen?"
+        else "Command was sent but user not found in bannedid's db. What happen?"
     )
     await interaction.followup.send(msg)
 
@@ -125,8 +126,9 @@ async def revoke(
     banned_player = await get_banned_user(server.name.lower(), id)
     emoji = "🥗" if destination_server == "light" else "🍖"
     msg = (
-        f"Player **{player}** has been **UN-banned** from the {emoji}**{server.name}** server"
+        f"Player **{player}** has been **UN-banned** from the "
+        f"{emoji}**{server.name}** server"
         if banned_player is None
-        else f"Command was sent but user is still in the bannedid's db. What happen?"
+        else "Command was sent but user is still in the bannedid's db. What happen?"
     )
     await interaction.followup.send(msg)
