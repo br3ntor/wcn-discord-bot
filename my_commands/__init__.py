@@ -6,7 +6,7 @@ from .get_playerlist import get_playerlist
 from .reset_password import reset_password
 from .update_mods_list import update_mods_list
 from .restart_server_auto import restart_server_auto
-from .restart_server_auto import canel_auto_restart
+from .restart_server_auto import cancel_auto_restart
 from .admin import admin_group
 from .update_sandbox_gist import update_sandbox_gist
 from .ban import ban_group
@@ -20,7 +20,7 @@ __all__ = [
     "reset_password",
     "update_mods_list",
     "restart_server_auto",
-    "canel_auto_restart",
+    "cancel_auto_restart",
     "admin_group",
     "update_sandbox_gist",
     "ban_group",
