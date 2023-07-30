@@ -169,6 +169,7 @@ async def restart_server_auto(
             )
 
             # At the 1 minute mark
+            # ran_once is because I can't be certain seconds_left will tick on 60
             if seconds_left <= 60 and ran_once is False:
                 ran_once = True
                 await send_server_msg(
@@ -178,18 +179,18 @@ async def restart_server_auto(
                     f"The {emoji}**{view.server.upper()}** "
                     f"server will restart in {seconds_left} seconds."
                 )
-                await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(
-                    f"The {emoji}**{view.server.upper()}** server will restart in "
-                    f"{seconds_left} seconds."
-                )
+                # await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(
+                #     f"The {emoji}**{view.server.upper()}** server will restart in "
+                #     f"{seconds_left} seconds."
+                # )
 
             # Send command every n seconds if seconds are less than b
             # if seconds_left % 5 == 0 and seconds_left <= 15:
-            if seconds_left <= 20:
-                await interaction.channel.send(
-                    f"The {emoji}**{view.server.upper()}** server will restart in "
-                    f"{seconds_left} seconds."
-                )
+            # if seconds_left <= 20:
+            #     await interaction.channel.send(
+            #         f"The {emoji}**{view.server.upper()}** server will restart in "
+            #         f"{seconds_left} seconds."
+            #     )
 
             await asyncio.sleep(5)
 
@@ -215,7 +216,7 @@ async def restart_server_auto(
 
 
 @app_commands.command()
-async def canel_auto_restart(interaction: discord.Interaction):
+async def cancel_auto_restart(interaction: discord.Interaction):
     """ZOMG CANCEL B4 IT TOO LATE!!!."""
     global abort_signal
 
