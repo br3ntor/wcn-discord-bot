@@ -32,6 +32,7 @@ def get_mod_ids(server: str) -> list:
         config.read_string("[default]\n" + stream.read())
 
     workshop_ids = config["default"]["WorkshopItems"].split(";")
+    print(f"Found this many workshopids: {len(workshop_ids)}")
     return workshop_ids
 
 
@@ -45,6 +46,7 @@ def get_mod_data(workshop_ids: list) -> list:
         itemcount=item_count, publishedfileids=workshop_ids
     )
 
+    print(f"Found this many workshop_items: {len(workshop_items)}")
     return workshop_items
 
 
