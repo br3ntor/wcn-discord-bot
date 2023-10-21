@@ -8,19 +8,10 @@ MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID"))
 
 
 @app_commands.command()
-@app_commands.choices(
-    server=[
-        app_commands.Choice(name="Light", value=1),
-        app_commands.Choice(name="Heavy", value=2),
-    ]
-)
 @app_commands.describe(
-    server="Which server should revieve this message?",
-    message="What would you like to say.",
+    message="What would you like to say?",
 )
-async def send_message(
-    interaction: discord.Interaction, server: app_commands.Choice[int], message: str
-):
+async def send_message(interaction: discord.Interaction, message: str):
     """Send a message to everyone in the server."""
 
     # Only discord mods can use the command
@@ -30,22 +21,14 @@ async def send_message(
         await interaction.response.send_message("You are not worthy.", ephemeral=True)
         return
 
-    # Respond to request to tell the user to wait a moment
     # This def needs to be called before doing work that takes time,
     # but I wonder if it may as well be first line of the function?
     await interaction.response.defer()
 
     # Send command and respond to result
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
-    server_msg = "'servermsg \"" + valid_msg + "\"'"
-    # server_msg = f"'servermsg \"{valid_msg}\"'"
-    destination_server = server.name.lower()
-    cmd = [
-        "runuser",
-        f"pzserver{destination_server}",
-        "-c",
-        f"/home/pzserver{destination_server}/pzserver send {server_msg}",
-    ]
+    server_msg = f'servermsg "{valid_msg}"'
+    cmd = ["/home/pzserver/pzserver", "send", server_msg]
 
     process = await asyncio.create_subprocess_exec(
         *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
@@ -60,9 +43,8 @@ async def send_message(
     print(output.decode())
     print(error.decode())
 
-    emoji = "🥗" if destination_server == "light" else "🍖"
     status = (
-        f"Message sent to {emoji}**{destination_server.upper()}** server:\n> {message}"
+        f"Message sent to server:\n> {message}"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )
