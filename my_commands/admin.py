@@ -12,23 +12,17 @@ admin_group = app_commands.Group(
 
 @admin_group.command()
 @app_commands.choices(
-    server=[
-        app_commands.Choice(name="Light", value=1),
-        app_commands.Choice(name="Heavy", value=2),
-    ],
     accesslevel=[
         app_commands.Choice(name="Give admin", value=1),
         app_commands.Choice(name="Remove admin", value=2),
     ],
 )
 @app_commands.describe(
-    server="Which server to send command.",
     accesslevel="The choice to give or take admin",
     player="The name of the player in game.",
 )
 async def toggle(
     interaction: discord.Interaction,
-    server: app_commands.Choice[int],
     accesslevel: app_commands.Choice[int],
     player: str,
 ):
@@ -40,20 +34,13 @@ async def toggle(
     # Should be called before the first db call
     await interaction.response.defer()
 
-    if not await get_user(server.name.lower(), player):
+    if not await get_user(player):
         await interaction.followup.send(f"username: {player} not found in database")
         return
 
     access_level = "admin" if accesslevel.value == 1 else "none"
-    server_msg = f"'setaccesslevel \"{player}\" {access_level}'"
-
-    destination_server = server.name.lower()
-    cmd = [
-        "runuser",
-        f"pzserver{destination_server}",
-        "-c",
-        f"/home/pzserver{destination_server}/pzserver send {server_msg}",
-    ]
+    server_msg = f'setaccesslevel "{player}" {access_level}'
+    cmd = ["/home/pzserver/pzserver", "send", server_msg]
 
     try:
         process = await asyncio.create_subprocess_exec(
@@ -69,10 +56,9 @@ async def toggle(
     print(output.decode())
     print(error.decode())
 
-    emoji = "🥗" if destination_server == "light" else "🍖"
     status = (
         f"{player} accesslevel has been set to **{access_level}** "
-        f"on the {emoji}**{destination_server}** server"
+        f"on the zomboid server"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )
@@ -82,21 +68,13 @@ async def toggle(
 
 @admin_group.command()
 async def list(interaction: discord.Interaction):
-    """Get a list of admins on modded servers."""
-    light_boys = await get_admins("light")
-    heavy_boys = await get_admins("heavy")
-    await interaction.response.send_message(
-        "**Light admins**:\n"
-        f"{light_boys}\n\n"
-        "**Heavy admins**:\n"
-        f"{heavy_boys}\n"
-    )
+    """Get a list of admins on zomboid server."""
+    the_boys = await get_admins()
+    await interaction.response.send_message("**Zomboid admins**:\n" f"{the_boys}\n")
 
 
-async def get_admins(server: str) -> str:
-    async with aiosqlite.connect(
-        f"/home/pzserver{server}/Zomboid/db/pzserver.db"
-    ) as db:
+async def get_admins() -> str:
+    async with aiosqlite.connect("/home/pzserver/Zomboid/db/pzserver.db") as db:
         async with db.execute(
             "SELECT username FROM whitelist WHERE accesslevel='admin'"
         ) as cursor:

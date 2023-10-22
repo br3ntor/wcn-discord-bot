@@ -7,8 +7,7 @@ from discord import app_commands
 MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID"))
 ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL"))
 
-last_run_light = datetime.datetime(1990, 1, 1)
-last_run_heavy = datetime.datetime(1990, 1, 1)
+last_run = datetime.datetime(1990, 1, 1)
 
 
 # TODO: Extend this class to also take an action_to_confirm to build that into the
@@ -40,15 +39,7 @@ class Confirm(discord.ui.View):
 
 
 @app_commands.command()
-@app_commands.choices(
-    server=[
-        app_commands.Choice(name="Light", value=1),
-        app_commands.Choice(name="Heavy", value=2),
-    ]
-)
-async def restart_server(
-    interaction: discord.Interaction, server: app_commands.Choice[int]
-):
+async def restart_server(interaction: discord.Interaction):
     """Restarts the server!!!"""
 
     # Only discord mods can use the command
@@ -56,13 +47,10 @@ async def restart_server(
         await interaction.response.send_message("You are not worthy.", ephemeral=True)
         return
 
-    destination_server = server.name.lower()
-
     # Place a rate limit on the command
     # TODO: Try the cooldown decorator
     # https://discordpy.readthedocs.io/en/stable/interactions/api.html#discord.app_commands.checks.cooldown
-    global last_run_light, last_run_heavy
-    last_run = last_run_light if destination_server == "light" else last_run_heavy
+    global last_run
     elapsed_time = datetime.datetime.now() - last_run
     if elapsed_time.seconds < 300:
         await interaction.response.send_message(
@@ -73,7 +61,7 @@ async def restart_server(
     # Send the question with buttons
     view = Confirm()
     await interaction.response.send_message(
-        f"Restart {destination_server} server?", view=view, ephemeral=True
+        "Restart the server?", view=view, ephemeral=True
     )
     await view.wait()
 
@@ -92,25 +80,22 @@ async def restart_server(
         # If it's not running, command will prompt for yes or no to start server.
         # I am ignoring this unil I learn more how to deal with that.
         initiated_by = (
-            f"{destination_server.capitalize()} server restart "
-            f"initiated by {interaction.user.display_name}..."
+            "Server restart " f"initiated by {interaction.user.display_name}..."
         )
         await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(initiated_by)
 
         # Update last run time of command
-        if destination_server == "light":
-            last_run_light = datetime.datetime.now()
-        elif destination_server == "heavy":
-            last_run_heavy = datetime.datetime.now()
+        last_run = datetime.datetime.now()
 
         try:
-            cmd = ["systemctl", "restart", f"pzserver{destination_server}"]
+            # cmd = ["systemctl", "restart", "pzserver"]
+            cmd = ["/home/pzserver/pzserver", "stop"]
             process = await asyncio.create_subprocess_exec(*cmd)
             await process.wait()
 
             succeeded = (
-                f"Success! The **{destination_server}** server was shut down "
-                f"and is now starting back up."
+                "Success! The zomboid server was shut down "
+                "and is now starting back up."
             )
             failed = "Something went wrong, maybe..."
             status = succeeded if process.returncode == 0 else failed
