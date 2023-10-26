@@ -40,7 +40,12 @@ async def toggle(
 
     access_level = "admin" if accesslevel.value == 1 else "none"
     server_msg = f'setaccesslevel "{player}" {access_level}'
-    cmd = ["/home/pzserver/pzserver", "send", server_msg]
+    cmd = [
+        "runuser",
+        "pzserver",
+        "-c",
+        f"/home/pzserver/pzserver send {server_msg}",
+    ]
 
     try:
         process = await asyncio.create_subprocess_exec(
