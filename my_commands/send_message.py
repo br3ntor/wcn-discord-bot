@@ -27,7 +27,8 @@ async def send_message(interaction: discord.Interaction, message: str):
 
     # Send command and respond to result
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
-    server_msg = f'servermsg "{valid_msg}"'
+    # server_msg = f'servermsg "{valid_msg}"'
+    server_msg = f"'servermsg \"{valid_msg}\"'"
     cmd = [
         "runuser",
         "pzserver",
