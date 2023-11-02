@@ -13,16 +13,17 @@ import requests
 STEAM_KEY = os.getenv("STEAM_WEBAPI")
 GITHUB_PAT = os.getenv("GITHUB_PAT")
 
-server_gist_ids = {
-    "light": "cec1edb58758a10a80e45bd27cbaee3e",
-    "heavy": "bd6cd4aa1fc6571260be63654f0995db",
-}
+server_gist_id = "368a4d58ab96964575dfb292c597810c"
+# server_gist_ids = {
+#     "light": "cec1edb58758a10a80e45bd27cbaee3e",
+#     "heavy": "bd6cd4aa1fc6571260be63654f0995db",
+# }
 
 
-def get_mod_ids(server: str) -> list:
-    """Returns a list of mod workshop ids for a given server."""
+def get_mod_ids() -> list:
+    """Returns a list of mod workshop ids for the server."""
 
-    server_file = f"/home/pzserver{server}/Zomboid/Server/pzserver.ini"
+    server_file = "/home/pzserver/Zomboid/Server/pzserver.ini"
     config = configparser.ConfigParser()
 
     # This seems to add the first line of the stream
@@ -67,9 +68,9 @@ def parse_workshop_data(workshop_items: list) -> str:
     return sorted_mods
 
 
-def update_gist(server_name: str, payload: str) -> None:
-    """Update gist with new mod list!"""
-    url = f"https://api.github.com/gists/{server_gist_ids[server_name]}"
+def update_gist(payload: str) -> None:
+    """Update gist with new mods list!"""
+    url = f"https://api.github.com/gists/{server_gist_id}"
 
     headers = {
         "Accept": "application/vnd.github+json",
@@ -78,8 +79,8 @@ def update_gist(server_name: str, payload: str) -> None:
     }
 
     payload = {
-        "description": f"West Coast Noobs {server_name.title()} Mods List.",
-        "files": {f"{server_name}_mods_list.md": {"content": payload}},
+        "description": "West Coast Noobs Mods List",
+        "files": {"mods_list.md": {"content": payload}},
     }
 
     response = requests.patch(url, headers=headers, json=payload)
@@ -88,26 +89,15 @@ def update_gist(server_name: str, payload: str) -> None:
 
 
 @app_commands.command()
-@app_commands.choices(
-    server=[
-        app_commands.Choice(name="Light", value=1),
-        app_commands.Choice(name="Heavy", value=2),
-    ]
-)
 async def update_mods_list(
     interaction: discord.Interaction,
-    server: app_commands.Choice[int],
 ):
     """Updates the list of mods for a server."""
-    server_name = server.name.lower()
-    url = f"https://gist.github.com/br3ntor/{server_gist_ids[server_name]}"
+    url = f"https://gist.github.com/br3ntor/{server_gist_id}"
 
     # Updates the gist list based on server config file
     update_gist(
-        server_name,
-        parse_workshop_data(get_mod_data(get_mod_ids(server.name.lower()))),
+        parse_workshop_data(get_mod_data(get_mod_ids())),
     )
 
-    await interaction.response.send_message(
-        f"List of mods on the {server.name.lower()}\n{url}"
-    )
+    await interaction.response.send_message(f"List of mods on the server\n{url}")

@@ -4,7 +4,7 @@ from .send_message import send_message
 from .restart_server import restart_server
 #from .get_playerlist import get_playerlist
 #from .reset_password import reset_password
-#from .update_mods_list import update_mods_list
+from .update_mods_list import update_mods_list
 #from .restart_server_auto import restart_server_auto
 #from .restart_server_auto import cancel_auto_restart
 from .admin import admin_group
@@ -18,7 +18,7 @@ __all__ = [
    "restart_server",
 #    "get_playerlist",
 #    "reset_password",
-#    "update_mods_list",
+   "update_mods_list",
 #    "restart_server_auto",
 #    "cancel_auto_restart",
    "admin_group",

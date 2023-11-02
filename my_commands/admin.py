@@ -44,7 +44,7 @@ async def toggle(
         "runuser",
         "pzserver",
         "-c",
-        f'/home/pzserver/pzserver send "{server_msg}"',
+        f"/home/pzserver/pzserver send '{server_msg}'",
     ]
 
     try:
