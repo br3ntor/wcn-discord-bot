@@ -8,7 +8,7 @@ from .update_mods_list import update_mods_list
 #from .restart_server_auto import restart_server_auto
 #from .restart_server_auto import cancel_auto_restart
 from .admin import admin_group
-#from .update_sandbox_gist import update_sandbox_gist
+from .update_sandbox_gist import update_sandbox_gist
 #from .ban import ban_group
 
 __all__ = [
@@ -22,6 +22,6 @@ __all__ = [
 #    "restart_server_auto",
 #    "cancel_auto_restart",
    "admin_group",
-#    "update_sandbox_gist",
+   "update_sandbox_gist",
 #    "ban_group",
 ]
