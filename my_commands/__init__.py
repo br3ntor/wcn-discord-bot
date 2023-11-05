@@ -9,19 +9,19 @@ from .restart_server_auto import restart_server_auto
 from .restart_server_auto import cancel_auto_restart
 from .admin import admin_group
 from .update_sandbox_gist import update_sandbox_gist
-#from .ban import ban_group
+from .ban import ban_group
 
 __all__ = [
     "cat_fact",
-   "speak",
-   "send_message",
-   "restart_server",
-   "get_playerlist",
-   "reset_password",
-   "update_mods_list",
-   "restart_server_auto",
-   "cancel_auto_restart",
-   "admin_group",
-   "update_sandbox_gist",
-#    "ban_group",
+    "speak",
+    "send_message",
+    "restart_server",
+    "get_playerlist",
+    "reset_password",
+    "update_mods_list",
+    "restart_server_auto",
+    "cancel_auto_restart",
+    "admin_group",
+    "update_sandbox_gist",
+    "ban_group",
 ]
