@@ -91,7 +91,7 @@ async def restart_server_auto(
         # Announce to discord members restart will happen after some minutes
         init_msg = (
             "Restart initiated for the Zomboid server."
-            f"server, restarting in {COUNT_DOWN_TIME//60} minutes."
+            f"Restarting in {COUNT_DOWN_TIME//60} minutes."
         )
 
         # Send players on server first restart warning
@@ -127,7 +127,7 @@ async def restart_server_auto(
             if seconds_left <= 60 and ran_once is False:
                 ran_once = True
                 await send_server_msg(
-                    view.server, f"The server will restart in {seconds_left} seconds!"
+                    f"The server will restart in {seconds_left} seconds!"
                 )
                 await interaction.channel.send(
                     f"The zomboid server will restart in {seconds_left} seconds."
