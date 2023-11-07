@@ -1,9 +1,11 @@
 import os
 import discord
 from discord import app_commands
+from discord.ext import commands
 
 # My command modules folder
 import my_commands
+from my_cogs.tasks import TasksCog
 
 
 MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD")))
@@ -11,9 +13,11 @@ MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD")))
 
 # NOTE: I don't fully understand why we have the command tree set to a property
 # on the client object, the explaination below I still need to understand
-class MyClient(discord.Client):
+# class MyClient(discord.Client):
+class MyClient(commands.Bot):
+    # def __init__(self, *, intents: discord.Intents):
     def __init__(self, *, intents: discord.Intents):
-        super().__init__(intents=intents)
+        super().__init__(command_prefix="-", intents=intents)
         # A CommandTree is a special type that holds all the application command
         # state required to make it work. This is a separate class because it
         # allows all the extra state to be opt-in.
@@ -21,7 +25,7 @@ class MyClient(discord.Client):
         # to store and work with them.
         # Note: When using commands.Bot instead of discord.Client, the bot will
         # maintain its own tree instead.
-        self.tree = app_commands.CommandTree(self)
+        # self.tree = app_commands.CommandTree(self)
 
     # In this basic example, we just synchronize the app commands to one guild.
     # Instead of specifying a guild to every command, we copy over our global
@@ -35,6 +39,7 @@ class MyClient(discord.Client):
             ):
                 self.tree.add_command(attr)
 
+        await self.add_cog(TasksCog(self))
         # This copies the global commands over to your guild.
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
