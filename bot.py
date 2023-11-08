@@ -6,16 +6,13 @@ from discord.ext import commands
 # My command modules folder
 import my_commands
 from my_cogs.tasks import TasksCog
+from my_cogs.webhook import WebhookCog
 
 
 MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD")))
 
 
-# NOTE: I don't fully understand why we have the command tree set to a property
-# on the client object, the explaination below I still need to understand
-# class MyClient(discord.Client):
 class MyClient(commands.Bot):
-    # def __init__(self, *, intents: discord.Intents):
     def __init__(self, *, intents: discord.Intents):
         super().__init__(command_prefix="-", intents=intents)
         # A CommandTree is a special type that holds all the application command
@@ -40,12 +37,13 @@ class MyClient(commands.Bot):
                 self.tree.add_command(attr)
 
         await self.add_cog(TasksCog(self))
+        await self.add_cog(WebhookCog(self))
         # This copies the global commands over to your guild.
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
 
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 client = MyClient(intents=intents)
 
 
