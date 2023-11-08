@@ -1,9 +1,8 @@
 import discord
 from discord import app_commands
 import os
-import configparser
-from steam.webapi import WebAPI
 import requests
+from utils.steam_utils import get_mod_ids, get_mod_data
 
 # Only need these for testing single function in here
 # from dotenv import load_dotenv
@@ -14,41 +13,6 @@ STEAM_KEY = os.getenv("STEAM_WEBAPI")
 GITHUB_PAT = os.getenv("GITHUB_PAT")
 
 server_gist_id = "368a4d58ab96964575dfb292c597810c"
-# server_gist_ids = {
-#     "light": "cec1edb58758a10a80e45bd27cbaee3e",
-#     "heavy": "bd6cd4aa1fc6571260be63654f0995db",
-# }
-
-
-def get_mod_ids() -> list:
-    """Returns a list of mod workshop ids for the server."""
-
-    server_file = "/home/pzserver/Zomboid/Server/pzserver.ini"
-    config = configparser.ConfigParser()
-
-    # This seems to add the first line of the stream
-    # to a header for an ini file, because the file
-    # we are working with is not a proper ini file
-    with open(server_file) as stream:
-        config.read_string("[default]\n" + stream.read())
-
-    workshop_ids = config["default"]["WorkshopItems"].split(";")
-    print(f"Found this many workshopids: {len(workshop_ids)}")
-    return workshop_ids
-
-
-def get_mod_data(workshop_ids: list) -> list:
-    """Calls steam api to get mod data."""
-    api = WebAPI(STEAM_KEY)
-
-    item_count = len(workshop_ids)
-
-    workshop_items = api.ISteamRemoteStorage.GetPublishedFileDetails(
-        itemcount=item_count, publishedfileids=workshop_ids
-    )
-
-    print(f"Found this many workshop_items: {len(workshop_items)}")
-    return workshop_items
 
 
 def parse_workshop_data(workshop_items: list) -> str:
