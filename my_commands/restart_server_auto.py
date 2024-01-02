@@ -49,6 +49,9 @@ class Confirm(discord.ui.View):
         await interaction.response.send_message(
             "Auto Restart Confirmed.", ephemeral=True
         )
+        await interaction.channel.send(
+            f"{interaction.user.display_name} has initiated the server auto restart. Restarting in 5min."
+        )
         self.value = True
         self.stop()
 
@@ -57,6 +60,9 @@ class Confirm(discord.ui.View):
     @discord.ui.button(label="No", style=discord.ButtonStyle.grey)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("Auto Restart Aborted.", ephemeral=True)
+        await interaction.channel.send(
+            f"{interaction.user.display_name} has aborted the auto restart!"
+        )
         self.value = False
         self.stop()
 
@@ -90,8 +96,8 @@ async def restart_server_auto(
 
         # Announce to discord members restart will happen after some minutes
         init_msg = (
-            "Restart initiated for the Zomboid server."
-            f"Restarting in {COUNT_DOWN_TIME//60} minutes."
+            f"Auto restart initiated by {interaction.user.display_name}. "
+            f"Server will restart in {COUNT_DOWN_TIME//60} minutes."
         )
 
         # Send players on server first restart warning

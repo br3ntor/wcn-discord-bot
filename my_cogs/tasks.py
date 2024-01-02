@@ -47,7 +47,7 @@ class TasksCog(commands.Cog):
             if "title" in item:
                 now = datetime.datetime.now()
                 time_updated = datetime.datetime.fromtimestamp(item["time_updated"])
-                if (now - time_updated).total_seconds() / 60 <= 5:
+                if (now - time_updated).total_seconds() / 60 < 6:
                     formatted_time = time_updated.strftime("%b %d @ %I:%M%p")
                     guild = self.bot.get_guild(MY_GUILD)
                     admin_role = guild.get_role(ADMIN_ROLE_ID).mention
