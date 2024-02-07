@@ -4,18 +4,29 @@ from discord import app_commands
 
 
 @app_commands.command()
-async def reset_password(interaction: discord.Interaction, playername: str):
+@app_commands.choices(
+    server=[
+        app_commands.Choice(name="Vanilla", value=1),
+        app_commands.Choice(name="Modded", value=2),
+    ]
+)
+async def reset_password(
+    interaction: discord.Interaction, server: app_commands.Choice[int], playername: str
+):
     """Reset a players password."""
-    attempted_reset_response = sql_reset_pwd(playername)
+    attempted_reset_response = sql_reset_pwd(server.name, playername)
     await interaction.response.send_message(attempted_reset_response)
 
 
 # TODO: Refactor this with aiosqlite. Since the db is close and access
 # is fast it works fine as is but...
-def sql_reset_pwd(player: str) -> str:
-    db_path = "/home/pzserver/Zomboid/db/pzserver.db"
+def sql_reset_pwd(server: str, player: str) -> str:
+    db_path = {
+        "vanilla": "/home/vanilla_pz/Zomboid/db/pzserver.db",
+        "modded": "/home/pzserver/Zomboid/db/pzserver.db",
+    }
 
-    db = sqlite3.connect(db_path)
+    db = sqlite3.connect(db_path[server.lower()])
 
     cursor = db.cursor()
 
@@ -26,7 +37,7 @@ def sql_reset_pwd(player: str) -> str:
     if user_row is None:
         db.close()
         print("No user found")
-        return f"Couldn't find user {player} on the server"
+        return f"Couldn't find user {player} on the **{server}** server."
 
     print(f"User {player} has been found")
     cursor.execute(
@@ -43,7 +54,7 @@ def sql_reset_pwd(player: str) -> str:
     if pwd is None:
         print(f"reset {player} pwd")
         return (
-            f"{player}'s password has been reset on the WCN server. "
+            f"{player}'s password has been reset on the **{server}** server. "
             "They may login with any new password."
         )
     else:
