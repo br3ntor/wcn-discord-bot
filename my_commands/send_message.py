@@ -8,10 +8,19 @@ MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID"))
 
 
 @app_commands.command()
+@app_commands.choices(
+    server=[
+        app_commands.Choice(name="Vanilla", value=1),
+        app_commands.Choice(name="Modded", value=2),
+    ]
+)
 @app_commands.describe(
+    server="Which server should recieve this message?",
     message="What would you like to say?",
 )
-async def send_message(interaction: discord.Interaction, message: str):
+async def send_message(
+    interaction: discord.Interaction, server: app_commands.Choice[int], message: str
+):
     """Send a message to everyone in the server."""
 
     # Only discord mods can use the command
@@ -25,12 +34,14 @@ async def send_message(interaction: discord.Interaction, message: str):
     # but I wonder if it may as well be first line of the function?
     await interaction.response.defer()
 
+    destination_server = "vanilla_pz" if server.value == 1 else "pzserver"
+
     # Send command and respond to result
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
     server_msg = f'servermsg "{valid_msg}"'
     cmd = [
         "runuser",
-        "pzserver",
+        f"{destination_server}",
         "-c",
         f"/home/pzserver/pzserver send '{server_msg}'",
     ]
@@ -48,8 +59,9 @@ async def send_message(interaction: discord.Interaction, message: str):
     print(output.decode())
     print(error.decode())
 
+    emoji = "🥛" if destination_server == "vanilla_pz" else "🍖"
     status = (
-        f"Message sent to server:\n> {message}"
+        f"Message sent to {emoji}**{destination_server.upper()}**:\n> {message}"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )
