@@ -61,7 +61,7 @@ async def send_message(
 
     emoji = "🥛" if destination_server == "vanilla_pz" else "🍖"
     status = (
-        f"Message sent to {emoji}**{destination_server.upper()}**:\n> {message}"
+        f"Message sent to {emoji}**{server.name.upper()}** server:\n> {message}"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )

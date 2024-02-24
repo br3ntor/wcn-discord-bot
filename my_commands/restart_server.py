@@ -84,6 +84,9 @@ async def restart_server(interaction: discord.Interaction):
         )
         await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(initiated_by)
 
+        # Feedback for mod chanel
+        await interaction.followup.send(initiated_by)
+
         # Update last run time of command
         last_run = datetime.datetime.now()
 
