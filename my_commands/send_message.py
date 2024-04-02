@@ -1,6 +1,7 @@
+import asyncio
 import os
 import re
-import asyncio
+
 import discord
 from discord import app_commands
 
@@ -8,19 +9,10 @@ MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID"))
 
 
 @app_commands.command()
-@app_commands.choices(
-    server=[
-        app_commands.Choice(name="Vanilla", value=1),
-        app_commands.Choice(name="Modded", value=2),
-    ]
-)
 @app_commands.describe(
-    server="Which server should recieve this message?",
     message="What would you like to say?",
 )
-async def send_message(
-    interaction: discord.Interaction, server: app_commands.Choice[int], message: str
-):
+async def send_message(interaction: discord.Interaction, message: str):
     """Send a message to everyone in the server."""
 
     # Only discord mods can use the command
@@ -34,18 +26,16 @@ async def send_message(
     # but I wonder if it may as well be first line of the function?
     await interaction.response.defer()
 
-    destination_server = "vanilla_pz" if server.value == 1 else "pzserver"
-
     # Send command and respond to result
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
     server_msg = f'servermsg "{valid_msg}"'
     cmd = [
-        "runuser",
-        f"{destination_server}",
-        "-c",
-        f"/home/pzserver/pzserver send '{server_msg}'",
+        "/home/pzserver/pzserver",
+        "send",
+        server_msg,
     ]
 
+    # f"'{server_msg}'",
     process = await asyncio.create_subprocess_exec(
         *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
     )
@@ -59,9 +49,8 @@ async def send_message(
     print(output.decode())
     print(error.decode())
 
-    emoji = "🥛" if destination_server == "vanilla_pz" else "🍖"
     status = (
-        f"Message sent to {emoji}**{server.name.upper()}** server:\n> {message}"
+        f"Message sent to Zomboid server:\n> {message}"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )
