@@ -44,7 +44,7 @@ async def toggle(
     cmd = [
         "/home/pzserver/pzserver",
         "send",
-        {server_msg},
+        server_msg,
     ]
 
     try:

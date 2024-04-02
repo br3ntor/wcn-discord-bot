@@ -1,6 +1,7 @@
-import os
 import asyncio
+import os
 from math import ceil
+
 import discord
 from discord import app_commands
 
@@ -20,10 +21,9 @@ abort_signal = False
 async def send_server_msg(message):
     server_msg = f'servermsg "{message}"'
     cmd = [
-        "runuser",
-        "pzserver",
-        "-c",
-        f"/home/pzserver/pzserver send '{server_msg}'",
+        "/home/pzserver/pzserver",
+        "send",
+        server_msg,
     ]
     process = await asyncio.create_subprocess_exec(
         *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
@@ -145,7 +145,10 @@ async def restart_server_auto(
         countdown_isrunning = False
 
         try:
-            cmd = ["systemctl", "restart", "pzserver"]
+            cmd = [
+                "/home/pzserver/pzserver",
+                "restart",
+            ]
             process = await asyncio.create_subprocess_exec(*cmd)
             await process.wait()
 

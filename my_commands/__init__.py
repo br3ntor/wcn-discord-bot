@@ -11,16 +11,16 @@ from .update_mods_list import update_mods_list
 from .update_sandbox_gist import update_sandbox_gist
 
 __all__ = [
-    "cat_fact",
-    "speak",
+    # "cat_fact",
+    # "speak",
     "send_message",
     "restart_server",
-    "get_playerlist",
-    "reset_password",
-    "update_mods_list",
+    # "get_playerlist",
+    # "reset_password",
+    # "update_mods_list",
     "restart_server_auto",
     "cancel_auto_restart",
     "admin_group",
-    "update_sandbox_gist",
-    "ban_group",
+    # "update_sandbox_gist",
+    # "ban_group",
 ]

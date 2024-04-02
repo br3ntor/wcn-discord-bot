@@ -1,6 +1,7 @@
-import os
-import datetime
 import asyncio
+import datetime
+import os
+
 import discord
 from discord import app_commands
 
@@ -91,7 +92,10 @@ async def restart_server(interaction: discord.Interaction):
         last_run = datetime.datetime.now()
 
         try:
-            cmd = ["systemctl", "restart", "pzserver"]
+            cmd = [
+                "/home/pzserver/pzserver",
+                "restart",
+            ]
             process = await asyncio.create_subprocess_exec(*cmd)
             await process.wait()
 
