@@ -1,8 +1,10 @@
+import asyncio
+import re
+
 import discord
 from discord import app_commands
-import re
-import asyncio
-from utils.db_helpers import get_user, get_banned_user
+
+from utils.db_helpers import get_banned_user, get_user
 
 ban_group = app_commands.Group(
     name="ban", description="Ban, unban, and list banned players."
@@ -10,19 +12,10 @@ ban_group = app_commands.Group(
 
 
 @ban_group.command()
-@app_commands.choices(
-    server=[
-        app_commands.Choice(name="Vanilla", value=1),
-        app_commands.Choice(name="Modded", value=2),
-    ],
-)
 @app_commands.describe(
-    server="Which server?",
     player="Which player?",
 )
-async def issue(
-    interaction: discord.Interaction, server: app_commands.Choice[int], player: str
-):
+async def issue(interaction: discord.Interaction, player: str):
     """Ban a player."""
     if re.search(r"[\"']", player):
         await interaction.response.send_message("Quotes not allowed.")
@@ -30,8 +23,7 @@ async def issue(
 
     await interaction.response.defer()
 
-    destination_server = "vanilla_pz" if server.value == 1 else "pzserver"
-    the_user = await get_user(destination_server, player)
+    the_user = await get_user(player)
     if not the_user:
         await interaction.followup.send("User not found")
         return
@@ -39,10 +31,9 @@ async def issue(
     id = the_user[11]
     server_cmd = f"banid {id}"
     cmd = [
-        "runuser",
-        f"{destination_server}",
-        "-c",
-        f"/home/{destination_server}/pzserver send '{server_cmd}'",
+        "/home/pzserver/pzserver",
+        "send",
+        server_cmd,
     ]
 
     try:
@@ -53,39 +44,32 @@ async def issue(
         # Get the output of the subprocess.
         output, error = await process.communicate()
 
+        # Somtimes command needs to be run twice, maybe I need this, I thought communicate did this though
+        process.wait()
+
     except asyncio.SubprocessError as e:
         print(f"Subprocess error occurred: {e}")
 
     print(output.decode())
     print(error.decode())
 
-    banned_player = await get_banned_user(destination_server, id)
-    emoji = "🥛" if destination_server == "vanilla_pz" else "🍖"
+    banned_player = await get_banned_user(id)
     msg = (
         f"Player **{player}** has been **banned** from the "
-        f"{emoji}**{server.name}** server\n"
+        "Zomboid server\n"
         f"Username: {player}\n"
         f"SteamID: {id}"
         if banned_player is not None
-        else "Command was sent but user not found in bannedid's db. What happen?"
+        else f"Command was sent but user **{player}** not found in bannedid's db. What happen?"
     )
     await interaction.followup.send(msg)
 
 
 @ban_group.command()
-@app_commands.choices(
-    server=[
-        app_commands.Choice(name="Vanilla", value=1),
-        app_commands.Choice(name="Modded", value=2),
-    ],
-)
 @app_commands.describe(
-    server="Which server?",
     player="Which player?",
 )
-async def revoke(
-    interaction: discord.Interaction, server: app_commands.Choice[int], player: str
-):
+async def revoke(interaction: discord.Interaction, player: str):
     """Un-Ban a player."""
     if re.search(r"[\"']", player):
         await interaction.response.send_message("Quotes not allowed.")
@@ -93,8 +77,7 @@ async def revoke(
 
     await interaction.response.defer()
 
-    destination_server = "vanilla_pz" if server.value == 1 else "pzserver"
-    the_user = await get_user(destination_server, player)
+    the_user = await get_user(player)
     if not the_user:
         await interaction.followup.send("User not found")
         return
@@ -102,10 +85,9 @@ async def revoke(
     id = the_user[11]
     server_cmd = f"unbanid {id}"
     cmd = [
-        "runuser",
-        f"{destination_server}",
-        "-c",
-        f"/home/{destination_server}/pzserver send '{server_cmd}'",
+        "/home/pzserver/pzserver",
+        "send",
+        server_cmd,
     ]
 
     try:
@@ -116,17 +98,18 @@ async def revoke(
         # Get the output of the subprocess.
         output, error = await process.communicate()
 
+        # Same as above
+        process.wait()
+
     except asyncio.SubprocessError as e:
         print(f"Subprocess error occurred: {e}")
 
     print(output.decode())
     print(error.decode())
 
-    banned_player = await get_banned_user(destination_server, id)
-    emoji = "🥛" if destination_server == "vanilla_pz" else "🍖"
+    banned_player = await get_banned_user(id)
     msg = (
-        f"Player **{player}** has been **UN-banned** from the "
-        f"{emoji}**{server.name}** server"
+        f"Player **{player}** has been **UN-banned** from the Zomboid server"
         if banned_player is None
         else "Command was sent but user is still in the bannedid's db. What happen?"
     )
