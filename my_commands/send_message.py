@@ -5,14 +5,26 @@ import re
 import discord
 from discord import app_commands
 
+from config import SERVERNAMES
+from utils.server_helpers import server_isrunning
+
 MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID"))
 
 
 @app_commands.command()
+@app_commands.choices(
+    server=[
+        app_commands.Choice(name=srv, value=index + 1)
+        for index, srv in enumerate(SERVERNAMES)
+    ]
+)
 @app_commands.describe(
+    server="Which server should recieve this message?",
     message="What would you like to say?",
 )
-async def send_message(interaction: discord.Interaction, message: str):
+async def send_message(
+    interaction: discord.Interaction, server: app_commands.Choice[int], message: str
+):
     """Send a message to everyone in the server."""
 
     # Only discord mods can use the command
@@ -26,31 +38,43 @@ async def send_message(interaction: discord.Interaction, message: str):
     # but I wonder if it may as well be first line of the function?
     await interaction.response.defer()
 
+    is_running = await server_isrunning(server.name)
+    if not is_running:
+        await interaction.followup.send(f"{server.name} is **NOT** running!")
+        return
+    # else: # jus a convenient way to test server_isrunning
+    #     await interaction.followup.send(f"{server.name} **IS** running!")
+    #     return
+
     # Send command and respond to result
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
     server_msg = f'servermsg "{valid_msg}"'
     cmd = [
-        "/home/pzserver/pzserver",
-        "send",
-        server_msg,
+        "runuser",
+        f"{server.name}",
+        "-c",
+        f"/home/{server.name}/pzserver send '{server_msg}'",
     ]
 
-    # f"'{server_msg}'",
-    process = await asyncio.create_subprocess_exec(
-        *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-    )
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
+        )
 
-    # Get the output of the subprocess.
-    output, error = await process.communicate()
+        # # Get the output of the subprocess.
+        output, error = await process.communicate()
 
-    # I don't think this is needed but doesn't hurt either
-    await process.wait()
+        # I don't think this is needed but doesn't hurt either
+        await process.wait()
+
+    except asyncio.SubprocessError as e:
+        print(f"Subprocess error occurred: {e}")
 
     print(output.decode())
     print(error.decode())
 
     status = (
-        f"Message sent to Zomboid server:\n> {message}"
+        f"Message sent to **{server.name}** server:\n> {message}"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )
