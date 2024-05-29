@@ -30,6 +30,8 @@ async def server_isrunning(server: str) -> bool:
 
     out, err = output.decode(), error.decode()
 
-    print(f"Server is running:\n{out}" if out else "Server is off, no command output")
+    print(
+        f"{server} is running:\n{out}" if out else f"{server} is off, no command output"
+    )
     print(err)
     return bool(out)

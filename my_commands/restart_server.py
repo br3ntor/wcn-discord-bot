@@ -5,10 +5,13 @@ import os
 import discord
 from discord import app_commands
 
+from config import SERVERNAMES
+from utils.server_helpers import server_isrunning
+
 MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID"))
 ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL"))
 
-last_run = datetime.datetime(1990, 1, 1)
+# last_run = datetime.datetime(1990, 1, 1)
 
 
 # TODO: Extend this class to also take an action_to_confirm to build that into the
@@ -40,7 +43,15 @@ class Confirm(discord.ui.View):
 
 
 @app_commands.command()
-async def restart_server(interaction: discord.Interaction):
+@app_commands.choices(
+    server=[
+        app_commands.Choice(name=srv, value=index + 1)
+        for index, srv in enumerate(SERVERNAMES)
+    ]
+)
+async def restart_server(
+    interaction: discord.Interaction, server: app_commands.Choice[int]
+):
     """Restarts the server!!!"""
 
     # Only discord mods can use the command
@@ -51,18 +62,26 @@ async def restart_server(interaction: discord.Interaction):
     # Place a rate limit on the command
     # TODO: Try the cooldown decorator
     # https://discordpy.readthedocs.io/en/stable/interactions/api.html#discord.app_commands.checks.cooldown
-    global last_run
-    elapsed_time = datetime.datetime.now() - last_run
-    if elapsed_time.seconds < 300:
-        await interaction.response.send_message(
-            f"Please wait {300 - elapsed_time.seconds} more seconds.", ephemeral=True
-        )
+    # global last_run
+    # elapsed_time = datetime.datetime.now() - last_run
+    # if elapsed_time.seconds < 300:
+    #     await interaction.response.send_message(
+    #         f"Please wait {300 - elapsed_time.seconds} more seconds.", ephemeral=True
+    #     )
+    #     return
+
+    # Instead of the commented out rate limit code above, I think for now
+    # I'll just check if the process is running before continuing
+    await interaction.response.defer()
+    is_running = await server_isrunning(server.name)
+    if not is_running:
+        await interaction.followup.send(f"**{server.name}** is **NOT** running!")
         return
 
     # Send the question with buttons
     view = Confirm()
     await interaction.response.send_message(
-        "Restart the server?", view=view, ephemeral=True
+        f"Restart the **{server.name}** server?", view=view, ephemeral=True
     )
     await view.wait()
 
@@ -81,7 +100,8 @@ async def restart_server(interaction: discord.Interaction):
         # If it's not running, command will prompt for yes or no to start server.
         # I am ignoring this unil I learn more how to deal with that.
         initiated_by = (
-            "Server restart " f"initiated by {interaction.user.display_name}..."
+            f"**{server.name}** restart "
+            f"initiated by {interaction.user.display_name}..."
         )
         await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(initiated_by)
 
@@ -89,18 +109,19 @@ async def restart_server(interaction: discord.Interaction):
         await interaction.followup.send(initiated_by)
 
         # Update last run time of command
-        last_run = datetime.datetime.now()
+        # last_run = datetime.datetime.now()
 
         try:
             cmd = [
-                "/home/pzserver/pzserver",
+                "systemctl",
                 "restart",
+                server.name,
             ]
             process = await asyncio.create_subprocess_exec(*cmd)
             await process.wait()
 
             succeeded = (
-                "Success! The zomboid server was shut down "
+                f"Success! The **{server.name}** was shut down "
                 "and is now starting back up."
             )
             failed = "Something went wrong, maybe..."
@@ -111,7 +132,8 @@ async def restart_server(interaction: discord.Interaction):
 
             # Announce restart
             await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
-        except asyncio.SubprocessError as e:
+        except Exception as e:
+            # except asyncio.SubprocessError as e:
             print(f"Subprocess error occurred: {e}")
 
     else:

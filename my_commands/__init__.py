@@ -14,7 +14,7 @@ __all__ = [
     # "cat_fact",
     # "speak",
     "send_message",
-    # "restart_server",
+    "restart_server",
     # "get_playerlist",
     # "reset_password",
     # "update_mods_list",
