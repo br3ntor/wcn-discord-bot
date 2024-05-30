@@ -1,8 +1,10 @@
-import discord
-from discord import app_commands
 import os
+
+import discord
 import requests
-from utils.steam_utils import get_mod_ids, get_mod_data
+from discord import app_commands
+
+from utils.steam_utils import get_workshop_items
 
 # Only need these for testing single function in here
 # from dotenv import load_dotenv
@@ -61,7 +63,7 @@ async def update_mods_list(
 
     # Updates the gist list based on server config file
     update_gist(
-        parse_workshop_data(get_mod_data(get_mod_ids())),
+        parse_workshop_data(get_workshop_items()),
     )
 
     await interaction.response.send_message(f"List of mods on the server\n{url}")

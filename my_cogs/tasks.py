@@ -1,7 +1,10 @@
-import os
 import datetime
+import os
+
 from discord.ext import commands, tasks
-from utils.steam_utils import get_mod_ids, get_mod_data
+
+from utils.server_helpers import servers_with_mod_update
+from utils.steam_utils import get_workshop_items
 
 ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL"))
 SPAM_CHANNEL = int(os.getenv("SPAM_CHANNEL"))
@@ -42,17 +45,27 @@ class TasksCog(commands.Cog):
         """Checks if mod has been updated in the last n minutes.
         Sends ping to admins if there is updates"""
         print("Checking for mod updates...")
-        workshop_items = get_mod_data(get_mod_ids())
-        for item in workshop_items["response"]["publishedfiledetails"]:
+
+        workshop_items = await get_workshop_items()
+
+        for item in workshop_items:
             if "title" in item:
                 now = datetime.datetime.now()
                 time_updated = datetime.datetime.fromtimestamp(item["time_updated"])
                 if (now - time_updated).total_seconds() / 60 < 5:
+
+                    # Here we need to check on which servers the item exists
+                    # Then we can use that in the output below
+                    servers_with_mod = await servers_with_mod_update(
+                        item["publishedfileid"]
+                    )
+                    print(servers_with_mod)
+
                     formatted_time = time_updated.strftime("%b %d @ %I:%M%p")
                     guild = self.bot.get_guild(MY_GUILD)
                     admin_role = guild.get_role(ADMIN_ROLE_ID).mention
                     update_msg = (
-                        f"{admin_role} A mod has updated!\n"
+                        f"{admin_role} A mod has updated on **{'** and **'.join(servers_with_mod)}**!\n"
                         f"Title: {item['title'].strip()}\n"
                         f"Updated: {formatted_time}\n"
                         f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"

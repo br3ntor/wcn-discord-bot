@@ -72,7 +72,8 @@ async def restart_server(
 
     # Instead of the commented out rate limit code above, I think for now
     # I'll just check if the process is running before continuing
-    await interaction.response.defer()
+    # await interaction.response.defer()
+    # If this gives any probs here prob use it after user clicks confirm button
     is_running = await server_isrunning(server.name)
     if not is_running:
         await interaction.followup.send(f"**{server.name}** is **NOT** running!")
