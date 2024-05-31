@@ -23,25 +23,26 @@ async def server_isrunning(server: str) -> bool:
 
         # I don't think this is needed but doesn't hurt either
         # await process.wait()
-    except asyncio.SubprocessError as e:
+    except Exception as e:
         # I got an error once about asyncio no having a SubprocessError attribute
         # I'm not sure if this is correct
         print(f"Subprocess error occurred: {e}")
 
     out, err = output.decode(), error.decode()
 
+    # High skill error handling
     if err:
         print(err)
 
     for line in out.splitlines():
         if "ProjectZomboid64" in line:
-            print(f"{server} is running:\n{line}" if out else f"{server} is stopped")
+            print(f"{server} is running:\n{line}")
             return True
 
     return False
 
 
-async def running_servers_settings_paths():
+async def server_setting_paths() -> list:
     """Return list of paths to running servers settings files"""
     server_files = []
     for server_name in SERVERNAMES:
@@ -50,43 +51,49 @@ async def running_servers_settings_paths():
     return server_files
 
 
+async def get_all_servers_and_workshop_ids(
+    file_paths: list[str],
+) -> dict[str, list[str]]:
+    """Returns running server names with their workshop ids"""
+
+    # Well use a dictionary to map running servers to thier workshop_ids list
+    servers_workshopids_lists = {}
+
+    config = configparser.ConfigParser()
+    for path in file_paths:
+        # This sets proper syntax to parse file with ConfigParser
+        with open(path) as stream:
+            config.read_string("[default]\n" + stream.read())
+        servers_workshopids_lists.update(
+            {path.split("/")[2]: config["default"]["WorkshopItems"].split(";")}
+        )
+    return servers_workshopids_lists
+
+
 async def servers_with_mod_update(workshop_id: str) -> list:
     """Returns a list of running servers the updated mod is running on"""
     # Check for workshop_id in each servers list
     # and if its present add server to list
-    servers_and_mods = await get_servers_and_workshop_ids()
+    paths = await server_setting_paths()
+    servers = await get_all_servers_and_workshop_ids(paths)
+
     server_names = []
-    for key, value in servers_and_mods.items():
+    for key, value in servers.items():
         if workshop_id in value:
-            server_names.append(key.split("/")[2])
+            server_names.append(key)
     return server_names
 
 
-async def get_all_workshop_ids() -> list:
-    """Returns one list of mod workshop ids for all running servers."""
-    servers = await get_servers_and_workshop_ids()
+async def combine_servers_workshop_ids() -> list:
+    """Returns all workshop_ids together from running servers."""
+    paths = await server_setting_paths()
+    servers = await get_all_servers_and_workshop_ids(paths)
     all_servers_workshop_ids = set()
     for value in servers.values():
-        all_servers_workshop_ids.update(value)
+        if value:
+            all_servers_workshop_ids.update(value)
+
     # Steam lib wants list, also...
-    # The filter is to remove empty string(s) in the list that
-    # are present when the above code encounters empty WorkshopItems in file
-    workshop_ids = list(filter(None, all_servers_workshop_ids))
+    workshop_ids = list(all_servers_workshop_ids)
     print(f"Found this many workshop_ids:{len(workshop_ids)}")
     return workshop_ids
-
-
-async def get_servers_and_workshop_ids() -> dict:
-    """Returns running servers and their workshop ids"""
-    server_files = await running_servers_settings_paths()
-    config = configparser.ConfigParser()
-    # Well use a dictionary to map running servers to thier workshop_ids list
-    servers_workshopids_lists = {}
-    for file in server_files:
-        # This sets proper syntax to parse file with ConfigParser
-        with open(file) as stream:
-            config.read_string("[default]\n" + stream.read())
-        servers_workshopids_lists.update(
-            {file: config["default"]["WorkshopItems"].split(";")}
-        )
-    return servers_workshopids_lists

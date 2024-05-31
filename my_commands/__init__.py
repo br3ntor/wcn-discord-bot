@@ -7,7 +7,7 @@ from .restart_server import restart_server
 from .restart_server_auto import cancel_auto_restart, restart_server_auto
 from .send_message import send_message
 from .speak import speak
-from .update_mods_list import update_mods_list
+from .update_mods_lists import update_mods_lists
 from .update_sandbox_gist import update_sandbox_gist
 
 __all__ = [
@@ -17,7 +17,7 @@ __all__ = [
     "restart_server",
     # "get_playerlist",
     # "reset_password",
-    # "update_mods_list",
+    "update_mods_lists",
     # "restart_server_auto",
     # "cancel_auto_restart",
     # "admin_group",

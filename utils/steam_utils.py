@@ -2,16 +2,12 @@ import os
 
 from steam.webapi import WebAPI
 
-from utils.server_helpers import get_all_workshop_ids
-
 STEAM_KEY = os.getenv("STEAM_WEBAPI")
 
 
-async def get_workshop_items() -> list:
+async def get_workshop_items(workshop_ids: list) -> list:
     """Calls steam api to get mod data."""
     api = WebAPI(STEAM_KEY)
-
-    workshop_ids = await get_all_workshop_ids()
 
     item_count = len(workshop_ids)
 
@@ -22,3 +18,14 @@ async def get_workshop_items() -> list:
     items = workshop_items["response"]["publishedfiledetails"]
     print(f"Found this many workshop_items: {len(items)}")
     return items
+
+
+async def get_server_data_mod_items(
+    server_data_workshopids: dict[str, list[str]]
+) -> dict[str, list[dict]]:
+    """Returns a list of mod data with server name as key"""
+    server_data_mod_items = dict()
+    for name, ids in server_data_workshopids.items():
+        server_data_mod_items.update({name: await get_workshop_items(ids)})
+
+    return server_data_mod_items

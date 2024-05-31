@@ -8,7 +8,7 @@ from discord import app_commands
 from config import SERVERNAMES
 from utils.server_helpers import server_isrunning
 
-MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID"))
+MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
 
 
 @app_commands.command()
@@ -42,9 +42,6 @@ async def send_message(
     if not is_running:
         await interaction.followup.send(f"{server.name} is **NOT** running!")
         return
-    # else: # jus a convenient way to test server_isrunning
-    #     await interaction.followup.send(f"{server.name} **IS** running!")
-    #     return
 
     # Send command and respond to result
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
@@ -64,12 +61,10 @@ async def send_message(
         # # Get the output of the subprocess.
         output, error = await process.communicate()
 
-        # I don't think this is needed but doesn't hurt either
-        await process.wait()
-
-    except asyncio.SubprocessError as e:
+    except Exception as e:
         print(f"Subprocess error occurred: {e}")
 
+    # This outputs to systemd journal logs as byte data still?
     print(output.decode())
     print(error.decode())
 

@@ -9,7 +9,7 @@ import my_commands
 from my_cogs.tasks import TasksCog
 from my_cogs.webhook import WebhookCog
 
-MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD")))
+MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD", 0)))
 
 
 class MyClient(commands.Bot):
@@ -50,5 +50,9 @@ client = MyClient(intents=intents)
 # NOTE: I wonder how to keep these in their own file?
 @client.event
 async def on_ready():
+    # Another way to make pyright happy, still getting use to this
+    # if client.user is not None:
+    # I like this assert way, i know theres some others too.
+    assert client.user is not None
     print(f"Logged in as {client.user} (ID: {client.user.id})")
     print("------")
