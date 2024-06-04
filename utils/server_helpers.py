@@ -51,7 +51,7 @@ async def server_setting_paths() -> list:
     return server_files
 
 
-async def get_all_servers_and_workshop_ids(
+async def get_servers_workshop_ids(
     file_paths: list[str],
 ) -> dict[str, list[str]]:
     """Returns running server names with their workshop ids"""
@@ -75,7 +75,7 @@ async def servers_with_mod_update(workshop_id: str) -> list:
     # Check for workshop_id in each servers list
     # and if its present add server to list
     paths = await server_setting_paths()
-    servers = await get_all_servers_and_workshop_ids(paths)
+    servers = await get_servers_workshop_ids(paths)
 
     server_names = []
     for key, value in servers.items():
@@ -87,7 +87,7 @@ async def servers_with_mod_update(workshop_id: str) -> list:
 async def combine_servers_workshop_ids() -> list:
     """Returns all workshop_ids together from running servers."""
     paths = await server_setting_paths()
-    servers = await get_all_servers_and_workshop_ids(paths)
+    servers = await get_servers_workshop_ids(paths)
     all_servers_workshop_ids = set()
     for value in servers.values():
         if value:

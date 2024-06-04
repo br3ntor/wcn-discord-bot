@@ -1,6 +1,6 @@
+import aiohttp
 import discord
 from discord import app_commands
-import aiohttp
 
 
 @app_commands.command()
@@ -10,4 +10,4 @@ async def cat_fact(interaction: discord.Interaction):
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             fact = await response.json()
-            await interaction.response.send_message(fact["fact"])
+            await interaction.response.send_message(fact["fact"], tts=True)

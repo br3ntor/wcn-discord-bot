@@ -5,31 +5,40 @@ from math import ceil
 import discord
 from discord import app_commands
 
-ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL"))
+from config import SERVERNAMES
+from utils.server_helpers import server_isrunning
+
+ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
 
 
 COUNT_DOWN_TIME = 300  # seconds
 
 # Track if countdown timer is running
-countdown_isrunning = False
+# TODO: Use SERVERNAMES to make is_running object to track all servers
+# countdown_isrunning = False
+countdown_isrunning = {server: False for server in SERVERNAMES}
 
 # Will abort any restart function if a count_down_started is True
 abort_signal = False
 
 
-# TODO: Add try catch for proper error handeling, maybe return true or success message
-async def send_server_msg(message):
+async def send_server_msg(server: str, message: str):
     server_msg = f'servermsg "{message}"'
     cmd = [
-        "/home/pzserver/pzserver",
-        "send",
-        server_msg,
+        "runuser",
+        f"{server}",
+        "-c",
+        f"/home/{server}/pzserver send '{server_msg}'",
     ]
-    process = await asyncio.create_subprocess_exec(
-        *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-    )
-    # Get the output of the subprocess.
-    output, error = await process.communicate()
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
+        )
+        # Get the output of the subprocess.
+        output, error = await process.communicate()
+    except Exception as e:
+        print("Error in try block:", e)
+
     print(output.decode())
     print(error.decode())
 
@@ -68,8 +77,14 @@ class Confirm(discord.ui.View):
 
 
 @app_commands.command()
+@app_commands.choices(
+    server=[
+        app_commands.Choice(name=srv, value=index + 1)
+        for index, srv in enumerate(SERVERNAMES)
+    ]
+)
 async def restart_server_auto(
-    interaction: discord.Interaction,
+    interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
     """Restarts server in 5min."""
     global abort_signal, countdown_isrunning
@@ -80,7 +95,9 @@ async def restart_server_auto(
     view = Confirm()
 
     await interaction.response.send_message(
-        "Automatically restart the server after 5min?", view=view, ephemeral=True
+        f"Automatically restart the **{server.name}** after 5min?",
+        view=view,
+        ephemeral=True,
     )
     await view.wait()
 
@@ -94,34 +111,45 @@ async def restart_server_auto(
     elif view.value:
         print("Confirmed...")
 
+        is_running = await server_isrunning(server.name)
+        if not is_running:
+            await interaction.followup.send(f"**{server.name}** is **NOT** running!")
+            return
+
         # Announce to discord members restart will happen after some minutes
         init_msg = (
             f"Auto restart initiated by {interaction.user.display_name}. "
-            f"Server will restart in {COUNT_DOWN_TIME//60} minutes."
+            f"**{server.name}** will restart in {COUNT_DOWN_TIME//60} minutes."
         )
-
-        # Send players on server first restart warning
-        await send_server_msg(f"Server will restart in {COUNT_DOWN_TIME//60} minutes.")
 
         # Send message to discord members announcing restart
         await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(init_msg)
 
+        # Send players on server first restart warning
+        await send_server_msg(
+            server.name,
+            f"Server will restart in {COUNT_DOWN_TIME//60} minutes.",
+        )
+
         # Start tracking
-        countdown_isrunning = True
+        countdown_isrunning[server.name] = True
         start_time = asyncio.get_event_loop().time()
         end_time = start_time + COUNT_DOWN_TIME
         ran_once = False
 
+        # I feel like this all might be easier if instead of accurate time
+        # We could just subtract 5 every 5 seconds till zero, then I can
+        # be confident about my conditionals
         while asyncio.get_event_loop().time() < end_time:
             if abort_signal:
                 # TODO: Consider adding server message to
                 # inform players of abort in game
-                countdown_isrunning = False
+                countdown_isrunning[server.name] = False
                 await interaction.channel.send(
-                    "Auto restart ABORTED 👼 for the zomboid server."
+                    f"Auto restart ABORTED 👼 for the **{server.name}** server."
                 )
                 return await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(
-                    "Auto restart ABORTED 👼 for the zomboid server."
+                    f"Auto restart ABORTED 👼 for the **{server.name}** server."
                 )
 
             seconds_left = ceil(
@@ -132,34 +160,38 @@ async def restart_server_auto(
             # ran_once is because I can't be certain seconds_left will tick on 60
             if seconds_left <= 60 and ran_once is False:
                 ran_once = True
-                await send_server_msg(
-                    f"The server will restart in {seconds_left} seconds!"
-                )
                 await interaction.channel.send(
-                    f"The zomboid server will restart in {seconds_left} seconds."
+                    f"The {server.name} server will restart in {seconds_left} seconds."
+                )
+
+            if seconds_left % 60 == 0:
+                await send_server_msg(
+                    server.name, f"The server will restart in {seconds_left} seconds!"
                 )
 
             await asyncio.sleep(5)
 
         # Countdown is over so lets reset count_down trackers
-        countdown_isrunning = False
+        countdown_isrunning[server.name] = False
 
         try:
             cmd = [
-                "/home/pzserver/pzserver",
+                "systemctl",
                 "restart",
+                server.name,
             ]
             process = await asyncio.create_subprocess_exec(*cmd)
             await process.wait()
 
-            restart_msg = (
-                "Success! The zomboid server "
-                "was restarted and is now loading back up."
-            )
-            await interaction.followup.send(restart_msg)
-            await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(restart_msg)
-        except asyncio.SubprocessError as e:
-            print(f"Subprocess error occurred: {e}")
+        except Exception as e:
+            print(f"error occurred: {e}")
+
+        restart_msg = (
+            f"Success! The **{server.name}** server "
+            "was restarted and is now loading back up."
+        )
+        await interaction.followup.send(restart_msg)
+        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(restart_msg)
 
     else:
         print("Cancelled...")

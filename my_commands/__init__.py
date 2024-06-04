@@ -11,7 +11,7 @@ from .update_mods_lists import update_mods_lists
 from .update_sandbox_gist import update_sandbox_gist
 
 __all__ = [
-    # "cat_fact",
+    "cat_fact",
     # "speak",
     "send_message",
     "restart_server",

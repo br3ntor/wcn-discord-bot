@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 import os
 
 import discord
@@ -8,10 +7,8 @@ from discord import app_commands
 from config import SERVERNAMES
 from utils.server_helpers import server_isrunning
 
-MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID"))
-ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL"))
-
-# last_run = datetime.datetime(1990, 1, 1)
+MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
+ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
 
 
 # TODO: Extend this class to also take an action_to_confirm to build that into the
@@ -59,26 +56,6 @@ async def restart_server(
         await interaction.response.send_message("You are not worthy.", ephemeral=True)
         return
 
-    # Place a rate limit on the command
-    # TODO: Try the cooldown decorator
-    # https://discordpy.readthedocs.io/en/stable/interactions/api.html#discord.app_commands.checks.cooldown
-    # global last_run
-    # elapsed_time = datetime.datetime.now() - last_run
-    # if elapsed_time.seconds < 300:
-    #     await interaction.response.send_message(
-    #         f"Please wait {300 - elapsed_time.seconds} more seconds.", ephemeral=True
-    #     )
-    #     return
-
-    # Instead of the commented out rate limit code above, I think for now
-    # I'll just check if the process is running before continuing
-    # await interaction.response.defer()
-    # If this gives any probs here prob use it after user clicks confirm button
-    is_running = await server_isrunning(server.name)
-    if not is_running:
-        await interaction.followup.send(f"**{server.name}** is **NOT** running!")
-        return
-
     # Send the question with buttons
     view = Confirm()
     await interaction.response.send_message(
@@ -97,9 +74,11 @@ async def restart_server(
     elif view.value:
         print("Confirmed...")
 
-        # Call the restart command, assuming server is running.
-        # If it's not running, command will prompt for yes or no to start server.
-        # I am ignoring this unil I learn more how to deal with that.
+        is_running = await server_isrunning(server.name)
+        if not is_running:
+            await interaction.followup.send(f"**{server.name}** is **NOT** running!")
+            return
+
         initiated_by = (
             f"**{server.name}** restart "
             f"initiated by {interaction.user.display_name}..."
@@ -108,9 +87,6 @@ async def restart_server(
 
         # Feedback for mod chanel
         await interaction.followup.send(initiated_by)
-
-        # Update last run time of command
-        # last_run = datetime.datetime.now()
 
         try:
             cmd = [
@@ -134,7 +110,6 @@ async def restart_server(
             # Announce restart
             await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(status)
         except Exception as e:
-            # except asyncio.SubprocessError as e:
             print(f"Subprocess error occurred: {e}")
 
     else:

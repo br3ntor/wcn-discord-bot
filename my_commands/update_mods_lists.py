@@ -5,8 +5,8 @@ import requests
 from discord import app_commands
 
 from config import SERVER_DATA
-from utils.server_helpers import get_all_servers_and_workshop_ids, server_setting_paths
-from utils.steam_utils import get_server_data_mod_items
+from utils.server_helpers import get_servers_workshop_ids, server_setting_paths
+from utils.steam_utils import get_servers_workshop_items
 
 STEAM_KEY = os.getenv("STEAM_WEBAPI")
 GITHUB_PAT = os.getenv("GITHUB_PAT")
@@ -51,14 +51,14 @@ def update_gist(server_name: str, sorted_mods: str, server_gist_id: str) -> None
 
 async def update_all_gists():
     settings_paths = await server_setting_paths()
-    workshop_ids = await get_all_servers_and_workshop_ids(settings_paths)
-    server_mods = await get_server_data_mod_items(workshop_ids)
+    servers_workshop_ids = await get_servers_workshop_ids(settings_paths)
+    servers_mods = await get_servers_workshop_items(servers_workshop_ids)
 
     gist_links = []
     for zomboid_server in SERVER_DATA:
         if zomboid_server["gists"]["modlist"]:
             name = zomboid_server["name"]
-            data = parse_workshop_data(server_mods[name])
+            data = parse_workshop_data(servers_mods[name])
             update_gist(name, data, zomboid_server["gists"]["modlist"])
             link = (
                 f"https://gist.github.com/br3ntor/{zomboid_server['gists']['modlist']}"
@@ -72,9 +72,9 @@ async def update_mods_lists(
     interaction: discord.Interaction,
 ):
     """Updates the list of mods for all server."""
+    # I need to defer before this work then followup for response
+    await interaction.response.defer()
     links = await update_all_gists()
     formatted_links = "\n".join(links)
 
-    await interaction.response.send_message(
-        f"List of mods on the server(s)\n {formatted_links}"
-    )
+    await interaction.followup.send(f"List of mods on the server(s)\n{formatted_links}")
