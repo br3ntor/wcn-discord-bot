@@ -1,6 +1,5 @@
 import asyncio
 import os
-from math import ceil
 
 import discord
 from discord import app_commands
@@ -11,11 +10,7 @@ from utils.server_helpers import server_isrunning
 ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
 
 
-COUNT_DOWN_TIME = 300  # seconds
-
 # Track if countdown timer is running
-# TODO: Use SERVERNAMES to make is_running object to track all servers
-# countdown_isrunning = False
 countdown_isrunning = {server: False for server in SERVERNAMES}
 
 # Will abort any restart function if a count_down_started is True
@@ -44,9 +39,10 @@ async def send_server_msg(server: str, message: str):
 
 
 class Confirm(discord.ui.View):
-    def __init__(self):
+    def __init__(self, server: str):
         super().__init__()
         self.value = None
+        self.server = server
 
     # When the confirm button is pressed, set the inner value to `True` and
     # stop the View from listening to more input.
@@ -58,9 +54,13 @@ class Confirm(discord.ui.View):
         await interaction.response.send_message(
             "Auto Restart Confirmed.", ephemeral=True
         )
-        await interaction.channel.send(
-            f"{interaction.user.display_name} has initiated the server auto restart. Restarting in 5min."
-        )
+        # I guess interaction.channel can be diff types of channel not all having send methods
+        # So this checks for that although I dont think it ever would not be but I like to may pyright happy
+        # Besides I always am learning stuff when its upset
+        if isinstance(interaction.channel, discord.TextChannel):
+            await interaction.channel.send(
+                f"{interaction.user.display_name} has initiated the **{self.server}** auto restart. Restarting in 5min."
+            )
         self.value = True
         self.stop()
 
@@ -69,9 +69,6 @@ class Confirm(discord.ui.View):
     @discord.ui.button(label="No", style=discord.ButtonStyle.grey)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("Auto Restart Aborted.", ephemeral=True)
-        await interaction.channel.send(
-            f"{interaction.user.display_name} has aborted the auto restart!"
-        )
         self.value = False
         self.stop()
 
@@ -92,7 +89,7 @@ async def restart_server_auto(
     abort_signal = False
 
     # Create the view containing our dropdown and buttons
-    view = Confirm()
+    view = Confirm(server.name)
 
     await interaction.response.send_message(
         f"Automatically restart the **{server.name}** after 5min?",
@@ -103,7 +100,11 @@ async def restart_server_auto(
 
     # Disable all elements after button is pressed
     for element in view.children:
-        element.disabled = True
+        if isinstance(element, discord.ui.Button):
+            element.disabled = True
+        else:
+            raise TypeError(f"Unexpected item type: {type(element)}")
+
     await interaction.edit_original_response(view=view)
 
     if view.value is None:
@@ -111,65 +112,61 @@ async def restart_server_auto(
     elif view.value:
         print("Confirmed...")
 
+        # Could probably move all this up to top but not ready yet
         is_running = await server_isrunning(server.name)
         if not is_running:
             await interaction.followup.send(f"**{server.name}** is **NOT** running!")
             return
 
+        if not isinstance(interaction.guild, discord.Guild):
+            raise TypeError("Not a guild")
+
+        if not isinstance(interaction.channel, discord.TextChannel):
+            raise TypeError("Not a text channel")
+
+        channel = interaction.guild.get_channel(ANNOUNCE_CHANNEL)
+        if not isinstance(channel, discord.TextChannel):
+            raise TypeError("Not a text channel")
+
         # Announce to discord members restart will happen after some minutes
         init_msg = (
-            f"Auto restart initiated by {interaction.user.display_name}. "
-            f"**{server.name}** will restart in {COUNT_DOWN_TIME//60} minutes."
+            f"{interaction.user.display_name} has initiated the **{server.name}** auto restart. "
+            f"Restarting in 5min."
         )
 
         # Send message to discord members announcing restart
-        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(init_msg)
+        await channel.send(init_msg)
 
-        # Send players on server first restart warning
-        await send_server_msg(
-            server.name,
-            f"Server will restart in {COUNT_DOWN_TIME//60} minutes.",
-        )
-
-        # Start tracking
+        # Start tracking running countdowns
         countdown_isrunning[server.name] = True
-        start_time = asyncio.get_event_loop().time()
-        end_time = start_time + COUNT_DOWN_TIME
-        ran_once = False
-
-        # I feel like this all might be easier if instead of accurate time
-        # We could just subtract 5 every 5 seconds till zero, then I can
-        # be confident about my conditionals
-        while asyncio.get_event_loop().time() < end_time:
+        seconds_left = 300
+        while seconds_left > 0:
             if abort_signal:
-                # TODO: Consider adding server message to
-                # inform players of abort in game
                 countdown_isrunning[server.name] = False
                 await interaction.channel.send(
                     f"Auto restart ABORTED 👼 for the **{server.name}** server."
                 )
-                return await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(
+                await channel.send(
                     f"Auto restart ABORTED 👼 for the **{server.name}** server."
                 )
+                await send_server_msg(server.name, "Restart has been ABORTED")
+                return
 
-            seconds_left = ceil(
-                COUNT_DOWN_TIME - (asyncio.get_event_loop().time() - start_time)
-            )
-
-            # At the 1 minute mark
-            # ran_once is because I can't be certain seconds_left will tick on 60
-            if seconds_left <= 60 and ran_once is False:
-                ran_once = True
-                await interaction.channel.send(
-                    f"The {server.name} server will restart in {seconds_left} seconds."
-                )
-
+            # Here we send restart msg to game server every minute
             if seconds_left % 60 == 0:
                 await send_server_msg(
-                    server.name, f"The server will restart in {seconds_left} seconds!"
+                    server.name,
+                    f"The server will restart in {seconds_left//60} minute(s)!",
+                )
+
+            # Last minute we send msg to mods to give them last chance to abort
+            if seconds_left == 60:
+                await interaction.channel.send(
+                    f"The **{server.name}** server will restart in 1 minute!"
                 )
 
             await asyncio.sleep(5)
+            seconds_left -= 5
 
         # Countdown is over so lets reset count_down trackers
         countdown_isrunning[server.name] = False
@@ -187,11 +184,11 @@ async def restart_server_auto(
             print(f"error occurred: {e}")
 
         restart_msg = (
-            f"Success! The **{server.name}** server "
+            f"Success! The **{server.name}** "
             "was restarted and is now loading back up."
         )
         await interaction.followup.send(restart_msg)
-        await interaction.guild.get_channel(ANNOUNCE_CHANNEL).send(restart_msg)
+        await channel.send(restart_msg)
 
     else:
         print("Cancelled...")
@@ -202,10 +199,12 @@ async def cancel_auto_restart(interaction: discord.Interaction):
     """ZOMG CANCEL B4 IT TOO LATE!!!."""
     global abort_signal
 
-    if countdown_isrunning:
+    is_running = any(countdown_isrunning.values())
+
+    if is_running:
         abort_signal = True
         await interaction.response.send_message("Abort signal sent!")
     else:
         await interaction.response.send_message(
-            "There is no countdown happening, this is you 🤡"
+            "There are no countdown happening, this is you 🤡"
         )
