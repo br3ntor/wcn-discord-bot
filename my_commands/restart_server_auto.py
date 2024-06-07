@@ -4,14 +4,17 @@ import os
 import discord
 from discord import app_commands
 
-from config import SERVERNAMES
+from config import REMOTE_SERVER_IP, SERVER_DATA
 from utils.server_helpers import server_isrunning
 
 ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
 
+REMOTE_SERVERS = [
+    server["name"] for server in SERVER_DATA if server["ip"] == REMOTE_SERVER_IP
+]
 
 # Track if countdown timer is running
-countdown_isrunning = {server: False for server in SERVERNAMES}
+countdown_isrunning = {server: False for server in REMOTE_SERVERS}
 
 # Will abort any restart function if a count_down_started is True
 abort_signal = False
@@ -77,7 +80,7 @@ class Confirm(discord.ui.View):
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVERNAMES)
+        for index, srv in enumerate(REMOTE_SERVERS)
     ]
 )
 async def restart_server_auto(

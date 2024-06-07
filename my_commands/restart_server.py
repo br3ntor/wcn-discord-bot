@@ -12,7 +12,7 @@ ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
 
 # I just want the servers with remote ip used in all commands but steam api calls since I can get home server with that easily too
 ENABLED_SERVERS = [
-    server["name"] for server in SERVER_DATA if server["ip"] in REMOTE_SERVER_IP
+    server["name"] for server in SERVER_DATA if server["ip"] == REMOTE_SERVER_IP
 ]
 
 

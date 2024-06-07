@@ -3,19 +3,18 @@ import os
 REMOTE_SERVER_IP = os.getenv("REMOTE_SERVER_IP")
 HOME_SERVER_IP = os.getenv("HOME_SERVER_IP")
 
-SERVERNAMES = ["test_pzserver", "pel_pzserver", "heavy_pzserver"]
 SERVER_DATA = [
     {
-        "name": "test_pzserver",
-        "gists": {"modlist": "", "sandbox": ""},
-        "ip": REMOTE_SERVER_IP,
-        "port": 17261,
-    },
-    {
         "name": "vanilla",
-        "gists": {"modlist": "", "sandbox": ""},
+        "gists": None,
         "ip": HOME_SERVER_IP,
         "port": 16261,
+    },
+    {
+        "name": "test_pzserver",
+        "gists": None,
+        "ip": REMOTE_SERVER_IP,
+        "port": 17261,
     },
     {
         "name": "pel_pzserver",

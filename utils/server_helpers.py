@@ -1,7 +1,7 @@
 import asyncio
 import configparser
 
-from config import SERVERNAMES
+from config import SERVER_DATA
 
 
 async def server_isrunning(server: str) -> bool:
@@ -45,7 +45,8 @@ async def server_isrunning(server: str) -> bool:
 async def server_setting_paths() -> list:
     """Return list of paths to running servers settings files"""
     server_files = []
-    for server_name in SERVERNAMES:
+    servers_with_gists = [server["name"] for server in SERVER_DATA if server["gists"]]
+    for server_name in servers_with_gists:
         if await server_isrunning(server_name):
             server_files.append(f"/home/{server_name}/Zomboid/Server/pzserver.ini")
     return server_files

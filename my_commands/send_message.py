@@ -5,17 +5,21 @@ import re
 import discord
 from discord import app_commands
 
-from config import SERVERNAMES
+from config import REMOTE_SERVER_IP, SERVER_DATA
 from utils.server_helpers import server_isrunning
 
 MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
+
+ENABLED_SERVERS = [
+    server["name"] for server in SERVER_DATA if server["ip"] == REMOTE_SERVER_IP
+]
 
 
 @app_commands.command()
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVERNAMES)
+        for index, srv in enumerate(ENABLED_SERVERS)
     ]
 )
 @app_commands.describe(
@@ -30,6 +34,7 @@ async def send_message(
     # Only discord mods can use the command
     # This gets taken care of when setuping up bot but its nice to have still
     # Oh also the framwork has a special check function to do this already I should use
+    assert isinstance(interaction.user, discord.Member)
     if interaction.user.get_role(MOD_ROLE_ID) is None:
         await interaction.response.send_message("You are not worthy.", ephemeral=True)
         return
