@@ -5,21 +5,17 @@ import re
 import discord
 from discord import app_commands
 
-from config import REMOTE_SERVER_IP, SERVER_DATA
+from config import LOCAL_SERVER_NAMES
 from utils.server_helpers import server_isrunning
 
 MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
-
-ENABLED_SERVERS = [
-    server["name"] for server in SERVER_DATA if server["ip"] == REMOTE_SERVER_IP
-]
 
 
 @app_commands.command()
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(ENABLED_SERVERS)
+        for index, srv in enumerate(LOCAL_SERVER_NAMES)
     ]
 )
 @app_commands.describe(

@@ -4,19 +4,17 @@ import os
 import discord
 from discord import app_commands
 
-from config import REMOTE_SERVER_IP, SERVER_DATA
+from config import LOCAL_SERVER_NAMES
 from utils.server_helpers import server_isrunning
 
+MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
 ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
 
-REMOTE_SERVERS = [
-    server["name"] for server in SERVER_DATA if server["ip"] == REMOTE_SERVER_IP
-]
 
 # Track if countdown timer is running
-countdown_isrunning = {server: False for server in REMOTE_SERVERS}
+countdown_isrunning = {server: False for server in LOCAL_SERVER_NAMES}
 
-# Will abort any restart function if a count_down_started is True
+# Will abort all running countdowns
 abort_signal = False
 
 
@@ -80,20 +78,46 @@ class Confirm(discord.ui.View):
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(REMOTE_SERVERS)
+        for index, srv in enumerate(LOCAL_SERVER_NAMES)
     ]
 )
 async def restart_server_auto(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
     """Restarts server in 5min."""
-    global abort_signal, countdown_isrunning
+    if not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message(
+            "WTF are you trying to do even?", ephemeral=True
+        )
+        raise TypeError("Not a member")
 
+    # Only discord mods can use the command there might be built in check for this, check docs
+    if interaction.user.get_role(MOD_ROLE_ID) is None:
+        await interaction.response.send_message("You are not worthy.", ephemeral=True)
+        return
+
+    if not isinstance(interaction.guild, discord.Guild):
+        raise TypeError("Not a guild")
+
+    if not isinstance(interaction.channel, discord.TextChannel):
+        raise TypeError("Not a text channel")
+
+    announce_chan = interaction.guild.get_channel(ANNOUNCE_CHANNEL)
+    if not isinstance(announce_chan, discord.TextChannel):
+        raise TypeError("Not a text channel")
+
+    is_running = await server_isrunning(server.name)
+    if not is_running:
+        await interaction.response.send_message(
+            f"**{server.name}** is **NOT** running!"
+        )
+        return
+
+    global abort_signal, countdown_isrunning
     abort_signal = False
 
     # Create the view containing our dropdown and buttons
     view = Confirm(server.name)
-
     await interaction.response.send_message(
         f"Automatically restart the **{server.name}** after 5min?",
         view=view,
@@ -115,30 +139,12 @@ async def restart_server_auto(
     elif view.value:
         print("Confirmed...")
 
-        # Could probably move all this up to top but not ready yet
-        is_running = await server_isrunning(server.name)
-        if not is_running:
-            await interaction.followup.send(f"**{server.name}** is **NOT** running!")
-            return
-
-        if not isinstance(interaction.guild, discord.Guild):
-            raise TypeError("Not a guild")
-
-        if not isinstance(interaction.channel, discord.TextChannel):
-            raise TypeError("Not a text channel")
-
-        channel = interaction.guild.get_channel(ANNOUNCE_CHANNEL)
-        if not isinstance(channel, discord.TextChannel):
-            raise TypeError("Not a text channel")
-
-        # Announce to discord members restart will happen after some minutes
         init_msg = (
             f"{interaction.user.display_name} has initiated the **{server.name}** auto restart. "
             f"Restarting in 5min."
         )
-
         # Send message to discord members announcing restart
-        await channel.send(init_msg)
+        await announce_chan.send(init_msg)
 
         # Start tracking running countdowns
         countdown_isrunning[server.name] = True
@@ -149,7 +155,7 @@ async def restart_server_auto(
                 await interaction.channel.send(
                     f"Auto restart ABORTED 👼 for the **{server.name}** server."
                 )
-                await channel.send(
+                await announce_chan.send(
                     f"Auto restart ABORTED 👼 for the **{server.name}** server."
                 )
                 await send_server_msg(server.name, "Restart has been ABORTED")
@@ -190,8 +196,8 @@ async def restart_server_auto(
             f"Success! The **{server.name}** "
             "was restarted and is now loading back up."
         )
-        await interaction.followup.send(restart_msg)
-        await channel.send(restart_msg)
+        await interaction.channel.send(restart_msg)
+        await announce_chan.send(restart_msg)
 
     else:
         print("Cancelled...")

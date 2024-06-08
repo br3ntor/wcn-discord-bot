@@ -1,7 +1,7 @@
 import asyncio
 import configparser
 
-from config import SERVER_DATA
+from config import LOCAL_SERVER_IP, SERVER_DATA
 
 
 async def server_isrunning(server: str) -> bool:
@@ -21,11 +21,8 @@ async def server_isrunning(server: str) -> bool:
         # Get the output of the subprocess.
         output, error = await process.communicate()
 
-        # I don't think this is needed but doesn't hurt either
-        # await process.wait()
     except Exception as e:
-        # I got an error once about asyncio no having a SubprocessError attribute
-        # I'm not sure if this is correct
+        # FIX: Find correct exception sometime
         print(f"Subprocess error occurred: {e}")
 
     out, err = output.decode(), error.decode()
@@ -40,6 +37,23 @@ async def server_isrunning(server: str) -> bool:
             return True
 
     return False
+
+
+# This was going to be for checking before/while creating choices for discord command
+# But I don't know how or if I even should do such a thing
+# async def local_running_servers() -> list[str]:
+#     """Returns a list of running servers on the local machine"""
+#
+#     # Get names of local servers
+#     local_servers = [
+#         server["name"] for server in SERVER_DATA if server["ip"] == LOCAL_SERVER_IP
+#     ]
+#
+#     # Check and return only running servers
+#     running_servers = [
+#         server for server in local_servers if await server_isrunning(server)
+#     ]
+#     return running_servers
 
 
 async def server_setting_paths() -> list:

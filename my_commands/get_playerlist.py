@@ -12,7 +12,7 @@ SERVERS_TO_USE = [
     "pel_pzserver",
     "heavy_pzserver",
 ]
-ENABLED_SERVERS = [server for server in SERVER_DATA if server["name"] in SERVERS_TO_USE]
+USED_SERVERS = [server for server in SERVER_DATA if server["name"] in SERVERS_TO_USE]
 
 
 def format_time(seconds: float) -> str:
@@ -41,10 +41,8 @@ async def get_playerlist(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
     """Get a list of players on a server."""
-    ip = next(srv["ip"] for srv in ENABLED_SERVERS if srv["name"] == server.name)
-    port = int(
-        next(srv["port"] for srv in ENABLED_SERVERS if srv["name"] == server.name)
-    )
+    ip = next(srv["ip"] for srv in USED_SERVERS if srv["name"] == server.name)
+    port = int(next(srv["port"] for srv in USED_SERVERS if srv["name"] == server.name))
 
     server_players = gs.a2s_players((ip, port))
 
