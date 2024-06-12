@@ -16,7 +16,7 @@ __all__ = [
     "send_message",
     "restart_server",
     "get_playerlist",
-    # "reset_password",
+    "reset_password",
     "update_mods_lists",
     "restart_server_auto",
     "cancel_auto_restart",
