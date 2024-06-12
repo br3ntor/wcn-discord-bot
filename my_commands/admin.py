@@ -4,6 +4,7 @@ import re
 import discord
 from discord import app_commands
 
+from config import LOCAL_SERVER_NAMES
 from utils.db_helpers import get_admins, get_user
 
 admin_group = app_commands.Group(
@@ -13,17 +14,23 @@ admin_group = app_commands.Group(
 
 @admin_group.command()
 @app_commands.choices(
+    server=[
+        app_commands.Choice(name=srv, value=index + 1)
+        for index, srv in enumerate(LOCAL_SERVER_NAMES)
+    ],
     accesslevel=[
         app_commands.Choice(name="Give admin", value=1),
         app_commands.Choice(name="Remove admin", value=2),
     ],
 )
 @app_commands.describe(
+    server="Which server?",
     accesslevel="The choice to give or take admin",
     player="The name of the player in game.",
 )
 async def toggle(
     interaction: discord.Interaction,
+    server: app_commands.Choice[int],
     accesslevel: app_commands.Choice[int],
     player: str,
 ):
@@ -35,16 +42,19 @@ async def toggle(
     # Should be called before the first db call
     await interaction.response.defer()
 
-    if not await get_user(player):
-        await interaction.followup.send(f"username: {player} not found in database")
+    if not await get_user(server.name, player):
+        await interaction.followup.send(
+            f"username: **{player}** not found in **{server.name}** database"
+        )
         return
 
     access_level = "admin" if accesslevel.value == 1 else "none"
     server_msg = f'setaccesslevel "{player}" {access_level}'
     cmd = [
-        "/home/pzserver/pzserver",
-        "send",
-        server_msg,
+        "runuser",
+        f"{server.name}",
+        "-c",
+        f"/home/{server.name}/pzserver send '{server_msg}'",
     ]
 
     try:
@@ -55,15 +65,15 @@ async def toggle(
         # Get the output of the subprocess.
         output, error = await process.communicate()
 
-    except asyncio.SubprocessError as e:
+    except Exception as e:
         print(f"Subprocess error occurred: {e}")
 
     print(output.decode())
     print(error.decode())
 
     status = (
-        f"{player} accesslevel has been set to **{access_level}** "
-        f"on the zomboid server"
+        f"**{player}** accesslevel has been set to **{access_level}** "
+        f"on the **{server.name}** server"
         if "OK" in output.decode()
         else "Something wrong maybe\n" + output.decode()
     )
@@ -73,6 +83,7 @@ async def toggle(
 
 @admin_group.command()
 async def list(interaction: discord.Interaction):
-    """Get a list of admins on zomboid server."""
-    the_boys = await get_admins()
-    await interaction.response.send_message("**Zomboid admins**:\n" f"{the_boys}\n")
+    """Get a list of admins on a zomboid server."""
+    the_boys = [f"**{srv}**: {await get_admins(srv)}" for srv in LOCAL_SERVER_NAMES]
+    formatted_msg = "\n".join(the_boys)
+    await interaction.response.send_message(formatted_msg)

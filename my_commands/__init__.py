@@ -20,7 +20,7 @@ __all__ = [
     "update_mods_lists",
     "restart_server_auto",
     "cancel_auto_restart",
-    # "admin_group",
+    "admin_group",
     # "update_sandbox_gist",
     "ban_group",
 ]
