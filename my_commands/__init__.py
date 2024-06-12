@@ -22,5 +22,5 @@ __all__ = [
     "cancel_auto_restart",
     # "admin_group",
     # "update_sandbox_gist",
-    # "ban_group",
+    "ban_group",
 ]
