@@ -1,9 +1,10 @@
-import os
 import json
-from discord.ext import commands
-from aiohttp import web
+import os
 
-ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL"))
+from aiohttp import web
+from discord.ext import commands
+
+ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
 WEBHOOK_PATH = "/hook"
 

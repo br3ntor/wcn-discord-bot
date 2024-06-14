@@ -37,7 +37,7 @@ class MyClient(commands.Bot):
                 self.tree.add_command(attr)
 
         await self.add_cog(TasksCog(self))
-        # await self.add_cog(WebhookCog(self))
+        await self.add_cog(WebhookCog(self))
         # This copies the global commands over to your guild.
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)

@@ -1,22 +1,22 @@
 import os
+
 import aiohttp
 import discord
 from discord import app_commands
 
+from config import SERVER_DATA
 
 GITHUB_PAT = os.getenv("GITHUB_PAT")
 
-server_gist_id = "392d6ae26f627b3ee8c9cacb4111d035"
 
-
-def get_sandboxsettings():
+def get_sandboxsettings(server: str):
     """Returns text content of servers sandbox-settings file."""
-    file_path = "/home/pzserver/Zomboid/Server/pzserver_SandboxVars.lua"
+    file_path = f"/home/{server}/Zomboid/Server/pzserver_SandboxVars.lua"
     with open(file_path) as f:
         return f.read()
 
 
-async def update_gist(payload: str) -> None:
+async def update_gist(sandboxsettings: str, server_gist_id: str) -> None:
     """Update gist with current server sandbox settings."""
     headers = {
         "Accept": "application/vnd.github+json",
@@ -26,7 +26,7 @@ async def update_gist(payload: str) -> None:
 
     payload = {
         "description": "West Coast Noobs sandbox settings.",
-        "files": {"pzserver_SandboxVars.lua": {"content": payload}},
+        "files": {"pzserver_SandboxVars.lua": {"content": sandboxsettings}},
     }
 
     async with aiohttp.ClientSession() as session:
@@ -37,13 +37,16 @@ async def update_gist(payload: str) -> None:
 
 
 @app_commands.command()
-async def update_sandbox_gist(interaction: discord.Interaction):
+async def update_sandbox_gists(interaction: discord.Interaction):
     """Updates server sandbox settings gist."""
-    payload = get_sandboxsettings()
-    await update_gist(payload)
+    links = []
+    for server in SERVER_DATA:
+        if server["gists"] and server["gists"]["sandbox"]:
+            payload = get_sandboxsettings(server["name"])
+            await update_gist(payload, server["gists"]["sandbox"])
+            links.append(
+                f"https://gist.github.com/br3ntor/{server['gists']['sandbox']}"
+            )
 
-    url = f"https://gist.github.com/br3ntor/{server_gist_id}"
-
-    await interaction.response.send_message(
-        f"View the pzserver server's sandbox settings.\n{url}"
-    )
+    formatted_links = "\n".join(links)
+    await interaction.response.send_message(f"Sandbox settings:\n{formatted_links}")
