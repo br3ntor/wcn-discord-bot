@@ -20,7 +20,6 @@ class ServerDict(TypedDict):
 # Maybe I can setup rcon control in the future? Or maybe I shouldn't even deal with remote
 # With this program, not really sure right now
 # One thing I do know is a lot of code has to change if I restructure this main data type
-# SERVER_DATA: list[dict[str, str | int | dict[str, str] | None]] = [
 SERVER_DATA: List[ServerDict] = [
     {
         "name": "vanilla",

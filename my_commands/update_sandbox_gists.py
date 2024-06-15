@@ -16,7 +16,9 @@ def get_sandboxsettings(server: str):
         return f.read()
 
 
-async def update_gist(sandboxsettings: str, server_gist_id: str) -> None:
+async def update_gist(
+    sandboxsettings: str, server_gist_id: str, server_name: str
+) -> None:
     """Update gist with current server sandbox settings."""
     headers = {
         "Accept": "application/vnd.github+json",
@@ -25,8 +27,8 @@ async def update_gist(sandboxsettings: str, server_gist_id: str) -> None:
     }
 
     payload = {
-        "description": "West Coast Noobs sandbox settings.",
-        "files": {"pzserver_SandboxVars.lua": {"content": sandboxsettings}},
+        "description": f"{server_name} sandbox settings.",
+        "files": {f"{server_name}_SandboxVars.lua": {"content": sandboxsettings}},
     }
 
     async with aiohttp.ClientSession() as session:
@@ -43,7 +45,7 @@ async def update_sandbox_gists(interaction: discord.Interaction):
     for server in SERVER_DATA:
         if server["gists"] and server["gists"]["sandbox"]:
             payload = get_sandboxsettings(server["name"])
-            await update_gist(payload, server["gists"]["sandbox"])
+            await update_gist(payload, server["gists"]["sandbox"], server["name"])
             links.append(
                 f"https://gist.github.com/br3ntor/{server['gists']['sandbox']}"
             )
