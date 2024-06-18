@@ -37,6 +37,7 @@ I can see **{len(player_table)}** players on the **{server}**.
         for index, srv in enumerate(SERVERS_TO_USE)
     ]
 )
+@app_commands.describe(server="Which server?")
 async def get_playerlist(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):

@@ -81,6 +81,7 @@ class Confirm(discord.ui.View):
         for index, srv in enumerate(LOCAL_SERVER_NAMES)
     ]
 )
+@app_commands.describe(server="Which server?")
 async def restart_server_auto(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):

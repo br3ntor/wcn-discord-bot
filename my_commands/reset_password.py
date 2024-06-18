@@ -12,6 +12,7 @@ from utils.db_helpers import reset_user_password
         for index, srv in enumerate(LOCAL_SERVER_NAMES)
     ],
 )
+@app_commands.describe(server="Which server?", playername="Which player?")
 async def reset_password(
     interaction: discord.Interaction, server: app_commands.Choice[int], playername: str
 ):
