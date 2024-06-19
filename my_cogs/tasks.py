@@ -8,7 +8,6 @@ from utils.steam_utils import get_workshop_items
 
 # The default 0 shuts up pyright :)
 ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
-SPAM_CHANNEL = int(os.getenv("SPAM_CHANNEL", 0))
 MY_GUILD = int(os.getenv("MY_GUILD", 0))
 ADMIN_ROLE_ID = int(os.getenv("ADMIN_ROLE_ID", 0))
 
