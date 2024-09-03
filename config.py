@@ -43,6 +43,15 @@ SERVER_DATA: List[ServerDict] = [
         },
     },
     {
+        "name": "medium_pzserver",
+        "ip": LOCAL_SERVER_IP,
+        "port": 16267,
+        "gists": {
+            "modlist": "92bb4ee5f74bf724fff11e2e8642c2dd",
+            "sandbox": "9fba49d384131d76b147e2a8d087394e",
+        },
+    },
+    {
         "name": "heavy_pzserver",
         "ip": LOCAL_SERVER_IP,
         "port": 16265,
@@ -56,3 +65,5 @@ SERVER_DATA: List[ServerDict] = [
 LOCAL_SERVER_NAMES = [
     server["name"] for server in SERVER_DATA if server["ip"] == LOCAL_SERVER_IP
 ]
+
+ALL_SERVER_NAMES = [server["name"] for server in SERVER_DATA]
