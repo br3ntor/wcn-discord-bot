@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import aiosqlite
@@ -24,6 +25,13 @@ async def get_banned_user(server: str, steamid: str) -> Optional[aiosqlite.Row]:
 
 
 async def get_admins(server: str) -> str:
+    # This can happen when in the middle of setting up server
+    # after deleting old files and before starting server program.
+    path = f"/home/{server}/Zomboid/db/pzserver.db"
+    if not os.path.exists(path):
+        print(f"File does not exist:\n${path}")
+        return f"File does not exist for ${server} server"
+
     async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
         async with db.execute(
             "SELECT username FROM whitelist WHERE accesslevel='admin'"

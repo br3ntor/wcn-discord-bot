@@ -27,12 +27,12 @@ SERVER_DATA: List[ServerDict] = [
         "port": 16261,
         "gists": None,
     },
-    {
-        "name": "test_pzserver",
-        "ip": LOCAL_SERVER_IP,
-        "port": 17261,
-        "gists": None,
-    },
+    # {
+    #     "name": "test_pzserver",
+    #     "ip": LOCAL_SERVER_IP,
+    #     "port": 17261,
+    #     "gists": None,
+    # },
     {
         "name": "pel_pzserver",
         "ip": LOCAL_SERVER_IP,
