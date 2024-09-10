@@ -42,10 +42,14 @@ async def toggle(
     # Should be called before the first db call
     await interaction.response.defer()
 
-    if not await get_user(server.name, player):
+    the_user = await get_user(server.name, player)
+    if not the_user:
         await interaction.followup.send(
             f"username: **{player}** not found in **{server.name}** database"
         )
+        return
+    elif isinstance(the_user, str):
+        await interaction.followup.send(the_user)
         return
 
     access_level = "admin" if accesslevel.value == 1 else "none"

@@ -2,6 +2,7 @@ import asyncio
 import re
 
 import discord
+from aiosqlite import Row
 from discord import app_commands
 
 from config import LOCAL_SERVER_NAMES
@@ -37,6 +38,9 @@ async def issue(
     if not the_user:
         await interaction.followup.send("User not found")
         return
+    elif isinstance(the_user, str):
+        await interaction.followup.send(the_user)
+        return
 
     id = the_user[11]
     server_cmd = f"banid {id}"
@@ -62,14 +66,19 @@ async def issue(
     print(error.decode())
 
     banned_player = await get_banned_user(server.name, id)
-    msg = (
-        f"Player **{player}** has been **banned** from the "
-        f"**{server.name}** server.\n"
-        f"Username: {player}\n"
-        f"SteamID: {id}"
-        if banned_player is not None
-        else f"Command was sent but user **{player}** not found in bannedid's db. What happen?"
-    )
+    if banned_player is None:
+        msg = f"Command was sent but user **{player}** not found in bannedid's db. What happen?"
+    elif isinstance(banned_player, str):
+        msg = banned_player
+    elif isinstance(banned_player, Row):
+        msg = (
+            f"Player **{player}** has been **banned** from the "
+            f"**{server.name}** server.\n"
+            f"Username: {player}\n"
+            f"SteamID: {id}"
+            if banned_player is not None
+            else f"Command was sent but user **{player}** not found in bannedid's db. What happen?"
+        )
     await interaction.followup.send(msg)
 
 
@@ -97,6 +106,9 @@ async def revoke(
     the_user = await get_user(server.name, player)
     if not the_user:
         await interaction.followup.send("User not found")
+        return
+    elif isinstance(the_user, str):
+        await interaction.followup.send(the_user)
         return
 
     id = the_user[11]
