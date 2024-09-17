@@ -32,7 +32,9 @@ async def get_user(server: str, username: str) -> Optional[aiosqlite.Row] | str:
         return f"Error accessing database for {server} server"
 
 
-async def get_banned_user(server: str, steamid: str) -> Optional[aiosqlite.Row] | str:
+# async def get_banned_user(server: str, steamid: str) -> Optional[aiosqlite.Row] | str:
+# Why annotate the return if it seems to be inferred, right?
+async def get_banned_user(server: str, steamid: str):
     """Return the db row for a banned player."""
     file_exists, result = check_db_file(server)
     if not file_exists:
