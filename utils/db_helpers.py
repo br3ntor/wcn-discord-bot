@@ -32,6 +32,23 @@ async def get_user(server: str, username: str) -> Optional[aiosqlite.Row] | str:
         return f"Error accessing database for {server} server"
 
 
+async def get_user_by_steamid(server: str, steamid: str):
+    """Return the db row for a player."""
+    file_exists, result = check_db_file(server)
+    if not file_exists:
+        return result
+
+    try:
+        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+            async with db.execute(
+                "SELECT * FROM whitelist WHERE steamid=?", [steamid]
+            ) as cursor:
+                return await cursor.fetchone()
+    except aiosqlite.Error as e:
+        print(f"Database error occurred: {e}")
+        return f"Error accessing database for {server} server"
+
+
 # async def get_banned_user(server: str, steamid: str) -> Optional[aiosqlite.Row] | str:
 # Why annotate the return if it seems to be inferred, right?
 async def get_banned_user(server: str, steamid: str):
@@ -46,6 +63,21 @@ async def get_banned_user(server: str, steamid: str):
                 "SELECT * FROM bannedid WHERE steamid=?", [steamid]
             ) as cursor:
                 return await cursor.fetchone()
+    except aiosqlite.Error as e:
+        print(f"Database error occurred: {e}")
+        return f"Error accessing database for {server} server"
+
+
+async def get_all_banned_users(server: str):
+    """Return all banned users on a server."""
+    file_exists, result = check_db_file(server)
+    if not file_exists:
+        return result
+
+    try:
+        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+            async with db.execute("SELECT * FROM bannedid") as cursor:
+                return await cursor.fetchall()
     except aiosqlite.Error as e:
         print(f"Database error occurred: {e}")
         return f"Error accessing database for {server} server"

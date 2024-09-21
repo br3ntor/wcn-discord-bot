@@ -3,9 +3,15 @@ import re
 
 import discord
 from discord import app_commands
+from tabulate import tabulate
 
 from config import LOCAL_SERVER_NAMES
-from utils.db_helpers import get_banned_user, get_user
+from utils.db_helpers import (
+    get_all_banned_users,
+    get_banned_user,
+    get_user,
+    get_user_by_steamid,
+)
 
 ban_group = app_commands.Group(
     name="ban", description="Ban, unban, and list banned players."
@@ -142,3 +148,80 @@ async def revoke(
         else "Command was sent but user is still in the bannedid's db. What happen?"
     )
     await interaction.followup.send(msg)
+
+
+def format_message(banned_table: list, server: str) -> str:
+    msg = f"""**{server} Server Bans:**
+```md
+{tabulate(banned_table, headers=["Name", "SteamID"])}
+```
+"""
+    return msg
+
+
+@ban_group.command()
+async def list(interaction: discord.Interaction):
+    """Retrieve a list of all banned players across servers."""
+    await interaction.response.defer()
+
+    # We will build three inputs for our format_message function
+    banned_lists = {"pel_pzserver": [], "medium_pzserver": [], "heavy_pzserver": []}
+
+    # Really what I should do is query with all the banned
+    # usernames collected first, not make a call for each one in a loop
+    for server in LOCAL_SERVER_NAMES:
+
+        servers_banned_players = await get_all_banned_users(server)
+        print(server)
+        print(servers_banned_players)
+
+        if not servers_banned_players:
+            continue
+
+        banned_players = []
+        # Banned players tend to get multiple db entries but
+        # we only need one so if a player is already processed well skip dupes
+        seen_players = []
+        for b_player in servers_banned_players:
+            steamid = b_player[0]
+
+            if steamid in seen_players:
+                print(f"{steamid} seen in seen_players")
+                continue
+
+            seen_players.append(steamid)
+
+            # Lets see if we can get name of the banned player
+            # which well use to create the data object we want
+            user = await get_user_by_steamid(server, steamid)
+            if not user:
+                print(
+                    "User banned but not in whitelist, banned before joined server prob..."
+                )
+                banned_players.append(("None", steamid))
+                continue
+            elif isinstance(user, str):
+                print(user)
+                continue
+
+            print(user)
+            banned_players.append((user[2], steamid))
+
+        print(f"For the {server} server:")
+        print(banned_players)
+        banned_lists[server].extend(banned_players)
+
+    banned_light = [[p[0], p[1]] for p in banned_lists["pel_pzserver"]]
+    banned_medium = [[p[0], p[1]] for p in banned_lists["medium_pzserver"]]
+    banned_heavy = [[p[0], p[1]] for p in banned_lists["heavy_pzserver"]]
+
+    formatted_light = format_message(banned_light, "Light")
+    formatted_medium = format_message(banned_medium, "Medium")
+    formatted_heavy = format_message(banned_heavy, "Heavy")
+
+    output = (
+        "*If the players name is None then they were banned before ever joining.\n"
+        f"{formatted_light}{formatted_medium}{formatted_heavy}"
+    )
+
+    await interaction.followup.send(output)
