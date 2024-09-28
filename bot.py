@@ -12,7 +12,7 @@ from my_cogs.webhook import WebhookCog
 MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD", 0)))
 
 
-class MyClient(commands.Bot):
+class MyBot(commands.Bot):
     def __init__(self, *, intents: discord.Intents):
         super().__init__(command_prefix="-", intents=intents)
         # A CommandTree is a special type that holds all the application command
@@ -44,15 +44,15 @@ class MyClient(commands.Bot):
 
 
 intents = discord.Intents.all()
-client = MyClient(intents=intents)
+bot = MyBot(intents=intents)
 
 
 # NOTE: I wonder how to keep these in their own file?
-@client.event
+@bot.event
 async def on_ready():
     # Another way to make pyright happy, still getting use to this
     # if client.user is not None:
     # I like this assert way, i know theres some others too.
-    assert client.user is not None
-    print(f"Logged in as {client.user} (ID: {client.user.id})")
+    assert bot.user is not None
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("------")
