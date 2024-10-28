@@ -51,10 +51,11 @@ async def restart_server(
         )
         raise TypeError("Not a member")
 
+    # NOTE: I've decided to use just the server settings to check permissions for now
     # Only discord mods can use the command
-    if interaction.user.get_role(MOD_ROLE_ID) is None:
-        await interaction.response.send_message("You are not worthy.", ephemeral=True)
-        return
+    # if interaction.user.get_role(MOD_ROLE_ID) is None:
+    #     await interaction.response.send_message("You are not worthy.", ephemeral=True)
+    #     return
 
     # Feels like if this is here I need to defer before but this shouldnt ever be more than 3 seconds
     is_running = await server_isrunning(server.name)

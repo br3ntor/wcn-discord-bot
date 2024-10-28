@@ -47,7 +47,7 @@ async def update_sandbox_gists(interaction: discord.Interaction):
             payload = get_sandboxsettings(server["name"])
             await update_gist(payload, server["gists"]["sandbox"], server["name"])
             links.append(
-                f"https://gist.github.com/br3ntor/{server['gists']['sandbox']}"
+                f"{server['name']}: https://gist.github.com/br3ntor/{server['gists']['sandbox']}"
             )
 
     formatted_links = "\n".join(links)

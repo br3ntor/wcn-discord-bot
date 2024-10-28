@@ -92,10 +92,11 @@ async def restart_server_auto(
         )
         raise TypeError("Not a member")
 
+    # NOTE: I've decided to use just the server settings to check permissions for now
     # Only discord mods can use the command there might be built in check for this, check docs
-    if interaction.user.get_role(MOD_ROLE_ID) is None:
-        await interaction.response.send_message("You are not worthy.", ephemeral=True)
-        return
+    # if interaction.user.get_role(MOD_ROLE_ID) is None:
+    #     await interaction.response.send_message("You are not worthy.", ephemeral=True)
+    #     return
 
     if not isinstance(interaction.guild, discord.Guild):
         raise TypeError("Not a guild")
