@@ -8,7 +8,9 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     from bot import bot
 
-    # Checking token type before using in client.run to make pyright happy
     token = os.getenv("TOKEN")
-    if isinstance(token, str):
-        bot.run(token)
+    if token is None:
+        print("Token is None")
+        exit(1)
+
+    bot.run(token)

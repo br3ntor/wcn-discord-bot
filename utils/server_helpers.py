@@ -72,7 +72,7 @@ async def get_servers_workshop_ids(
     """Returns running server names with their workshop ids"""
 
     # Well use a dictionary to map running servers to thier workshop_ids list
-    servers_workshopids_lists = {}
+    servers_workshopids_lists: dict[str, list[str]] = {}
 
     config = configparser.ConfigParser()
     for path in file_paths:
