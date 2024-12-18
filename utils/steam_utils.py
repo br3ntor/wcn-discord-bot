@@ -9,11 +9,22 @@ async def get_workshop_items(workshop_ids: list[str]) -> list:
     """Calls steam api to get mod data."""
     api = WebAPI(STEAM_KEY)
 
-    item_count = len(workshop_ids)
+    # Changing all string ids to ints
+    # Before they were all sent as strings and a mod author using fancy number "font"
+    # broke it, actually they didnt use a font but a Mathematical Alphanumeric Symbol
+    int_ids = [int(id) for id in workshop_ids]
 
-    workshop_items = api.ISteamRemoteStorage.GetPublishedFileDetails(
-        itemcount=item_count, publishedfileids=workshop_ids
-    )
+    item_count = len(int_ids)
+
+    try:
+        workshop_items = api.ISteamRemoteStorage.GetPublishedFileDetails(
+            itemcount=item_count,
+            publishedfileids=int_ids,
+        )
+    except Exception as e:
+        print(f"An error occurred while fetching workshop items: {e}")
+        # Optionally, you might want to return an empty list or handle this error differently
+        return []
 
     items = workshop_items["response"]["publishedfiledetails"]
     print(f"Found this many workshop_items: {len(items)}")
