@@ -1,6 +1,7 @@
 from .admin import admin_group
 from .ban import ban_group
 from .cat_fact import cat_fact
+from .get_player_logs import get_player_logs
 from .get_playerlist import get_playerlist
 from .reset_password import reset_password
 from .restart_server import restart_server
@@ -23,4 +24,5 @@ __all__ = [
     "admin_group",
     "update_sandbox_gists",
     "ban_group",
+    "get_player_logs",
 ]
