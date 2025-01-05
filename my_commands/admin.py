@@ -4,7 +4,7 @@ import re
 import discord
 from discord import app_commands
 
-from config import LOCAL_SERVER_NAMES
+from config import SERVER_NAMES
 from utils.db_helpers import get_admins, get_user
 
 admin_group = app_commands.Group(
@@ -16,7 +16,7 @@ admin_group = app_commands.Group(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(LOCAL_SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES)
     ],
     accesslevel=[
         app_commands.Choice(name="Give admin", value=1),
@@ -56,9 +56,9 @@ async def toggle(
     server_msg = f'setaccesslevel "{player}" {access_level}'
     cmd = [
         "runuser",
-        f"{server.name}",
+        f"{SERVER_NAMES[server.name]}",
         "-c",
-        f"/home/{server.name}/pzserver send '{server_msg}'",
+        f"/home/{SERVER_NAMES[server.name]}/pzserver send '{server_msg}'",
     ]
 
     try:
@@ -88,6 +88,9 @@ async def toggle(
 @admin_group.command()
 async def list(interaction: discord.Interaction):
     """Get a list of admins on a zomboid server."""
-    the_boys = [f"**{srv}**: {await get_admins(srv)}" for srv in LOCAL_SERVER_NAMES]
+    the_boys = [
+        f"**{servername} Admins**:\n{await get_admins(username)}"
+        for servername, username in SERVER_NAMES.items()
+    ]
     formatted_msg = "\n".join(the_boys)
     await interaction.response.send_message(formatted_msg)

@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 
-from config import LOCAL_SERVER_NAMES
+from config import SERVER_NAMES
 from utils.db_helpers import reset_user_password
 
 
@@ -9,7 +9,7 @@ from utils.db_helpers import reset_user_password
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(LOCAL_SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES)
     ],
 )
 @app_commands.describe(server="Which server?", playername="Which player?")

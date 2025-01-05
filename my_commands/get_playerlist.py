@@ -5,7 +5,7 @@ from discord import app_commands
 from steam import game_servers as gs
 from tabulate import tabulate
 
-from config import ALL_SERVER_NAMES, SERVER_DATA
+from config import SERVER_DATA, SERVER_NAMES
 
 
 def format_time(seconds: float) -> str:
@@ -27,7 +27,7 @@ I can see **{len(player_table)}** players on the **{server}**.
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(ALL_SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES)
     ]
 )
 @app_commands.describe(server="Which server?")

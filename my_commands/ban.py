@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 from tabulate import tabulate
 
-from config import LOCAL_SERVER_NAMES
+from config import SERVER_NAMES
 from utils.db_helpers import (
     get_all_banned_users,
     get_banned_user,
@@ -22,7 +22,7 @@ ban_group = app_commands.Group(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(LOCAL_SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES)
     ]
 )
 @app_commands.describe(
@@ -93,7 +93,7 @@ async def issue(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(LOCAL_SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES)
     ]
 )
 @app_commands.describe(
@@ -165,11 +165,12 @@ async def list(interaction: discord.Interaction):
     await interaction.response.defer()
 
     # We will build three inputs for our format_message function
-    banned_lists = {"pel_pzserver": [], "medium_pzserver": [], "heavy_pzserver": []}
+    # banned_lists = {"pel_pzserver": [], "medium_pzserver": [], "heavy_pzserver": []}
+    banned_lists = {server: [] for server in SERVER_NAMES}
 
     # Really what I should do is query with all the banned
     # usernames collected first, not make a call for each one in a loop
-    for server in LOCAL_SERVER_NAMES:
+    for server in SERVER_NAMES:
 
         servers_banned_players = await get_all_banned_users(server)
         print(server)

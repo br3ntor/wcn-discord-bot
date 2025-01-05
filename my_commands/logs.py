@@ -6,7 +6,7 @@ from datetime import datetime
 import discord
 from discord import app_commands
 
-from config import LOCAL_SERVER_NAMES
+from config import SERVER_NAMES
 from utils.db_helpers import get_user
 
 logs_group = app_commands.Group(
@@ -21,7 +21,7 @@ logs_group = app_commands.Group(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(LOCAL_SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES)
     ],
 )
 @app_commands.describe(server="Which server?", playername="Which player?")
@@ -85,7 +85,7 @@ async def get_player_logs(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(LOCAL_SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES)
     ],
     days=[
         app_commands.Choice(name=day, value=index + 1)

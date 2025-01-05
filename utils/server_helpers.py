@@ -1,7 +1,7 @@
 import asyncio
 import configparser
 
-from config import LOCAL_SERVER_IP, SERVER_DATA
+from config import SERVER_DATA
 
 
 async def server_isrunning(server: str) -> bool:
@@ -39,30 +39,15 @@ async def server_isrunning(server: str) -> bool:
     return False
 
 
-# This was going to be for checking before/while creating choices for discord command
-# But I don't know how or if I even should do such a thing
-# async def local_running_servers() -> list[str]:
-#     """Returns a list of running servers on the local machine"""
-#
-#     # Get names of local servers
-#     local_servers = [
-#         server["name"] for server in SERVER_DATA if server["ip"] == LOCAL_SERVER_IP
-#     ]
-#
-#     # Check and return only running servers
-#     running_servers = [
-#         server for server in local_servers if await server_isrunning(server)
-#     ]
-#     return running_servers
-
-
 async def server_setting_paths() -> list:
     """Return list of paths to running servers settings files"""
     server_files = []
-    servers_with_gists = [server["name"] for server in SERVER_DATA if server["gists"]]
-    for server_name in servers_with_gists:
-        if await server_isrunning(server_name):
-            server_files.append(f"/home/{server_name}/Zomboid/Server/pzserver.ini")
+    servers_with_gists = [
+        server["username"] for server in SERVER_DATA if server["gists"]
+    ]
+    for username in servers_with_gists:
+        if await server_isrunning(username):
+            server_files.append(f"/home/{username}/Zomboid/Server/pzserver.ini")
     return server_files
 
 

@@ -5,7 +5,7 @@ import re
 import discord
 from discord import app_commands
 
-from config import LOCAL_SERVER_NAMES
+from config import SERVER_NAMES
 from utils.server_helpers import server_isrunning
 
 MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
@@ -15,7 +15,7 @@ MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(LOCAL_SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES)
     ]
 )
 @app_commands.describe(
