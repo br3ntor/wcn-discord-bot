@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 
 from config import SERVER_NAMES
-from utils.db_helpers import get_admins, get_user
+from utils.db_helpers import get_admins, get_player
 
 admin_group = app_commands.Group(
     name="admin", description="Commands to control in-game accesslevel."
@@ -42,23 +42,25 @@ async def toggle(
     # Should be called before the first db call
     await interaction.response.defer()
 
-    the_user = await get_user(server.name, player)
-    if not the_user:
+    system_user = SERVER_NAMES[server.name]
+    player_row = await get_player(system_user, player)
+    if not player_row:
         await interaction.followup.send(
             f"username: **{player}** not found in **{server.name}** database"
         )
         return
-    elif isinstance(the_user, str):
-        await interaction.followup.send(the_user)
+    # NOTE: If player_row is a str I think it's an error msg, maybe theres a clearer way to do this
+    elif isinstance(player_row, str):
+        await interaction.followup.send(player_row)
         return
 
     access_level = "admin" if accesslevel.value == 1 else "none"
     server_msg = f'setaccesslevel "{player}" {access_level}'
     cmd = [
         "runuser",
-        f"{SERVER_NAMES[server.name]}",
+        f"{system_user}",
         "-c",
-        f"/home/{SERVER_NAMES[server.name]}/pzserver send '{server_msg}'",
+        f"/home/{system_user}/pzserver send '{server_msg}'",
     ]
 
     try:

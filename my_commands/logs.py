@@ -7,7 +7,7 @@ import discord
 from discord import app_commands
 
 from config import SERVER_NAMES
-from utils.db_helpers import get_user
+from utils.db_helpers import get_player
 
 logs_group = app_commands.Group(
     name="logs", description="get_player_logs, and get_all_logs commands."
@@ -33,7 +33,7 @@ async def get_player_logs(
 
     try:
         # Check if player exists in db, then get all them logs
-        player = await get_user(server.name, playername)
+        player = await get_player(server.name, playername)
         if not player:
             await interaction.followup.send(
                 f"**{playername}** was not found in the database for **{server.name}**."

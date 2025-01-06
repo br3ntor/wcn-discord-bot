@@ -3,25 +3,29 @@ from typing import Dict, List, Optional, TypedDict
 
 SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
 
+# Not sure what best way to check for this env var is...
+assert bool(SERVER_PUB_IP)
 
-class ServerDict(TypedDict):
-    username: str
-    servername: str
-    ip: str
+
+class ServerConfig(TypedDict):
+    system_user: str
+    display_name: str
+    ip_address: str
     port: int
     gists: Optional[Dict[str, str]]
 
 
-SERVER_DATA: List[ServerDict] = [
+SERVER_DATA: List[ServerConfig] = [
     {
-        "username": "pzserver",
-        "servername": "Vanilla",
-        "ip": SERVER_PUB_IP,
+        "system_user": "pzserver",
+        "display_name": "Vanilla",
+        "ip_address": SERVER_PUB_IP,
         "port": 16261,
         "gists": None,
     },
     # {
-    #     "name": "medium_pzserver",
+    #     "system_user": "medium_pzserver",
+    #       "display_name": "Medium",
     #     "ip": LOCAL_SERVER_IP,
     #     "port": 16267,
     #     "gists": {
@@ -32,4 +36,4 @@ SERVER_DATA: List[ServerDict] = [
 ]
 
 # Mapping the servers name to the linux username the server runs under
-SERVER_NAMES = {srv["servername"]: srv["username"] for srv in SERVER_DATA}
+SERVER_NAMES = {srv["display_name"]: srv["system_user"] for srv in SERVER_DATA}

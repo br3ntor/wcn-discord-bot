@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 
 from config import SERVER_NAMES
-from utils.db_helpers import reset_user_password
+from utils.db_helpers import reset_player_password
 
 
 @app_commands.command()
@@ -17,5 +17,5 @@ async def reset_password(
     interaction: discord.Interaction, server: app_commands.Choice[int], playername: str
 ):
     """Reset a players password."""
-    attempted_reset_response = await reset_user_password(server.name, playername)
+    attempted_reset_response = await reset_player_password(server.name, playername)
     await interaction.response.send_message(attempted_reset_response)

@@ -7,10 +7,10 @@ from tabulate import tabulate
 
 from config import SERVER_NAMES
 from utils.db_helpers import (
-    get_all_banned_users,
-    get_banned_user,
-    get_user,
-    get_user_by_steamid,
+    get_all_banned_players,
+    get_banned_player,
+    get_player,
+    get_player_by_steamid,
 )
 
 ban_group = app_commands.Group(
@@ -33,27 +33,30 @@ async def issue(
     interaction: discord.Interaction, server: app_commands.Choice[int], player: str
 ):
     """Ban a player."""
+    # TODO: Maybe use shlex here instead or as well
     if re.search(r"[\"']", player):
         await interaction.response.send_message("Quotes not allowed.")
         return
 
     await interaction.response.defer()
 
-    the_user = await get_user(server.name, player)
-    if not the_user:
+    system_user = SERVER_NAMES[server.name]
+
+    player_row = await get_player(system_user, player)
+    if not player_row:
         await interaction.followup.send("User not found")
         return
-    elif isinstance(the_user, str):
-        await interaction.followup.send(the_user)
+    elif isinstance(player_row, str):
+        await interaction.followup.send(player_row)
         return
 
-    id: str = the_user[11]
+    id: str = player_row[11]
     server_cmd = f"banid {id}"
     cmd = [
         "runuser",
-        f"{server.name}",
+        f"{system_user}",
         "-c",
-        f"/home/{server.name}/pzserver send '{server_cmd}'",
+        f"/home/{system_user}/pzserver send '{server_cmd}'",
     ]
 
     try:
@@ -70,7 +73,7 @@ async def issue(
     print(output.decode())
     print(error.decode())
 
-    banned_player = await get_banned_user(server.name, id)
+    banned_player = await get_banned_player(system_user, id)
 
     if banned_player is None:
         msg = f"Command was sent but user **{player}** not found in bannedid's db. What happen?"
@@ -110,21 +113,23 @@ async def revoke(
 
     await interaction.response.defer()
 
-    the_user = await get_user(server.name, player)
-    if not the_user:
+    system_user = SERVER_NAMES[server.name]
+
+    player_row = await get_player(system_user, player)
+    if not player_row:
         await interaction.followup.send("User not found")
         return
-    elif isinstance(the_user, str):
-        await interaction.followup.send(the_user)
+    elif isinstance(player_row, str):
+        await interaction.followup.send(player_row)
         return
 
-    id = the_user[11]
+    id = player_row[11]
     server_cmd = f"unbanid {id}"
     cmd = [
         "runuser",
-        f"{server.name}",
+        f"{system_user}",
         "-c",
-        f"/home/{server.name}/pzserver send '{server_cmd}'",
+        f"/home/{system_user}/pzserver send '{server_cmd}'",
     ]
 
     try:
@@ -141,7 +146,7 @@ async def revoke(
     print(output.decode())
     print(error.decode())
 
-    banned_player = await get_banned_user(server.name, id)
+    banned_player = await get_banned_player(system_user, id)
     msg = (
         f"Player **{player}** has been **UN-banned** from the **{server.name}** server"
         if banned_player is None
@@ -165,14 +170,13 @@ async def list(interaction: discord.Interaction):
     await interaction.response.defer()
 
     # We will build three inputs for our format_message function
-    # banned_lists = {"pel_pzserver": [], "medium_pzserver": [], "heavy_pzserver": []}
-    banned_lists = {server: [] for server in SERVER_NAMES}
+    banned_lists = {server: [] for server in SERVER_NAMES.values()}
 
     # Really what I should do is query with all the banned
     # usernames collected first, not make a call for each one in a loop
-    for server in SERVER_NAMES:
+    for server in SERVER_NAMES.values():
 
-        servers_banned_players = await get_all_banned_users(server)
+        servers_banned_players = await get_all_banned_players(server)
         print(server)
         print(servers_banned_players)
 
@@ -194,7 +198,7 @@ async def list(interaction: discord.Interaction):
 
             # Lets see if we can get name of the banned player
             # which well use to create the data object we want
-            user = await get_user_by_steamid(server, steamid)
+            user = await get_player_by_steamid(server, steamid)
             if not user:
                 print(
                     "User banned but not in whitelist, banned before joined server prob..."
@@ -212,17 +216,14 @@ async def list(interaction: discord.Interaction):
         print(banned_players)
         banned_lists[server].extend(banned_players)
 
-    banned_light = [[p[0], p[1]] for p in banned_lists["pel_pzserver"]]
-    banned_medium = [[p[0], p[1]] for p in banned_lists["medium_pzserver"]]
-    banned_heavy = [[p[0], p[1]] for p in banned_lists["heavy_pzserver"]]
-
-    formatted_light = format_message(banned_light, "Light")
-    formatted_medium = format_message(banned_medium, "Medium")
-    formatted_heavy = format_message(banned_heavy, "Heavy")
+    formatted_messages = []
+    for category, server in SERVER_NAMES.items():
+        banned_list = [[p[0], p[1]] for p in banned_lists[server]]
+        formatted_messages.append(format_message(banned_list, category))
 
     output = (
         "*If the players name is None then they were banned before ever joining.\n"
-        f"{formatted_light}{formatted_medium}{formatted_heavy}"
+        "".join(formatted_messages)
     )
 
     await interaction.followup.send(output)

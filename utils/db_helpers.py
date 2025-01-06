@@ -15,7 +15,7 @@ def check_db_file(server: str) -> tuple[bool, str]:
     return True, path
 
 
-async def get_user(server: str, username: str) -> Optional[aiosqlite.Row] | str:
+async def get_player(server: str, username: str) -> Optional[aiosqlite.Row] | str:
     """Return the db row for a player."""
     file_exists, result = check_db_file(server)
     if not file_exists:
@@ -32,7 +32,7 @@ async def get_user(server: str, username: str) -> Optional[aiosqlite.Row] | str:
         return f"Error accessing database for {server} server"
 
 
-async def get_user_by_steamid(server: str, steamid: str):
+async def get_player_by_steamid(server: str, steamid: str):
     """Return the db row for a player."""
     file_exists, result = check_db_file(server)
     if not file_exists:
@@ -51,7 +51,7 @@ async def get_user_by_steamid(server: str, steamid: str):
 
 # async def get_banned_user(server: str, steamid: str) -> Optional[aiosqlite.Row] | str:
 # Why annotate the return if it seems to be inferred, right?
-async def get_banned_user(server: str, steamid: str):
+async def get_banned_player(server: str, steamid: str):
     """Return the db row for a banned player."""
     file_exists, result = check_db_file(server)
     if not file_exists:
@@ -68,7 +68,7 @@ async def get_banned_user(server: str, steamid: str):
         return f"Error accessing database for {server} server"
 
 
-async def get_all_banned_users(server: str):
+async def get_all_banned_players(server: str):
     """Return all banned users on a server."""
     file_exists, result = check_db_file(server)
     if not file_exists:
@@ -102,7 +102,7 @@ async def get_admins(server: str) -> str:
         return f"Error accessing database for {server} server"
 
 
-async def reset_user_password(server: str, player: str) -> str:
+async def reset_player_password(server: str, player: str) -> str:
     file_exists, result = check_db_file(server)
     if not file_exists:
         return result
