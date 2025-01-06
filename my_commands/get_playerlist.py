@@ -15,7 +15,7 @@ def format_time(seconds: float) -> str:
 
 def format_message(player_table: list, server: str) -> str:
     msg = f"""
-I can see **{len(player_table)}** players on the **{server}**.
+I can see **{len(player_table)}** players on the **{server}** server.
 ```
 {tabulate(player_table, headers=["Name", "Duration"])}
 ```

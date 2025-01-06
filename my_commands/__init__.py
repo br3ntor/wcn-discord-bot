@@ -18,7 +18,7 @@ __all__ = [
     # "cancel_auto_restart",
     # "cat_fact",
     "get_playerlist",
-    # "logs_group",
+    "logs_group",
     # "reset_password",
     # "restart_server",
     # "restart_server_auto",

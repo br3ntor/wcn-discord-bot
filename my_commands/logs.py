@@ -30,10 +30,11 @@ async def get_player_logs(
 ):
     """Get all logs for a player since last server restart."""
     await interaction.response.defer()
+    system_user = SERVER_NAMES[server.name]
 
     try:
         # Check if player exists in db, then get all them logs
-        player = await get_player(server.name, playername)
+        player = await get_player(system_user, playername)
         if not player:
             await interaction.followup.send(
                 f"**{playername}** was not found in the database for **{server.name}**."
@@ -42,7 +43,7 @@ async def get_player_logs(
 
         current_date = datetime.now().strftime("%Y-%m-%d")
         output_file = f"/tmp/{playername}_{server.name}_{current_date}.txt"
-        logs_dir = f"/home/{server.name}/Zomboid/Logs"
+        logs_dir = f"/home/{system_user}/Zomboid/Logs"
 
         # Sanitize inputs
         safe_playername = shlex.quote(playername)
@@ -103,10 +104,11 @@ async def get_all_logs(
 ):
     """Get all logs from date range."""
     await interaction.response.defer()
+    system_user = SERVER_NAMES[server.name]
 
     current_date = datetime.now().strftime("%Y-%m-%d")
     output_file = f"/tmp/{server.name}_{current_date}_plus_{days.name}_days.zip"
-    logs_dir = f"/home/{server.name}/Zomboid/Logs"
+    logs_dir = f"/home/{system_user}/Zomboid/Logs"
 
     # Sanitize inputs (i dont think we need this since thers no direct player input)
     # safe_output_file = shlex.quote(output_file)
