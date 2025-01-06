@@ -16,7 +16,7 @@ def format_time(seconds: float) -> str:
 def format_message(player_table: list, server: str) -> str:
     msg = f"""
 I can see **{len(player_table)}** players on the **{server}**.
-```md
+```
 {tabulate(player_table, headers=["Name", "Duration"])}
 ```
     """
@@ -35,8 +35,17 @@ async def get_playerlist(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
     """Get a list of players on a server."""
-    ip = next(srv["ip"] for srv in SERVER_DATA if srv["name"] == server.name)
-    port = int(next(srv["port"] for srv in SERVER_DATA if srv["name"] == server.name))
+    matching_servers = [
+        srv for srv in SERVER_DATA if srv["display_name"] == server.name
+    ]
+
+    # Use the first matching server, should only be one.
+    if matching_servers:
+        ip = matching_servers[0]["ip_address"]
+        port = int(matching_servers[0]["port"])
+    else:
+        await interaction.response.send_message("Server not found or something luls")
+        return
 
     server_players = gs.a2s_players((ip, port))
 

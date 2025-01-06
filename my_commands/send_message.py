@@ -39,19 +39,23 @@ async def send_message(
     # but I wonder if it may as well be first line of the function?
     await interaction.response.defer()
 
-    is_running = await server_isrunning(server.name)
+    system_user = SERVER_NAMES[server.name]
+    # I dont check if the server is running before issueing commands everywhere, maybe only here.
+    # TODO: Decide if I should check this on commands issued to server
+    is_running = await server_isrunning(system_user)
     if not is_running:
         await interaction.followup.send(f"{server.name} is **NOT** running!")
         return
 
+    # TODO: This prob a good place to use the shlex?
     # Send command and respond to result
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
     server_msg = f'servermsg "{valid_msg}"'
     cmd = [
         "runuser",
-        f"{server.name}",
+        f"{system_user}",
         "-c",
-        f"/home/{server.name}/pzserver send '{server_msg}'",
+        f"/home/{system_user}/pzserver send '{server_msg}'",
     ]
 
     try:

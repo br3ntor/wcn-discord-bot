@@ -157,7 +157,7 @@ async def revoke(
 
 def format_message(banned_table: list, server: str) -> str:
     msg = f"""**{server} Server Bans:**
-```md
+```
 {tabulate(banned_table, headers=["Name", "SteamID"])}
 ```
 """
