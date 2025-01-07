@@ -64,6 +64,11 @@ async def get_servers_workshop_ids(
         # This sets proper syntax to parse file with ConfigParser
         with open(path) as stream:
             config.read_string("[default]\n" + stream.read())
+
+        # Just go to next path if we got no workshop items
+        if not config["default"]["WorkshopItems"]:
+            continue
+
         servers_workshopids_lists.update(
             {path.split("/")[2]: config["default"]["WorkshopItems"].split(";")}
         )
