@@ -1,14 +1,14 @@
 import asyncio
-import os
 import re
 
 import discord
 from discord import app_commands
 
-from config import SERVER_NAMES
+from config import Config
 from utils.server_helpers import server_isrunning
 
-MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
+MOD_ROLE_ID = Config.MOD_ROLE_ID
+SERVER_NAMES = Config.SERVER_NAMES
 
 
 @app_commands.command()

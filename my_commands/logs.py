@@ -6,8 +6,11 @@ from datetime import datetime
 import discord
 from discord import app_commands
 
-from config import SERVER_NAMES
+from config import Config
 from utils.db_helpers import get_player
+
+SERVER_DATA = Config.SERVER_DATA
+SERVER_NAMES = Config.SERVER_NAMES
 
 logs_group = app_commands.Group(
     name="logs", description="get_player_logs, and get_all_logs commands."

@@ -1,7 +1,9 @@
 import asyncio
 import configparser
 
-from config import SERVER_DATA
+from config import Config
+
+SERVER_DATA = Config.SERVER_DATA
 
 
 async def server_isrunning(server: str) -> bool:
@@ -43,7 +45,7 @@ async def server_setting_paths() -> list:
     """Return list of paths to running servers settings files"""
     server_files = []
     servers_with_gists = [
-        server["username"] for server in SERVER_DATA if server["gists"]
+        server["system_user"] for server in SERVER_DATA if server["gists"]
     ]
     for username in servers_with_gists:
         if await server_isrunning(username):

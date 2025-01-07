@@ -1,15 +1,14 @@
-import os
-
 import discord
 import requests
 from discord import app_commands
 
-from config import SERVER_DATA
+from config import Config
 from utils.server_helpers import get_servers_workshop_ids, server_setting_paths
 from utils.steam_utils import get_servers_workshop_items
 
-STEAM_KEY = os.getenv("STEAM_WEBAPI")
-GITHUB_PAT = os.getenv("GITHUB_PAT")
+STEAM_KEY = Config.STEAM_KEY
+GITHUB_PAT = Config.GITHUB_PAT
+SERVER_DATA = Config.SERVER_DATA
 
 
 def parse_workshop_data(workshop_items: list) -> str:

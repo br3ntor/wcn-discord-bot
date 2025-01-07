@@ -4,8 +4,10 @@ import re
 import discord
 from discord import app_commands
 
-from config import SERVER_NAMES
+from config import Config
 from utils.db_helpers import get_admins, get_player
+
+SERVER_NAMES = Config.SERVER_NAMES
 
 admin_group = app_commands.Group(
     name="admin", description="Commands to control in-game accesslevel."

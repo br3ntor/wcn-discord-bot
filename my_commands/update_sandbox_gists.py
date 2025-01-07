@@ -1,12 +1,11 @@
-import os
-
 import aiohttp
 import discord
 from discord import app_commands
 
-from config import SERVER_DATA
+from config import Config
 
-GITHUB_PAT = os.getenv("GITHUB_PAT")
+GITHUB_PAT = Config.GITHUB_PAT
+SERVER_DATA = Config.SERVER_DATA
 
 
 def get_sandboxsettings(server: str):

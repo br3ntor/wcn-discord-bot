@@ -1,8 +1,10 @@
 import discord
 from discord import app_commands
 
-from config import SERVER_NAMES
+from config import Config
 from utils.db_helpers import PasswordResetStatus, reset_player_password
+
+SERVER_NAMES = Config.SERVER_NAMES
 
 
 @app_commands.command()

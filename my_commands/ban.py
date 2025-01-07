@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 from tabulate import tabulate
 
-from config import SERVER_NAMES
+from config import Config
 from utils.db_helpers import (
     get_all_banned_players,
     get_banned_player,
@@ -16,6 +16,8 @@ from utils.db_helpers import (
 ban_group = app_commands.Group(
     name="ban", description="Ban, unban, and list banned players."
 )
+
+SERVER_NAMES = Config.SERVER_NAMES
 
 
 @ban_group.command()

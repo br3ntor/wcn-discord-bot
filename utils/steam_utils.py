@@ -1,8 +1,8 @@
-import os
-
 from steam.webapi import WebAPI
 
-STEAM_KEY = os.getenv("STEAM_WEBAPI")
+from config import Config
+
+STEAM_KEY = Config.STEAM_KEY
 
 
 async def get_workshop_items(workshop_ids: list[str]) -> list:

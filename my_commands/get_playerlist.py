@@ -5,7 +5,11 @@ from discord import app_commands
 from steam import game_servers as gs
 from tabulate import tabulate
 
-from config import SERVER_DATA, SERVER_NAMES
+from config import Config
+
+SERVER_DATA = Config.SERVER_DATA
+SERVER_NAMES = Config.SERVER_NAMES
+SERVER_PUB_IP = Config.SERVER_PUB_IP
 
 
 def format_time(seconds: float) -> str:
@@ -41,13 +45,13 @@ async def get_playerlist(
 
     # Use the first matching server, should only be one.
     if matching_servers:
-        ip = matching_servers[0]["ip_address"]
+        # ip = matching_servers[0]["ip_address"]
         port = int(matching_servers[0]["port"])
     else:
         await interaction.response.send_message("Server not found or something luls")
         return
 
-    server_players = gs.a2s_players((ip, port))
+    server_players = gs.a2s_players((SERVER_PUB_IP, port))
 
     player_table = []
     for player in server_players:

@@ -1,16 +1,14 @@
-import os
-
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 # My command modules folder
 import my_commands
+from config import Config
+from my_cogs.tasks import TasksCog
+from my_cogs.webhook import WebhookCog
 
-# from my_cogs.tasks import TasksCog
-# from my_cogs.webhook import WebhookCog
-
-MY_GUILD = discord.Object(id=int(os.getenv("MY_GUILD", 0)))
+MY_GUILD = discord.Object(id=int(Config.MY_GUILD))
 
 
 class MyBot(commands.Bot):
@@ -37,8 +35,8 @@ class MyBot(commands.Bot):
             ):
                 self.tree.add_command(attr)
 
-        # await self.add_cog(TasksCog(self))
-        # await self.add_cog(WebhookCog(self))
+        await self.add_cog(TasksCog(self))
+        await self.add_cog(WebhookCog(self))
         # This copies the global commands over to your guild.
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)

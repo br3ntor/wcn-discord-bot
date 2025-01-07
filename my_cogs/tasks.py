@@ -1,15 +1,14 @@
 import datetime
-import os
 
 from discord.ext import commands, tasks
 
+from config import Config
 from utils.server_helpers import combine_servers_workshop_ids, servers_with_mod_update
 from utils.steam_utils import get_workshop_items
 
-# The default 0 shuts up pyright :)
-ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
-MY_GUILD = int(os.getenv("MY_GUILD", 0))
-ADMIN_ROLE_ID = int(os.getenv("ADMIN_ROLE_ID", 0))
+ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
+MY_GUILD = Config.MY_GUILD
+ADMIN_ROLE_ID = Config.ADMIN_ROLE_ID
 
 california = datetime.timezone(datetime.timedelta(hours=-8))
 
