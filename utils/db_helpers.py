@@ -1,9 +1,20 @@
 import os
+from enum import Enum
 from typing import Optional
 
 import aiosqlite
 
 # TODO: Maybe all of these should only output the raw call, half do half dont
+
+
+# I was going to generalize this to the other functions in here but dont have time right now so
+# my enum will only be used in the get password function for now.
+class PasswordResetStatus(Enum):
+    SUCCESS = 0
+    DB_FILE_NOT_FOUND = 1
+    USER_NOT_FOUND = 2
+    DATABASE_ACCESS_ERROR = 3
+    UNKNOWN_ERROR = 4
 
 
 def check_db_file(server: str) -> tuple[bool, str]:
@@ -102,10 +113,10 @@ async def get_admins(server: str) -> str:
         return f"Error accessing database for {server} server"
 
 
-async def reset_player_password(server: str, player: str) -> str:
-    file_exists, result = check_db_file(server)
+async def reset_player_password(server: str, player: str) -> PasswordResetStatus:
+    file_exists, _ = check_db_file(server)
     if not file_exists:
-        return result
+        return PasswordResetStatus.DB_FILE_NOT_FOUND
 
     try:
         async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
@@ -116,7 +127,7 @@ async def reset_player_password(server: str, player: str) -> str:
                 if user_row is None:
                     await db.close()
                     print("No user found")
-                    return f"Couldn't find user {player} on the zomboid server."
+                    return PasswordResetStatus.USER_NOT_FOUND
 
                 print(f"User {player} has been found")
                 await cursor.execute(
@@ -130,13 +141,10 @@ async def reset_player_password(server: str, player: str) -> str:
                 pwd = await fresh_row.fetchone()
                 if pwd is not None and pwd[0] is None:
                     print(f"reset {player} pwd")
-                    return (
-                        f"**{player}**'s password has been reset on the **{server}** server. "
-                        "They may login with any new password."
-                    )
+                    return PasswordResetStatus.SUCCESS
                 else:
                     print("Something went wrong")
-                    return "Something went wrong, contact brent"
+                    return PasswordResetStatus.UNKNOWN_ERROR
     except aiosqlite.Error as e:
         print(f"Database error occurred: {e}")
-        return f"Error accessing database for {server} server"
+        return PasswordResetStatus.DATABASE_ACCESS_ERROR

@@ -19,7 +19,7 @@ __all__ = [
     # "cat_fact",
     "get_playerlist",
     "logs_group",
-    # "reset_password",
+    "reset_password",
     # "restart_server",
     # "restart_server_auto",
     "send_message",
