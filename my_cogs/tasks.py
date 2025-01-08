@@ -8,7 +8,7 @@ from utils.steam_utils import get_workshop_items
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 MY_GUILD = Config.MY_GUILD
-ADMIN_ROLE_ID = Config.ADMIN_ROLE_ID
+PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 california = datetime.timezone(datetime.timedelta(hours=-8))
 
@@ -63,7 +63,7 @@ class TasksCog(commands.Cog):
 
                     formatted_time = time_updated.strftime("%b %d @ %I:%M%p")
                     guild = self.bot.get_guild(MY_GUILD)
-                    admin_role = guild.get_role(ADMIN_ROLE_ID).mention
+                    admin_role = guild.get_role(PZ_ADMIN_ROLE_ID).mention
                     update_msg = (
                         f"{admin_role} A mod has updated on **{'** and **'.join(servers_with_mod)}**!\n"
                         f"Title: {item['title'].strip()}\n"

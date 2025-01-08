@@ -55,3 +55,32 @@ async def on_ready():
     assert bot.user is not None
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("------")
+
+
+# I don't know what this is about but came across trying to do what bot.tree.error is doing
+# This just a reminder to be curious about it later
+# @bot.event
+# async def on_error(event, *args, **kwargs):
+#     # Log the event name
+#     print(f"An error occurred in event: {event}")
+#
+#     # Log the positional arguments
+#     print("Positional arguments:", args)
+#
+#     # Log the keyword arguments
+#     print("Keyword arguments:", kwargs)
+
+
+# Error handler for application command errors
+@bot.tree.error
+async def on_application_command_error(
+    interaction: discord.Interaction, error: app_commands.AppCommandError
+):
+    if isinstance(error, app_commands.MissingRole):
+        await interaction.response.send_message(
+            "You do not have the required role to use this command.", ephemeral=True
+        )
+    else:
+        await interaction.response.send_message(
+            "An error occurred while processing your command.", ephemeral=True
+        )

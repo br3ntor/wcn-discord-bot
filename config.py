@@ -1,6 +1,8 @@
 import os
 from typing import Dict, List, Optional, TypedDict
 
+print("Loading Config...")
+
 
 # This program is setup for one or more project zomboid servers running
 # on the same machine with a single IP. Each game instance is run under
@@ -14,19 +16,26 @@ class ServerConfig(TypedDict):
 
 # TODO: Setup config so init only populates available commands based on populated env vars
 class Config:
-    # Required Env Vars
+    # Required Env Vars - Program shouldn't run without these
     ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
     MY_GUILD = int(os.getenv("MY_GUILD", 0))
+    PZ_ADMIN_ROLE_ID = int(os.getenv("PZ_ADMIN_ROLE_ID", 0))
+    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-    # Optional Env Vars
-    SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
-    ADMIN_ROLE_ID = int(os.getenv("ADMIN_ROLE_ID", 0))
-    MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", 0))
-    STEAM_KEY = os.getenv("STEAM_WEBAPI")
+    # Optional Env Vars - Commands that depend on these shouldn't be made available
+    # Maybe a later task could be a status function the user could see to see bot setup
     GITHUB_PAT = os.getenv("GITHUB_PAT")
+    SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
+    STEAM_KEY = os.getenv("STEAM_WEBAPI")
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
 
     SERVER_DATA: List[ServerConfig] = [
+        {
+            "system_user": "test_pzserver",
+            "display_name": "Test_Server",
+            "port": 17261,
+            "gists": None,
+        },
         {
             "system_user": "pel_pzserver",
             "display_name": "Vanilla_2",
@@ -56,11 +65,17 @@ class Config:
     # Mapping the servers name to the linux username the server runs under
     SERVER_NAMES = {srv["display_name"]: srv["system_user"] for srv in SERVER_DATA}
 
+    # I want to be able to lookup display name when I only have system user in a function
+    SYSTEM_USERS = {srv["system_user"]: srv["display_name"] for srv in SERVER_DATA}
+
     @staticmethod
     def validate():
-        if not Config.SERVER_PUB_IP:
-            raise EnvironmentError("SERVER_PUB_IP environment variable is not set")
-        if not Config.MOD_ROLE_ID:
-            raise EnvironmentError("MOD_ROLE_ID environment variable is not set")
         if not Config.ANNOUNCE_CHANNEL:
             raise EnvironmentError("ANNOUNCE_CHANNEL environment variable is not set")
+        if not Config.DISCORD_TOKEN:
+            raise EnvironmentError("DISCORD_TOKEN environment variable is not set")
+        if not Config.MY_GUILD:
+            raise EnvironmentError("MY_GUILD environment variable is not set")
+        if not Config.PZ_ADMIN_ROLE_ID:
+            raise EnvironmentError("PZ_ADMIN_ROLE_ID environment variable is not set")
+        return True

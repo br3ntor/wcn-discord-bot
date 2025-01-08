@@ -1,16 +1,19 @@
 import logging
-import os
 
 from dotenv import load_dotenv
 
 if __name__ == "__main__":
-    load_dotenv()
     logging.basicConfig(level=logging.INFO)
+    print("Loading env...")
+    load_dotenv()
+    from config import Config
+
+    Config.validate()
+
     from bot import bot
 
-    token = os.getenv("TOKEN")
+    token = Config.DISCORD_TOKEN
     if token is None:
-        print("Token is None")
-        exit(1)
+        raise SystemExit("DISCORD_TOKEN is missing. Exiting.")
 
     bot.run(token)

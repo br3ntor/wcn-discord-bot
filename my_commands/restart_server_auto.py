@@ -6,9 +6,9 @@ from discord import app_commands
 from config import Config
 from utils.server_helpers import server_isrunning
 
-MOD_ROLE_ID = Config.MOD_ROLE_ID
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SERVER_NAMES = Config.SERVER_NAMES
+PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 # Track if countdown timer is running
 countdown_isrunning = {server: False for server in SERVER_NAMES}
@@ -21,7 +21,8 @@ async def send_server_msg(server: str, message: str):
     server_msg = f'servermsg "{message}"'
     cmd = [
         "runuser",
-        f"{server}",
+        # f"{server}",
+        server,
         "-c",
         f"/home/{server}/pzserver send '{server_msg}'",
     ]
@@ -81,6 +82,7 @@ class Confirm(discord.ui.View):
     ]
 )
 @app_commands.describe(server="Which server?")
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def restart_server_auto(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
@@ -90,12 +92,6 @@ async def restart_server_auto(
             "WTF are you trying to do even?", ephemeral=True
         )
         raise TypeError("Not a member")
-
-    # NOTE: I've decided to use just the server settings to check permissions for now
-    # Only discord mods can use the command there might be built in check for this, check docs
-    # if interaction.user.get_role(MOD_ROLE_ID) is None:
-    #     await interaction.response.send_message("You are not worthy.", ephemeral=True)
-    #     return
 
     if not isinstance(interaction.guild, discord.Guild):
         raise TypeError("Not a guild")
@@ -107,7 +103,9 @@ async def restart_server_auto(
     if not isinstance(announce_chan, discord.TextChannel):
         raise TypeError("Not a text channel")
 
-    is_running = await server_isrunning(server.name)
+    system_user = SERVER_NAMES[server.name]
+
+    is_running = await server_isrunning(system_user)
     if not is_running:
         await interaction.response.send_message(
             f"**{server.name}** is **NOT** running!"
@@ -138,7 +136,7 @@ async def restart_server_auto(
     if view.value is None:
         print("Timed out...")
     elif view.value:
-        print("Confirmed...")
+        print("Auto Restart Confirmed...")
 
         init_msg = (
             f"{interaction.user.display_name} has initiated the **{server.name}** auto restart. "
@@ -159,13 +157,15 @@ async def restart_server_auto(
                 await announce_chan.send(
                     f"Auto restart ABORTED 👼 for the **{server.name}** server."
                 )
-                await send_server_msg(server.name, "Restart has been ABORTED")
+                await send_server_msg(
+                    SERVER_NAMES[server.name], "Restart has been ABORTED"
+                )
                 return
 
             # Here we send restart msg to game server every minute
             if seconds_left % 60 == 0:
                 await send_server_msg(
-                    server.name,
+                    system_user,
                     f"The server will restart in {seconds_left//60} minute(s)!",
                 )
 
@@ -185,7 +185,7 @@ async def restart_server_auto(
             cmd = [
                 "systemctl",
                 "restart",
-                server.name,
+                system_user,
             ]
             process = await asyncio.create_subprocess_exec(*cmd)
             await process.wait()

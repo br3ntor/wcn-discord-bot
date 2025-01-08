@@ -6,9 +6,9 @@ from discord import app_commands
 from config import Config
 from utils.server_helpers import server_isrunning
 
-MOD_ROLE_ID = Config.MOD_ROLE_ID
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SERVER_NAMES = Config.SERVER_NAMES
+PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 
 # Define a simple View that gives us a confirmation menu
@@ -40,25 +40,24 @@ class Confirm(discord.ui.View):
     ]
 )
 @app_commands.describe(server="Which server?")
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def restart_server(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
     """Restarts the server!!!"""
 
+    system_user = SERVER_NAMES[server.name]
+
+    # I've written of few of these checks, scattered around, prob because I just
+    # learned about them but might not be any reason to use. Think about this more later
     if not isinstance(interaction.user, discord.Member):
         await interaction.response.send_message(
             "WTF are you trying to do even?", ephemeral=True
         )
         raise TypeError("Not a member")
 
-    # NOTE: I've decided to use just the server settings to check permissions for now
-    # Only discord mods can use the command
-    # if interaction.user.get_role(MOD_ROLE_ID) is None:
-    #     await interaction.response.send_message("You are not worthy.", ephemeral=True)
-    #     return
-
     # Feels like if this is here I need to defer before but this shouldnt ever be more than 3 seconds
-    is_running = await server_isrunning(server.name)
+    is_running = await server_isrunning(system_user)
     if not is_running:
         await interaction.response.send_message(
             f"**{server.name}** is **NOT** running!", ephemeral=True
@@ -82,7 +81,7 @@ async def restart_server(
     if view.value is None:
         print("Timed out...")
     elif view.value:
-        print("Confirmed...")
+        print("Restart Confirmed...")
 
         initiated_by = (
             f"**{server.name}** restart "
@@ -105,7 +104,7 @@ async def restart_server(
             cmd = [
                 "systemctl",
                 "restart",
-                server.name,
+                system_user,
             ]
             process = await asyncio.create_subprocess_exec(*cmd)
             await process.wait()
