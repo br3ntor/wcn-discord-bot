@@ -35,7 +35,6 @@ async def issue(
     interaction: discord.Interaction, server: app_commands.Choice[int], player: str
 ):
     """Ban a player."""
-    # TODO: Maybe use shlex here instead or as well
     if re.search(r"[\"']", player):
         await interaction.response.send_message("Quotes not allowed.")
         return

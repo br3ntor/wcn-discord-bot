@@ -60,7 +60,7 @@ async def toggle(
     server_msg = f'setaccesslevel "{player}" {access_level}'
     cmd = [
         "runuser",
-        f"{system_user}",
+        system_user,
         "-c",
         f"/home/{system_user}/pzserver send '{server_msg}'",
     ]

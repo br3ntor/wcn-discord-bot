@@ -21,7 +21,6 @@ async def send_server_msg(server: str, message: str):
     server_msg = f'servermsg "{message}"'
     cmd = [
         "runuser",
-        # f"{server}",
         server,
         "-c",
         f"/home/{server}/pzserver send '{server_msg}'",

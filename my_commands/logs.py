@@ -113,10 +113,6 @@ async def get_all_logs(
     output_file = f"/tmp/{server.name}_{current_date}_plus_{days.name}_days.zip"
     logs_dir = f"/home/{system_user}/Zomboid/Logs"
 
-    # Sanitize inputs (i dont think we need this since thers no direct player input)
-    # safe_output_file = shlex.quote(output_file)
-    # safe_logs_dir = shlex.quote(logs_dir)
-
     try:
 
         # Execute grep command asynchronously
