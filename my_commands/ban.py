@@ -56,7 +56,7 @@ async def issue(
     server_cmd = f"banid {id}"
     cmd = [
         "runuser",
-        f"{system_user}",
+        system_user,
         "-c",
         f"/home/{system_user}/pzserver send '{server_cmd}'",
     ]
@@ -129,7 +129,7 @@ async def revoke(
     server_cmd = f"unbanid {id}"
     cmd = [
         "runuser",
-        f"{system_user}",
+        system_user,
         "-c",
         f"/home/{system_user}/pzserver send '{server_cmd}'",
     ]
@@ -158,7 +158,7 @@ async def revoke(
 
 
 def format_message(banned_table: list, server: str) -> str:
-    msg = f"""**{server} Server Bans:**
+    msg = f"""**{server} Bans:**
 ```
 {tabulate(banned_table, headers=["Name", "SteamID"])}
 ```
@@ -224,8 +224,8 @@ async def list(interaction: discord.Interaction):
         formatted_messages.append(format_message(banned_list, category))
 
     output = (
-        "*If the players name is None then they were banned before ever joining.\n"
-        "".join(formatted_messages)
+        "*If the players name is None then they were banned before ever joining.\n\n"
+        + "".join(formatted_messages)
     )
 
     await interaction.followup.send(output)

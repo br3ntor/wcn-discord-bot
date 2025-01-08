@@ -6,6 +6,7 @@ from config import Config
 
 GITHUB_PAT = Config.GITHUB_PAT
 SERVER_DATA = Config.SERVER_DATA
+SYSTEM_USERS = Config.SYSTEM_USERS
 
 
 def get_sandboxsettings(server: str):
@@ -43,10 +44,12 @@ async def update_sandbox_gists(interaction: discord.Interaction):
     links = []
     for server in SERVER_DATA:
         if server["gists"] and server["gists"]["sandbox"]:
-            payload = get_sandboxsettings(server["name"])
-            await update_gist(payload, server["gists"]["sandbox"], server["name"])
+            payload = get_sandboxsettings(server["system_user"])
+            await update_gist(
+                payload, server["gists"]["sandbox"], server["system_user"]
+            )
             links.append(
-                f"{server['name']}: https://gist.github.com/br3ntor/{server['gists']['sandbox']}"
+                f"**{server['display_name']}**: https://gist.github.com/br3ntor/{server['gists']['sandbox']}"
             )
 
     formatted_links = "\n".join(links)

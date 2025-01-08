@@ -96,5 +96,5 @@ async def list(interaction: discord.Interaction):
         f"**{servername} Admins**:\n{await get_admins(username)}"
         for servername, username in SERVER_NAMES.items()
     ]
-    formatted_msg = "\n".join(the_boys)
+    formatted_msg = "\n\n".join(the_boys)
     await interaction.response.send_message(formatted_msg)
