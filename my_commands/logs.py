@@ -7,10 +7,11 @@ import discord
 from discord import app_commands
 
 from config import Config
-from utils.db_helpers import get_player
+from lib.db import get_player
 
 SERVER_DATA = Config.SERVER_DATA
 SERVER_NAMES = Config.SERVER_NAMES
+PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 logs_group = app_commands.Group(
     name="logs", description="get_player_logs, and get_all_logs commands."
@@ -28,6 +29,7 @@ logs_group = app_commands.Group(
     ],
 )
 @app_commands.describe(server="Which server?", playername="Which player?")
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def get_player_logs(
     interaction: discord.Interaction, server: app_commands.Choice[int], playername: str
 ):
@@ -100,6 +102,7 @@ async def get_player_logs(
     server="Which server?",
     days="From how many days ago...",
 )
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def get_all_logs(
     interaction: discord.Interaction,
     server: app_commands.Choice[int],

@@ -3,8 +3,8 @@ import requests
 from discord import app_commands
 
 from config import Config
-from utils.server_helpers import get_servers_workshop_ids, server_setting_paths
-from utils.steam_utils import get_servers_workshop_items
+from lib.server_utils import get_servers_workshop_ids, server_setting_paths
+from lib.steam_utils import get_servers_workshop_items
 
 STEAM_KEY = Config.STEAM_KEY
 GITHUB_PAT = Config.GITHUB_PAT

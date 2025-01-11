@@ -3,8 +3,8 @@ import datetime
 from discord.ext import commands, tasks
 
 from config import Config
-from utils.server_helpers import combine_servers_workshop_ids, servers_with_mod_update
-from utils.steam_utils import get_workshop_items
+from lib.server_utils import combine_servers_workshop_ids, servers_with_mod_update
+from lib.steam_utils import get_workshop_items
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 MY_GUILD = Config.MY_GUILD

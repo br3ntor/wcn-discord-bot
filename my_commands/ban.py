@@ -1,4 +1,3 @@
-import asyncio
 import re
 
 import discord
@@ -6,18 +5,21 @@ from discord import app_commands
 from tabulate import tabulate
 
 from config import Config
-from utils.db_helpers import (
+from lib.db import (
     get_all_banned_players,
     get_banned_player,
     get_player,
     get_player_by_steamid,
 )
+from lib.pzserver import pz_send_command
+from lib.server_utils import server_isrunning
 
 ban_group = app_commands.Group(
     name="ban", description="Ban, unban, and list banned players."
 )
 
 SERVER_NAMES = Config.SERVER_NAMES
+PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 
 @ban_group.command()
@@ -31,6 +33,7 @@ SERVER_NAMES = Config.SERVER_NAMES
     server="Which server?",
     player="Which player?",
 )
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def issue(
     interaction: discord.Interaction, server: app_commands.Choice[int], player: str
 ):
@@ -51,28 +54,15 @@ async def issue(
         await interaction.followup.send(player_row)
         return
 
+    # Check if game server is running before we send any commands
+    is_running = await server_isrunning(system_user)
+    if not is_running:
+        await interaction.followup.send(f"{server.name} is **NOT** running!")
+        return
+
     id: str = player_row[11]
     server_cmd = f"banid {id}"
-    cmd = [
-        "runuser",
-        system_user,
-        "-c",
-        f"/home/{system_user}/pzserver send '{server_cmd}'",
-    ]
-
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-        )
-
-        # Get the output of the subprocess.
-        output, error = await process.communicate()
-
-    except Exception as e:
-        print(f"Subprocess error occurred: {e}")
-
-    print(output.decode())
-    print(error.decode())
+    _ = await pz_send_command(system_user, server_cmd)
 
     banned_player = await get_banned_player(system_user, id)
 
@@ -104,6 +94,7 @@ async def issue(
     server="Which server?",
     player="Which player?",
 )
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def revoke(
     interaction: discord.Interaction, server: app_commands.Choice[int], player: str
 ):
@@ -126,26 +117,7 @@ async def revoke(
 
     id = player_row[11]
     server_cmd = f"unbanid {id}"
-    cmd = [
-        "runuser",
-        system_user,
-        "-c",
-        f"/home/{system_user}/pzserver send '{server_cmd}'",
-    ]
-
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-        )
-
-        # Get the output of the subprocess.
-        output, error = await process.communicate()
-
-    except Exception as e:
-        print(f"Subprocess error occurred: {e}")
-
-    print(output.decode())
-    print(error.decode())
+    _ = await pz_send_command(system_user, server_cmd)
 
     banned_player = await get_banned_player(system_user, id)
     msg = (
@@ -166,6 +138,7 @@ def format_message(banned_table: list, server: str) -> str:
 
 
 @ban_group.command()
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def list(interaction: discord.Interaction):
     """Retrieve a list of all banned players across servers."""
     await interaction.response.defer()

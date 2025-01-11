@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from config import Config
-from utils.server_helpers import server_isrunning
+from lib.server_utils import server_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SERVER_NAMES = Config.SERVER_NAMES
@@ -102,7 +102,8 @@ async def restart_server(
 
         try:
             cmd = [
-                "systemctl",
+                "sudo",
+                "/usr/bin/systemctl",
                 "restart",
                 system_user,
             ]

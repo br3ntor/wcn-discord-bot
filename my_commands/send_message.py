@@ -1,11 +1,9 @@
-import asyncio
-import re
-
 import discord
 from discord import app_commands
 
 from config import Config
-from utils.server_helpers import server_isrunning
+from lib.pzserver import pz_send_message
+from lib.server_utils import server_isrunning
 
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
@@ -31,41 +29,18 @@ async def send_message(
 
     system_user = SERVER_NAMES[server.name]
 
-    # Check if game server is running before we try and use it
+    # Check if game server is running before we send any commands
     is_running = await server_isrunning(system_user)
     if not is_running:
         await interaction.followup.send(f"{server.name} is **NOT** running!")
         return
 
-    # Send command and respond to result
-    valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
-    server_msg = f'servermsg "{valid_msg}"'
-    cmd = [
-        "runuser",
-        system_user,
-        "-c",
-        f"/home/{system_user}/pzserver send '{server_msg}'",
-    ]
-
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-        )
-
-        # # Get the output of the subprocess.
-        output, error = await process.communicate()
-
-    except Exception as e:
-        print(f"Subprocess error occurred: {e}")
-
-    # This outputs to systemd journal logs as byte data still?
-    print(output.decode())
-    print(error.decode())
+    result = await pz_send_message(system_user, message)
 
     status = (
         f"Message sent to **{server.name}** server:\n> {message}"
-        if "OK" in output.decode()
-        else "Something wrong maybe\n" + output.decode()
+        if result
+        else "Something wrong maybe, check logs!"
     )
 
     await interaction.followup.send(status)

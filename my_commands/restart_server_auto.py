@@ -4,7 +4,8 @@ import discord
 from discord import app_commands
 
 from config import Config
-from utils.server_helpers import server_isrunning
+from lib.pzserver import pz_send_message
+from lib.server_utils import server_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SERVER_NAMES = Config.SERVER_NAMES
@@ -15,27 +16,6 @@ countdown_isrunning = {server: False for server in SERVER_NAMES}
 
 # Will abort all running countdowns
 abort_signal = False
-
-
-async def send_server_msg(server: str, message: str):
-    server_msg = f'servermsg "{message}"'
-    cmd = [
-        "runuser",
-        server,
-        "-c",
-        f"/home/{server}/pzserver send '{server_msg}'",
-    ]
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-        )
-        # Get the output of the subprocess.
-        output, error = await process.communicate()
-    except Exception as e:
-        print("Error in try block:", e)
-
-    print(output.decode())
-    print(error.decode())
 
 
 class Confirm(discord.ui.View):
@@ -156,14 +136,14 @@ async def restart_server_auto(
                 await announce_chan.send(
                     f"Auto restart ABORTED 👼 for the **{server.name}** server."
                 )
-                await send_server_msg(
+                await pz_send_message(
                     SERVER_NAMES[server.name], "Restart has been ABORTED"
                 )
                 return
 
             # Here we send restart msg to game server every minute
             if seconds_left % 60 == 0:
-                await send_server_msg(
+                await pz_send_message(
                     system_user,
                     f"The server will restart in {seconds_left//60} minute(s)!",
                 )
@@ -182,7 +162,8 @@ async def restart_server_auto(
 
         try:
             cmd = [
-                "systemctl",
+                "sudo",
+                "/usr/bin/systemctl",
                 "restart",
                 system_user,
             ]

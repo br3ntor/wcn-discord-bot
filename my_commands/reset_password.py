@@ -2,9 +2,10 @@ import discord
 from discord import app_commands
 
 from config import Config
-from utils.db_helpers import PasswordResetStatus, reset_player_password
+from lib.db import PasswordResetStatus, reset_player_password
 
 SERVER_NAMES = Config.SERVER_NAMES
+PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 
 @app_commands.command()
@@ -15,6 +16,7 @@ SERVER_NAMES = Config.SERVER_NAMES
     ],
 )
 @app_commands.describe(server="Which server?", playername="Which player?")
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def reset_password(
     interaction: discord.Interaction, server: app_commands.Choice[int], playername: str
 ):

@@ -57,20 +57,6 @@ async def on_ready():
     print("------")
 
 
-# I don't know what this is about but came across trying to do what bot.tree.error is doing
-# This just a reminder to be curious about it later
-# @bot.event
-# async def on_error(event, *args, **kwargs):
-#     # Log the event name
-#     print(f"An error occurred in event: {event}")
-#
-#     # Log the positional arguments
-#     print("Positional arguments:", args)
-#
-#     # Log the keyword arguments
-#     print("Keyword arguments:", kwargs)
-
-
 # Error handler for application command errors
 @bot.tree.error
 async def on_application_command_error(
