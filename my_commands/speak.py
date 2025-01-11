@@ -14,5 +14,5 @@ async def speak(
     """Make the bot speak in a specific channel."""
     await channel.send(message)
     await interaction.response.send_message(
-        f"Message sent to {channel.name}:\n>{message}", ephemeral=True
+        f"Message sent to {channel.name}:\n> {message}", ephemeral=True
     )
