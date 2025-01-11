@@ -22,7 +22,7 @@ class Config:
     PZ_ADMIN_ROLE_ID = int(os.getenv("PZ_ADMIN_ROLE_ID", 0))
     DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-    # Optional Env Vars - Commands that depend on these shouldn't be made available
+    # Optional Env Vars - TODO: Commands that depend on these shouldn't be made available
     # Maybe a later task could be a status function the user could see to see bot setup
     GITHUB_PAT = os.getenv("GITHUB_PAT")
     SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")

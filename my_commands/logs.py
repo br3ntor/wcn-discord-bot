@@ -76,7 +76,7 @@ async def get_player_logs(
         else:
             error_msg = stderr.decode() if stderr else "No logs found"
             await interaction.followup.send(
-                f"No logs found for user {playername}. {error_msg}"
+                f"No logs found for user **{playername}** on the **{server.name}**. {error_msg}"
             )
 
         # Clean up
