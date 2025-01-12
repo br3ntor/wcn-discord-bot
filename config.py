@@ -34,7 +34,7 @@ class Config:
             "system_user": "test_pzserver",
             "display_name": "Test_Server",
             "port": 17261,
-            "gists": None,
+            "gists": {"modlist": "f4ae50a891ec2643bddc12ba140b4183"},
         },
         {
             "system_user": "pel_pzserver",

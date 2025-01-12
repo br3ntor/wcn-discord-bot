@@ -1,8 +1,10 @@
 import datetime
 
+import discord
 from discord.ext import commands, tasks
 
 from config import Config
+from discord_utils.auto_restart import auto_restart_server
 from lib.server_utils import combine_servers_workshop_ids, servers_with_mod_update
 from lib.steam_utils import get_workshop_items
 
@@ -19,7 +21,7 @@ times = [
 
 
 class TasksCog(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     def cog_unload(self):
@@ -36,7 +38,16 @@ class TasksCog(commands.Cog):
     async def my_ad(self):
         ad_msg = "Help us to reach our monthly goal!\n"
         goal_url = "https://ko-fi.com/westcoastnoobs/goal"
-        await self.bot.get_channel(ANNOUNCE_CHANNEL).send(ad_msg + goal_url)
+        chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
+
+        if not chan:
+            print("Unable to get discord channel.")
+            return
+        if not isinstance(chan, discord.TextChannel):
+            print("Chan is not TextChannel?")
+            return
+
+        await chan.send(ad_msg + goal_url)
         print("My ad is running!")
 
     @tasks.loop(minutes=5)
@@ -52,6 +63,7 @@ class TasksCog(commands.Cog):
             if "title" in item:
                 now = datetime.datetime.now()
                 time_updated = datetime.datetime.fromtimestamp(item["time_updated"])
+                # TODO: Maybe trigger auto restart code here
                 if (now - time_updated).total_seconds() / 60 < 5:
 
                     # Here we need to check on which servers the item exists
@@ -62,18 +74,41 @@ class TasksCog(commands.Cog):
                     print(servers_with_mod)
 
                     formatted_time = time_updated.strftime("%b %d @ %I:%M%p")
+
                     guild = self.bot.get_guild(MY_GUILD)
-                    admin_role = guild.get_role(PZ_ADMIN_ROLE_ID).mention
+                    if not guild:
+                        print("Unable to get guild")
+                        return
+                    ar = guild.get_role(PZ_ADMIN_ROLE_ID)
+                    if not ar:
+                        print("Unable to get admin role id")
+                        return
+                    admin_role = ar.mention
+
                     update_msg = (
                         f"{admin_role} A mod has updated on **{'** and **'.join(servers_with_mod)}**!\n"
                         f"Title: {item['title'].strip()}\n"
                         f"Updated: {formatted_time}\n"
                         f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
                     )
-                    await self.bot.get_channel(ANNOUNCE_CHANNEL).send(update_msg)
+
+                    chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
+                    if not chan:
+                        print("Unable to get discord channel.")
+                        return
+                    if not isinstance(chan, discord.TextChannel):
+                        print("Chan is not TextChannel?")
+                        return
+
+                    await chan.send(update_msg)
+
                     print("A mod has updated!")
                     print(f"title: {item['title'].strip()}")
                     print(f"updated: {formatted_time}")
                     print(
                         f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
                     )
+
+                    # Run auto restart for each server containing updated mod
+                    for server_name in servers_with_mod:
+                        await auto_restart_server(chan, server_name)

@@ -68,5 +68,7 @@ async def on_application_command_error(
         )
     else:
         await interaction.response.send_message(
-            "An error occurred while processing your command.", ephemeral=True
+            "An error occurred while processing your command, check logs.",
+            ephemeral=True,
         )
+    print(f"AppCommandError: {error}")

@@ -4,18 +4,13 @@ import discord
 from discord import app_commands
 
 from config import Config
+from discord_utils.auto_restart import abort_signal, countdown_isrunning
 from lib.pzserver import pz_send_message
 from lib.server_utils import server_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
-
-# Track if countdown timer is running
-countdown_isrunning = {server: False for server in SERVER_NAMES}
-
-# Will abort all running countdowns
-abort_signal = False
 
 
 class Confirm(discord.ui.View):
@@ -66,6 +61,17 @@ async def restart_server_auto(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
     """Restarts server in 5min."""
+    if countdown_isrunning[server.name]:
+        await interaction.response.send_message(
+            f"Auto restart already started for **{server.name}**."
+        )
+        return
+
+    if abort_signal["aborted"]:
+        await interaction.response.send_message(
+            "Try again after last auto_restart finishes canceling"
+        )
+        return
     if not isinstance(interaction.user, discord.Member):
         await interaction.response.send_message(
             "WTF are you trying to do even?", ephemeral=True
@@ -90,9 +96,6 @@ async def restart_server_auto(
             f"**{server.name}** is **NOT** running!"
         )
         return
-
-    global abort_signal, countdown_isrunning
-    abort_signal = False
 
     # Create the view containing our dropdown and buttons
     view = Confirm(server.name)
@@ -128,7 +131,7 @@ async def restart_server_auto(
         countdown_isrunning[server.name] = True
         seconds_left = 300
         while seconds_left > 0:
-            if abort_signal:
+            if abort_signal["aborted"]:
                 countdown_isrunning[server.name] = False
                 await interaction.channel.send(
                     f"Auto restart ABORTED 👼 for the **{server.name}** server."
@@ -139,6 +142,7 @@ async def restart_server_auto(
                 await pz_send_message(
                     SERVER_NAMES[server.name], "Restart has been ABORTED"
                 )
+                abort_signal["aborted"] = False
                 return
 
             # Here we send restart msg to game server every minute
@@ -156,9 +160,6 @@ async def restart_server_auto(
 
             await asyncio.sleep(5)
             seconds_left -= 5
-
-        # Countdown is over so lets reset count_down trackers
-        countdown_isrunning[server.name] = False
 
         try:
             cmd = [
@@ -180,6 +181,10 @@ async def restart_server_auto(
         await interaction.channel.send(restart_msg)
         await announce_chan.send(restart_msg)
 
+        # Might as well be here right? So
+        # command cant be called twice for as long as it is running.
+        countdown_isrunning[server.name] = False
+
     else:
         print("Cancelled...")
 
@@ -187,12 +192,14 @@ async def restart_server_auto(
 @app_commands.command()
 async def cancel_auto_restart(interaction: discord.Interaction):
     """ZOMG CANCEL B4 IT TOO LATE!!!."""
-    global abort_signal
+    if abort_signal["aborted"]:
+        await interaction.response.send_message("You already cancelled let it finish!")
+        return
 
     is_running = any(countdown_isrunning.values())
 
     if is_running:
-        abort_signal = True
+        abort_signal["aborted"] = True
         await interaction.response.send_message("Abort signal sent!")
     else:
         await interaction.response.send_message(
