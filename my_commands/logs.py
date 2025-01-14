@@ -21,7 +21,7 @@ logs_group = app_commands.Group(
 # https://docs.python.org/3/library/tempfile.html#examples
 
 
-@logs_group.command()
+@logs_group.command(name="get_player")
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
@@ -87,7 +87,7 @@ async def get_player_logs(
         await interaction.followup.send(f"An error occurred: {str(e)}")
 
 
-@logs_group.command()
+@logs_group.command(name="get_all")
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)

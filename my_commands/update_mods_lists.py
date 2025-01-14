@@ -67,7 +67,7 @@ async def update_all_gists():
     return gist_links
 
 
-@app_commands.command()
+@app_commands.command(name="mods_lists")
 async def update_mods_lists(
     interaction: discord.Interaction,
 ):

@@ -7,6 +7,7 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 
 @app_commands.command()
+@app_commands.describe(channel="Where should I speak?", message="What should I say?")
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def speak(
     interaction: discord.Interaction, channel: discord.TextChannel, message: str

@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 
 import discord
@@ -109,6 +110,9 @@ class TasksCog(commands.Cog):
                         f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
                     )
 
-                    # Run auto restart for each server containing updated mod
-                    for server_name in servers_with_mod:
-                        await auto_restart_server(chan, server_name)
+                    # Run auto restart for each server containing updated mod concurrently
+                    tasks = [
+                        auto_restart_server(chan, server_name)
+                        for server_name in servers_with_mod
+                    ]
+                    await asyncio.gather(*tasks)

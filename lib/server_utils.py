@@ -78,7 +78,7 @@ async def get_servers_workshop_ids(
     return servers_workshopids_lists
 
 
-async def servers_with_mod_update(workshop_id: str) -> list:
+async def servers_with_mod_update(workshop_id: str) -> list[str]:
     """Returns a list of running servers the updated mod is running on"""
     # Check for workshop_id in each servers list
     # and if its present add server to list

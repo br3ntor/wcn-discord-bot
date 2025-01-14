@@ -32,7 +32,7 @@ class Confirm(discord.ui.View):
         self.stop()
 
 
-@app_commands.command()
+@app_commands.command(name="now")
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)

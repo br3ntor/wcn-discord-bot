@@ -38,8 +38,8 @@ async def update_gist(
             # print(await resp.text())
 
 
-@app_commands.command()
-async def update_sandbox_gists(interaction: discord.Interaction):
+@app_commands.command(name="sandbox_settings")
+async def update_sandbox_settings(interaction: discord.Interaction):
     """Updates server sandbox settings gist."""
     links = []
     for server in SERVER_DATA:

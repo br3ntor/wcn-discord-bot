@@ -48,7 +48,7 @@ class Confirm(discord.ui.View):
         self.stop()
 
 
-@app_commands.command()
+@app_commands.command(name="auto")
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
@@ -189,9 +189,9 @@ async def restart_server_auto(
         print("Cancelled...")
 
 
-@app_commands.command()
-async def cancel_auto_restart(interaction: discord.Interaction):
-    """ZOMG CANCEL B4 IT TOO LATE!!!."""
+@app_commands.command(name="cancel")
+async def cancel_restart(interaction: discord.Interaction):
+    """Cancels all running restart countdowns."""
     if abort_signal["aborted"]:
         await interaction.response.send_message("You already cancelled let it finish!")
         return
