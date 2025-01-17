@@ -3,6 +3,7 @@ import re
 
 
 async def pz_send_command(system_user: str, server_command: str):
+    """Sends a command to the game-server console."""
     cmd = [
         "sudo",
         "-u",
@@ -36,6 +37,13 @@ async def pz_send_command(system_user: str, server_command: str):
 
 
 async def pz_send_message(server: str, message: str) -> bool:
+    """Sends a correctly formatted message to the game-server."""
     valid_msg = re.sub(r"[^a-zA-Z!?\s\d]", "", message)
     server_msg = f'servermsg "{valid_msg}"'
     return await pz_send_command(server, server_msg)
+
+
+async def pz_heal_player(server: str, player: str) -> bool:
+    """Toggles godmode on a player to heal them."""
+    print(server, player)
+    return False

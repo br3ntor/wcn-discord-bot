@@ -1,10 +1,8 @@
-import asyncio
-
 import discord
 from discord import app_commands
 
 from config import Config
-from lib.server_utils import server_isrunning
+from lib.server_utils import restart_zomboid_server, server_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SERVER_NAMES = Config.SERVER_NAMES
@@ -44,25 +42,7 @@ class Confirm(discord.ui.View):
 async def restart_server(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
-    """Restarts the server!!!"""
-
-    system_user = SERVER_NAMES[server.name]
-
-    # I've written of few of these checks, scattered around, prob because I just
-    # learned about them but might not be any reason to use. Think about this more later
-    if not isinstance(interaction.user, discord.Member):
-        await interaction.response.send_message(
-            "WTF are you trying to do even?", ephemeral=True
-        )
-        raise TypeError("Not a member")
-
-    # Feels like if this is here I need to defer before but this shouldnt ever be more than 3 seconds
-    is_running = await server_isrunning(system_user)
-    if not is_running:
-        await interaction.response.send_message(
-            f"**{server.name}** is **NOT** running!", ephemeral=True
-        )
-        return
+    """Restarts a server immediately."""
 
     # Send the question with buttons
     view = Confirm()
@@ -83,51 +63,46 @@ async def restart_server(
     elif view.value:
         print("Restart Confirmed...")
 
+        system_user = SERVER_NAMES[server.name]
+
+        is_running = await server_isrunning(system_user)
+        if not is_running:
+            await interaction.followup.send(
+                f"**{server.name}** is **NOT** running!", ephemeral=True
+            )
+            return
+
         initiated_by = (
-            f"**{server.name}** restart "
+            f"**{server.name}** server restart "
             f"initiated by {interaction.user.display_name}..."
         )
 
-        # Maybe this should be moved higher in the function but can do later or not
-        assert isinstance(interaction.guild, discord.Guild)
+        if interaction.guild is None:
+            await interaction.followup.send(
+                "This command can only be used in a server.", ephemeral=True
+            )
+            return
+
         announce_chan = interaction.guild.get_channel(ANNOUNCE_CHANNEL)
-        assert isinstance(announce_chan, discord.TextChannel)
+
+        if not isinstance(announce_chan, discord.TextChannel):
+            await interaction.followup.send(
+                "Announce channel is not a TextChanel.", ephemeral=True
+            )
+            return
 
         # Let the people know whats up!
         await announce_chan.send(initiated_by)
 
-        # Feedback for mod chanel
-        assert isinstance(interaction.channel, discord.TextChannel)
-        await interaction.channel.send(initiated_by)
+        await restart_zomboid_server(system_user)
 
-        try:
-            cmd = [
-                "sudo",
-                "/usr/bin/systemctl",
-                "restart",
-                system_user,
-            ]
-            process = await asyncio.create_subprocess_exec(*cmd)
-            await process.wait()
+        status_msg = (
+            f"Success! The **{server.name}** was shut down "
+            "and is now starting back up."
+        )
 
-            succeeded = (
-                f"Success! The **{server.name}** was shut down "
-                "and is now starting back up."
-            )
-            failed = "Something went wrong, maybe..."
-            status_msg = succeeded if process.returncode == 0 else failed
-
-            # TODO: Figure out the logging module instead of printing
-            print(process)
-
-            # Announce restart
-            await announce_chan.send(status_msg)
-
-            # Feedback for mod channel
-            await interaction.channel.send(status_msg)
-
-        except Exception as e:
-            print(f"Subprocess error occurred: {e}")
+        # Announce restart
+        await announce_chan.send(status_msg)
 
     else:
-        print("Cancelled...")
+        print(f"Restart cancelled for {server.name}...")

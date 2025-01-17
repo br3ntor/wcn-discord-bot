@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands, tasks
 
 from config import Config
-from discord_utils.auto_restart import auto_restart_server
+from lib.discord_utils import auto_restart_server
 from lib.server_utils import combine_servers_workshop_ids, servers_with_mod_update
 from lib.steam_utils import get_workshop_items
 
@@ -112,7 +112,15 @@ class TasksCog(commands.Cog):
 
                     # Run auto restart for each server containing updated mod concurrently
                     tasks = [
-                        auto_restart_server(chan, server_name)
+                        auto_restart_server(
+                            chan,
+                            server_name,
+                            f"Auto restart triggered for the **{server_name}** server. Restarting in 5min.",
+                        )
                         for server_name in servers_with_mod
                     ]
-                    await asyncio.gather(*tasks)
+                    try:
+                        results = await asyncio.gather(*tasks)
+                        print("Results:", results)
+                    except Exception as e:
+                        print(f"An unexpected exception occurred: {e}")

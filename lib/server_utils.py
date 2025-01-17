@@ -105,3 +105,23 @@ async def combine_servers_workshop_ids() -> list:
     workshop_ids = list(all_servers_workshop_ids)
     print(f"Found this many workshop_ids:{len(workshop_ids)}")
     return workshop_ids
+
+
+async def restart_zomboid_server(system_user: str):
+    """Restarts the Project Zomboid game-server service.
+
+    Args:
+        system_user: The name of the linux user running the game server.
+
+    """
+
+    try:
+        cmd = ["sudo", "/usr/bin/systemctl", "restart", system_user]
+        process = await asyncio.create_subprocess_exec(*cmd)
+        exit_code = await process.wait()
+        if exit_code != 0:
+            return False
+    except Exception as e:
+        print(f"error occurred: {e}")
+        return False
+    return True
