@@ -43,7 +43,11 @@ async def update_sandbox_settings(interaction: discord.Interaction):
     """Updates server sandbox settings gist."""
     links = []
     for server in SERVER_DATA:
-        if server["gists"] and server["gists"]["sandbox"]:
+        if (
+            server["gists"] is not None
+            and "sandbox" in server["gists"]
+            and server["gists"]["sandbox"]
+        ):
             payload = get_sandboxsettings(server["system_user"])
             await update_gist(
                 payload, server["gists"]["sandbox"], server["system_user"]

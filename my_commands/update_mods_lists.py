@@ -55,7 +55,11 @@ async def update_all_gists():
 
     gist_links = []
     for zomboid_server in SERVER_DATA:
-        if zomboid_server["gists"]:
+        if (
+            zomboid_server["gists"] is not None
+            and "modlist" in zomboid_server["gists"]
+            and zomboid_server["gists"]["modlist"]
+        ):
             system_user = zomboid_server["system_user"]
             display_name = zomboid_server["display_name"]
             data = parse_workshop_data(servers_mods[system_user])
