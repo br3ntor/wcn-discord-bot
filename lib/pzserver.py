@@ -45,5 +45,8 @@ async def pz_send_message(server: str, message: str) -> bool:
 
 async def pz_heal_player(server: str, player: str) -> bool:
     """Toggles godmode on a player to heal them."""
-    print(server, player)
-    return False
+    blessing = f'godmode "{player}"'
+    if not await pz_send_command(server, blessing):
+        return False
+    await asyncio.sleep(1)
+    return await pz_send_command(server, blessing)

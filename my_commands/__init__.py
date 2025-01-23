@@ -4,6 +4,7 @@ from .admin import admin_group
 from .ban import ban_group
 from .cat_fact import cat_fact
 from .get_playerlist import get_playerlist
+from .heal_player import heal_player
 from .logs import logs_group
 from .reset_password import reset_password
 from .restart_server import restart_server
@@ -30,12 +31,13 @@ update_group.add_command(update_sandbox_settings)
 __all__ = [
     "admin_group",
     "ban_group",
-    "restart_group",
     "cat_fact",
     "get_playerlist",
+    "heal_player",
     "logs_group",
     "reset_password",
+    "restart_group",
     "send_message",
-    "update_group",
     "speak",
+    "update_group",
 ]
