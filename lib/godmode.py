@@ -33,6 +33,7 @@ class GodMode:
             self.players_command_revieved = True
 
         # This assumes there will never be a break between previous line and playerlist
+        # Actually, I think there can be.
         if self.players_command_revieved:
             if log_line[0] == "-":
                 if f"{self.player_name}" in log_line:
@@ -81,7 +82,8 @@ class GodMode:
                 print(self.read_lines)
                 if await log_handler(decoded_line):
                     return True
-                elif self.read_lines > 30:
+                # This feels a little sloppy, if the server is bigger this will go up
+                elif self.read_lines > 50:
                     print("Somethin ain't right.")
                     return False
 
