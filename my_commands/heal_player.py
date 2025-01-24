@@ -26,7 +26,9 @@ async def heal_player(
     result = await gm.gogo_godmode()
     if result:
         await interaction.followup.send(
-            f"**{player}** was found and healed on the **{server.name}** server!"
+            f"I have healed 💖 **{player}** on the **{server.name}** server!"
         )
     else:
-        await interaction.followup.send("Something went wrong, ruh roh.")
+        await interaction.followup.send(
+            f"Heal failed, is **{player}** mortal and on the **{server.name}** server?"
+        )

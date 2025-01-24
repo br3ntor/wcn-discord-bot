@@ -1,8 +1,10 @@
 import asyncio
 import subprocess
+import time
 from typing import Callable, Coroutine
 
 from config import Config
+from lib.db import get_player
 from lib.pzserver import pz_heal_player, pz_send_command
 
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -18,31 +20,35 @@ class GodMode:
     def __init__(self, server_name: str, player_name: str) -> None:
         self.server_name = server_name
         self.player_name = player_name
-        self.players_command_revieved = False
+        self.players_command_received = False
         self.godmode_on = False
-        self.read_lines = 0
         self.log_file_path = (
             f"/home/{SERVER_NAMES[server_name]}/log/console/pzserver-console.log"
         )
 
-    async def verify_player_online(self, log_line: str) -> bool:
+    async def verify_player_online(self, log_line: str) -> bool | None:
         """Monitor the log for the correct sequence of lines to confirm player
         is online and the commands send to the server execute correctly."""
         if "Players connected" in log_line:
             print("players command recieved!")
-            self.players_command_revieved = True
+            self.players_command_received = True
+            return None
 
         # This assumes there will never be a break between previous line and playerlist
-        # Actually, I think there can be.
-        if self.players_command_revieved:
+        if self.players_command_received:
+            # This seems to happen when no players or end of playerlist
+            if len(log_line) == 0:
+                print("No players or end of list.")
+                return False
             if log_line[0] == "-":
                 if f"{self.player_name}" in log_line:
                     print("player found!")
                     return True
+                return None
+            print("Unexpected log line.")
+            return False
 
-        return False
-
-    async def verify_player_healed(self, log_line: str) -> bool:
+    async def verify_player_healed(self, log_line: str) -> bool | None:
         """Verify godmode was applied and removed by watching for the correct
         sequence of log lines."""
         if f"User {self.player_name} is now invincible." in log_line:
@@ -51,13 +57,12 @@ class GodMode:
             if self.godmode_on:
                 print(f"Godmode was given and taken away for {self.player_name}.")
                 return True
-            print("Taken away but not given?")
-
-        return False
+            print("Godmode was taken away but not given? Maybe admin.")
+            return True
 
     async def log_watcher(
         self,
-        log_handler: Callable[[str], Coroutine[None, None, bool]],
+        log_handler: Callable[[str], Coroutine[None, None, bool | None]],
     ):
         """Watches log lines with tail and runs a callback on each line."""
         try:
@@ -71,25 +76,33 @@ class GodMode:
 
             if process.stdout is None:
                 print("Failed to access log")
-                return
+                return False
 
             print(f"Tailing log file: {self.log_file_path}")
-            self.read_lines = 0
+            start_time = time.time()
             async for line in process.stdout:
                 decoded_line = line.decode("utf-8").strip()
                 print(decoded_line)  # log line
-                self.read_lines += 1
-                print(self.read_lines)
-                if await log_handler(decoded_line):
+                result = await log_handler(decoded_line)
+                if result is None:
+                    elapsed_time = time.time() - start_time
+                    print(f"Elapsed Watch Time: {elapsed_time}")
+                    if elapsed_time > 5:
+                        print("Watcher timed out, you are really dumb.")
+                        return False
+                    continue
+                if result:
                     return True
-                # This feels a little sloppy, if the server is bigger this will go up
-                elif self.read_lines > 50:
-                    print("Somethin ain't right.")
-                    return False
 
+                print("Log handler failed")
+                return False
+
+            # I don't think it will ever be possible to get here since it would mean
+            # we've exhausted all log lines which will never happen as long as pz server is running.
             return False
         except asyncio.CancelledError:
             print(f"TL:Task cancelled for: {self.log_file_path}")
+            return False
         finally:
             if process:
                 try:
@@ -102,6 +115,12 @@ class GodMode:
 
     async def gogo_godmode(self):
         """Guaranteed to work godmode!"""
+        # Makes sure player has no accesslevel
+        player_row = await get_player(SERVER_NAMES[self.server_name], self.player_name)
+        if player_row and player_row[13]:
+            print("Accesslevel:", player_row[13])
+            print("No reason to use this on immortals.")
+            return False
 
         # This is going to start off listenting to log and scanning log lines
         # until it finds the player online or runs out of players to check.
