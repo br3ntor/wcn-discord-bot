@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from zoneinfo import ZoneInfo
 
 import discord
 from discord.ext import commands, tasks
@@ -62,8 +63,15 @@ class TasksCog(commands.Cog):
 
         for item in workshop_items:
             if "title" in item:
-                now = datetime.datetime.now()
-                time_updated = datetime.datetime.fromtimestamp(item["time_updated"])
+
+                local_time = ZoneInfo("localtime")
+                now = datetime.datetime.now(local_time)
+
+                # Convert the timestamp to a timezone-aware datetime object
+                time_updated = datetime.datetime.fromtimestamp(
+                    item["time_updated"], tz=local_time
+                )
+
                 # TODO: Maybe trigger auto restart code here
                 if (now - time_updated).total_seconds() / 60 < 5:
 
@@ -74,7 +82,7 @@ class TasksCog(commands.Cog):
                     )
                     print(servers_with_mod)
 
-                    formatted_time = time_updated.strftime("%b %d @ %I:%M%p")
+                    formatted_time = time_updated.strftime("%b %d @ %I:%M%p %Z")
 
                     guild = self.bot.get_guild(MY_GUILD)
                     if not guild:
