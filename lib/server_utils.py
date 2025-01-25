@@ -4,7 +4,7 @@ import configparser
 from config import Config
 
 SERVER_DATA = Config.SERVER_DATA
-SYSTEM_USERS = Config.SYSTEM_USERS
+SERVER_NAMES = Config.SERVER_NAMES
 
 
 async def server_isrunning(server: str) -> bool:
@@ -88,7 +88,7 @@ async def servers_with_mod_update(workshop_id: str) -> list[str]:
     server_names = []
     for key, value in servers.items():
         if workshop_id in value:
-            server_names.append(SYSTEM_USERS[key])
+            server_names.append(SERVER_NAMES[key])
     return server_names
 
 

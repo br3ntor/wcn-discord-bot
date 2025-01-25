@@ -9,7 +9,7 @@ print("Loading Config...")
 # its own user on a seperate port and managed as a systemd service.
 class ServerConfig(TypedDict):
     system_user: str
-    display_name: str
+    server_name: str
     port: int
     gists: Optional[Dict[str, str]]
 
@@ -32,19 +32,19 @@ class Config:
     SERVER_DATA: List[ServerConfig] = [
         {
             "system_user": "test_pzserver",
-            "display_name": "Test_Server",
+            "server_name": "Test_Server",
             "port": 17261,
             "gists": {"modlist": "f4ae50a891ec2643bddc12ba140b4183"},
         },
         {
             "system_user": "pel_pzserver",
-            "display_name": "Vanilla_2",
+            "server_name": "Vanilla_2",
             "port": 16261,
             "gists": None,
         },
         {
             "system_user": "medium_pzserver",
-            "display_name": "Medium",
+            "server_name": "Medium",
             "port": 16267,
             "gists": {
                 "modlist": "92bb4ee5f74bf724fff11e2e8642c2dd",
@@ -53,7 +53,7 @@ class Config:
         },
         {
             "system_user": "heavy_pzserver",
-            "display_name": "Heavy",
+            "server_name": "Heavy",
             "port": 16265,
             "gists": {
                 "modlist": "bd6cd4aa1fc6571260be63654f0995db",
@@ -62,11 +62,11 @@ class Config:
         },
     ]
 
-    # Mapping the servers name to the linux username the server runs under
-    SERVER_NAMES = {srv["display_name"]: srv["system_user"] for srv in SERVER_DATA}
+    # Map server name to system user.
+    SYSTEM_USERS = {srv["server_name"]: srv["system_user"] for srv in SERVER_DATA}
 
-    # I want to be able to lookup display name when I only have system user in a function
-    SYSTEM_USERS = {srv["system_user"]: srv["display_name"] for srv in SERVER_DATA}
+    # Map system user to server name.
+    SERVER_NAMES = {srv["system_user"]: srv["server_name"] for srv in SERVER_DATA}
 
     @staticmethod
     def validate():

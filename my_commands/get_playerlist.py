@@ -8,6 +8,7 @@ from tabulate import tabulate
 from config import Config
 
 SERVER_DATA = Config.SERVER_DATA
+SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 SERVER_PUB_IP = Config.SERVER_PUB_IP
 
@@ -31,7 +32,7 @@ I can see **{len(player_table)}** players on the **{server}** server.
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ]
 )
 @app_commands.describe(server="Which server?")
@@ -39,9 +40,7 @@ async def get_playerlist(
     interaction: discord.Interaction, server: app_commands.Choice[int]
 ):
     """Get a list of players on a server."""
-    matching_servers = [
-        srv for srv in SERVER_DATA if srv["display_name"] == server.name
-    ]
+    matching_servers = [srv for srv in SERVER_DATA if srv["server_name"] == server.name]
 
     # Use the first matching server, should only be one.
     if matching_servers:

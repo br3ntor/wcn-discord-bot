@@ -6,6 +6,7 @@ from lib.countdown import abort_signal, countdown_isrunning
 from lib.discord_utils import auto_restart_server
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
+SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
@@ -37,7 +38,7 @@ class Confirm(discord.ui.View):
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ]
 )
 @app_commands.describe(server="Which server?")

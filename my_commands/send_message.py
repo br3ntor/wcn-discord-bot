@@ -5,6 +5,7 @@ from config import Config
 from lib.pzserver import pz_send_message
 from lib.server_utils import server_isrunning
 
+SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
@@ -13,7 +14,7 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ]
 )
 @app_commands.describe(
@@ -27,7 +28,7 @@ async def send_message(
     """Send a message to everyone in the server."""
     await interaction.response.defer()
 
-    system_user = SERVER_NAMES[server.name]
+    system_user = SYSTEM_USERS[server.name]
 
     # Check if game server is running before we send any commands
     is_running = await server_isrunning(system_user)

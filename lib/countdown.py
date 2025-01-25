@@ -4,11 +4,11 @@ from config import Config
 from lib.pzserver import pz_send_message
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
-SERVER_NAMES = Config.SERVER_NAMES
 SYSTEM_USERS = Config.SYSTEM_USERS
+SERVER_NAMES = Config.SERVER_NAMES
 
 # Track if countdown timer is running
-countdown_isrunning = {server: False for server in SERVER_NAMES.values()}
+countdown_isrunning = {server: False for server in SYSTEM_USERS.values()}
 
 # Will abort all running countdowns
 abort_signal = {"aborted": False}
@@ -48,7 +48,7 @@ async def restart_countdown_timer(system_user: str, duration: int):
 
 
 def check_countdown_state(system_user: str) -> tuple[bool, str]:
-    server_name = SYSTEM_USERS[system_user]
+    server_name = SERVER_NAMES[system_user]
     if countdown_isrunning[system_user]:
         return (
             False,

@@ -5,6 +5,7 @@ from config import Config
 from lib.server_utils import restart_zomboid_server, server_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
+SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
@@ -34,7 +35,7 @@ class Confirm(discord.ui.View):
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ]
 )
 @app_commands.describe(server="Which server?")
@@ -63,7 +64,7 @@ async def restart_server(
     elif view.value:
         print("Restart Confirmed...")
 
-        system_user = SERVER_NAMES[server.name]
+        system_user = SYSTEM_USERS[server.name]
 
         is_running = await server_isrunning(system_user)
         if not is_running:

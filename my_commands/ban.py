@@ -18,6 +18,7 @@ ban_group = app_commands.Group(
     name="ban", description="Ban, unban, and list banned players."
 )
 
+SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
@@ -26,7 +27,7 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ]
 )
 @app_commands.describe(
@@ -44,7 +45,7 @@ async def issue(
 
     await interaction.response.defer()
 
-    system_user = SERVER_NAMES[server.name]
+    system_user = SYSTEM_USERS[server.name]
 
     player_row = await get_player(system_user, player)
     if not player_row:
@@ -87,7 +88,7 @@ async def issue(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ]
 )
 @app_commands.describe(
@@ -105,7 +106,7 @@ async def revoke(
 
     await interaction.response.defer()
 
-    system_user = SERVER_NAMES[server.name]
+    system_user = SYSTEM_USERS[server.name]
 
     player_row = await get_player(system_user, player)
     if not player_row:
@@ -144,11 +145,11 @@ async def list(interaction: discord.Interaction):
     await interaction.response.defer()
 
     # We will build three inputs for our format_message function
-    banned_lists = {server: [] for server in SERVER_NAMES.values()}
+    banned_lists = {server: [] for server in SYSTEM_USERS.values()}
 
     # Really what I should do is query with all the banned
     # usernames collected first, not make a call for each one in a loop
-    for server in SERVER_NAMES.values():
+    for server in SYSTEM_USERS.values():
 
         servers_banned_players = await get_all_banned_players(server)
         print(server)
@@ -191,7 +192,7 @@ async def list(interaction: discord.Interaction):
         banned_lists[server].extend(banned_players)
 
     formatted_messages = []
-    for category, server in SERVER_NAMES.items():
+    for category, server in SYSTEM_USERS.items():
         banned_list = [[p[0], p[1]] for p in banned_lists[server]]
         formatted_messages.append(format_message(banned_list, category))
 

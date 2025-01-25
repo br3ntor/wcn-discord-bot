@@ -4,15 +4,16 @@ from discord import app_commands
 from config import Config
 from lib.godmode import GodMode
 
-SERVER_NAMES = Config.SERVER_NAMES
+SYSTEM_USERS = Config.SYSTEM_USERS
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
+SERVER_NAMES = Config.SERVER_NAMES
 
 
 @app_commands.command()
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ]
 )
 @app_commands.describe(server="Which server?", player="Who will you save?")
@@ -30,5 +31,5 @@ async def heal_player(
         )
     else:
         await interaction.followup.send(
-            f"Heal failed, is **{player}** mortal and on the **{server.name}** server?"
+            f"Heal failed, **{player}** must be on the **{server.name}** server and must not be admin, gm, etc. See logs."
         )

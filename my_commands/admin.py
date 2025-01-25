@@ -8,6 +8,7 @@ from lib.db import get_admins, get_player
 from lib.pzserver import pz_send_command
 from lib.server_utils import server_isrunning
 
+SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
@@ -20,7 +21,7 @@ admin_group = app_commands.Group(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ],
     accesslevel=[
         app_commands.Choice(name="Give admin", value=1),
@@ -48,7 +49,7 @@ async def toggle(
     await interaction.response.defer()
 
     # Check for existence of player in game servers database
-    system_user = SERVER_NAMES[server.name]
+    system_user = SYSTEM_USERS[server.name]
     player_row = await get_player(system_user, player)
     if not player_row:
         await interaction.followup.send(
@@ -86,7 +87,7 @@ async def list(interaction: discord.Interaction):
     """Get a list of admins on a zomboid server."""
     the_boys = [
         f"**{servername} Admins**:\n{await get_admins(username)}"
-        for servername, username in SERVER_NAMES.items()
+        for servername, username in SYSTEM_USERS.items()
     ]
     formatted_msg = "\n\n".join(the_boys)
     await interaction.response.send_message(formatted_msg)

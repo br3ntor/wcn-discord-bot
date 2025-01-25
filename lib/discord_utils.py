@@ -7,7 +7,7 @@ from lib.countdown import check_countdown_state, restart_countdown_timer
 from lib.server_utils import restart_zomboid_server, server_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
-SERVER_NAMES = Config.SERVER_NAMES
+SYSTEM_USERS = Config.SYSTEM_USERS
 
 
 async def auto_restart_server(
@@ -15,7 +15,7 @@ async def auto_restart_server(
 ):
     """Starts a countdown and restarts a server at the end of it."""
     # FIX: This server_name / system_user is getting confusing, is there a better way? Perhaps with the type system?
-    system_user = SERVER_NAMES[server_name]
+    system_user = SYSTEM_USERS[server_name]
 
     # Counter must not be running or aborted
     counter_isready, err = check_countdown_state(system_user)

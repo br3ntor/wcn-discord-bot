@@ -7,8 +7,8 @@ from config import Config
 from lib.db import get_player
 from lib.pzserver import pz_heal_player, pz_send_command
 
-SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
+SYSTEM_USERS = Config.SYSTEM_USERS
 
 
 class GodMode:
@@ -23,7 +23,7 @@ class GodMode:
         self.players_command_received = False
         self.godmode_on = False
         self.log_file_path = (
-            f"/home/{SERVER_NAMES[server_name]}/log/console/pzserver-console.log"
+            f"/home/{SYSTEM_USERS[server_name]}/log/console/pzserver-console.log"
         )
 
     async def verify_player_online(self, log_line: str) -> bool | None:
@@ -116,7 +116,7 @@ class GodMode:
     async def gogo_godmode(self):
         """Guaranteed to work godmode!"""
         # Makes sure player has no accesslevel
-        player_row = await get_player(SERVER_NAMES[self.server_name], self.player_name)
+        player_row = await get_player(SYSTEM_USERS[self.server_name], self.player_name)
         if player_row and player_row[13]:
             print("Accesslevel:", player_row[13])
             print("No reason to use this on immortals.")
@@ -127,7 +127,7 @@ class GodMode:
         check_if_online = asyncio.create_task(
             self.log_watcher(self.verify_player_online)
         )
-        await pz_send_command(SERVER_NAMES[self.server_name], "players")
+        await pz_send_command(SYSTEM_USERS[self.server_name], "players")
 
         is_online = await check_if_online
         if not is_online:
@@ -138,7 +138,7 @@ class GodMode:
         check_if_healed = asyncio.create_task(
             self.log_watcher(self.verify_player_healed)
         )
-        await pz_heal_player(SERVER_NAMES[self.server_name], self.player_name)
+        await pz_heal_player(SYSTEM_USERS[self.server_name], self.player_name)
 
         is_healed = await check_if_healed
         if not is_healed:

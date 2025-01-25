@@ -10,6 +10,7 @@ from config import Config
 from lib.db import get_player
 
 SERVER_DATA = Config.SERVER_DATA
+SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
@@ -25,7 +26,7 @@ logs_group = app_commands.Group(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ],
 )
 @app_commands.describe(server="Which server?", playername="Which player?")
@@ -35,7 +36,7 @@ async def get_player_logs(
 ):
     """Get all logs for a player since last server restart."""
     await interaction.response.defer()
-    system_user = SERVER_NAMES[server.name]
+    system_user = SYSTEM_USERS[server.name]
 
     try:
         # Check if player exists in db, then get all them logs
@@ -91,7 +92,7 @@ async def get_player_logs(
 @app_commands.choices(
     server=[
         app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES)
+        for index, srv in enumerate(SERVER_NAMES.values())
     ],
     days=[
         app_commands.Choice(name=day, value=index + 1)
@@ -110,7 +111,7 @@ async def get_all_logs(
 ):
     """Get all logs from date range."""
     await interaction.response.defer()
-    system_user = SERVER_NAMES[server.name]
+    system_user = SYSTEM_USERS[server.name]
 
     current_date = datetime.now().strftime("%Y-%m-%d")
     output_file = f"/tmp/{server.name}_{current_date}_plus_{days.name}_days.zip"
