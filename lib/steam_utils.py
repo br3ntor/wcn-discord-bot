@@ -1,3 +1,5 @@
+import asyncio
+
 from steam.webapi import WebAPI
 
 from config import Config
@@ -17,7 +19,8 @@ async def get_workshop_items(workshop_ids: list[str]) -> list:
     item_count = len(int_ids)
 
     try:
-        workshop_items = api.ISteamRemoteStorage.GetPublishedFileDetails(
+        workshop_items = await asyncio.to_thread(
+            api.ISteamRemoteStorage.GetPublishedFileDetails,
             itemcount=item_count,
             publishedfileids=int_ids,
         )

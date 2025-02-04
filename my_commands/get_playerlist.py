@@ -1,3 +1,5 @@
+import asyncio
+import socket
 import time
 
 import discord
@@ -49,13 +51,20 @@ async def get_playerlist(
         await interaction.response.send_message("Server not found or something luls")
         return
 
-    server_players = gs.a2s_players((SERVER_PUB_IP, port))
-
-    player_table = []
-    for player in server_players:
-        if player["name"]:
-            player_table.append([player["name"], format_time(player["duration"])])
-
-    formated_message = format_message(player_table, server.name)
-
-    await interaction.response.send_message(formated_message)
+    try:
+        server_players = await asyncio.to_thread(gs.a2s_players, (SERVER_PUB_IP, port))
+        player_table = []
+        for player in server_players:
+            if player["name"]:
+                player_table.append([player["name"], format_time(player["duration"])])
+        formated_message = format_message(player_table, server.name)
+        await interaction.response.send_message(formated_message)
+    except socket.timeout:
+        print("Request timed out while fetching player list.")
+        await interaction.response.send_message(
+            "Network request timed out, probably steam network."
+        )
+    except RuntimeError as e:
+        print(f"Runtime error: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
