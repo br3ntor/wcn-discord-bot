@@ -3,7 +3,7 @@
 import discord
 
 from config import Config
-from lib.countdown import check_countdown_state, restart_countdown_timer
+from lib.countdown import restart_countdown_timer
 from lib.server_utils import restart_zomboid_server, server_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
@@ -17,12 +17,6 @@ async def auto_restart_server(
     # FIX: This server_name / system_user is getting confusing, is there a better way? Perhaps with the type system?
     system_user = SYSTEM_USERS[server_name]
 
-    # Counter must not be running or aborted
-    counter_isready, err = check_countdown_state(system_user)
-    if not counter_isready:
-        await channel.send(err)
-        return
-
     # Check if server is currently running
     is_running = await server_isrunning(system_user)
     if not is_running:
@@ -34,10 +28,10 @@ async def auto_restart_server(
     # Announce that auto restart countdown has started
     await channel.send(init_msg)
 
-    # Run the countdown
-    countdown_completed = await restart_countdown_timer(system_user, 300)
-    if not countdown_completed:
-        await channel.send(f"Auto restart ABORTED 👼 for the **{server_name}** server.")
+    # Start a countdown timer
+    countdown_status = await restart_countdown_timer(system_user, 300)
+    if not countdown_status:
+        await channel.send(countdown_status)
         return
 
     # Restarts the server after countdown has finished
