@@ -1,4 +1,5 @@
 import asyncio
+import socket
 
 from steam.webapi import WebAPI
 
@@ -9,24 +10,32 @@ STEAM_KEY = Config.STEAM_KEY
 
 async def get_workshop_items(workshop_ids: list[str]) -> list:
     """Calls steam api to get mod data."""
-    api = WebAPI(STEAM_KEY)
-
-    # Changing all string ids to ints
-    # Before they were all sent as strings and a mod author using fancy number "font"
-    # broke it, actually they didnt use a font but a Mathematical Alphanumeric Symbol
-    int_ids = [int(id) for id in workshop_ids]
-
-    item_count = len(int_ids)
-
     try:
+        api = await asyncio.to_thread(WebAPI, STEAM_KEY)
+
+        # Changing all string ids to ints
+        # Before they were all sent as strings and a mod author using fancy number "font"
+        # broke it, actually they didnt use a font but a Mathematical Alphanumeric Symbol
+        int_ids = [int(id) for id in workshop_ids]
+
+        item_count = len(int_ids)
+
+        steam_remote_storage = getattr(api, "ISteamRemoteStorage", None)
+        if steam_remote_storage is None:
+            raise AttributeError(
+                "ISteamRemoteStorage is not available on the WebAPI instance."
+            )
+
         workshop_items = await asyncio.to_thread(
-            api.ISteamRemoteStorage.GetPublishedFileDetails,
+            steam_remote_storage.GetPublishedFileDetails,
             itemcount=item_count,
             publishedfileids=int_ids,
         )
+    except socket.timeout:
+        print("Bruh, steam network might be taking a shit.")
+        return []
     except Exception as e:
         print(f"An error occurred while fetching workshop items: {e}")
-        # Optionally, you might want to return an empty list or handle this error differently
         return []
 
     items = workshop_items["response"]["publishedfiledetails"]
