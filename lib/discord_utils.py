@@ -30,8 +30,8 @@ async def auto_restart_server(
 
     # Start a countdown timer
     countdown_status = await restart_countdown_timer(system_user, 300)
-    if not countdown_status:
-        await channel.send(countdown_status)
+    if not countdown_status[0]:
+        await channel.send(countdown_status[1])
         return
 
     # Restarts the server after countdown has finished

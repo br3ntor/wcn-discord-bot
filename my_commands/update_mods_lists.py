@@ -50,18 +50,24 @@ def update_gist(server_name: str, sorted_mods: str, server_gist_id: str) -> None
 
 async def update_all_gists():
     settings_paths = await server_setting_paths()
+    # This could be named better. This gets a dict obj which contains a servernmame key and list of ids for val
     servers_workshop_ids = await get_servers_workshop_ids(settings_paths)
     servers_mods = await get_servers_workshop_items(servers_workshop_ids)
 
     gist_links = []
+
     for zomboid_server in SERVER_DATA:
+        system_user = zomboid_server["system_user"]
+        server_name = zomboid_server["server_name"]
+
+        # We need to make sure the config is correct and the server is in servers_mods
         if (
-            zomboid_server["gists"] is not None
+            system_user in servers_mods
+            and zomboid_server["gists"] is not None
             and "modlist" in zomboid_server["gists"]
             and zomboid_server["gists"]["modlist"]
         ):
-            system_user = zomboid_server["system_user"]
-            server_name = zomboid_server["server_name"]
+
             data = parse_workshop_data(servers_mods[system_user])
             update_gist(system_user, data, zomboid_server["gists"]["modlist"])
             link = (
