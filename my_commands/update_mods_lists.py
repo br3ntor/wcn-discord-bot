@@ -1,5 +1,5 @@
+import aiohttp
 import discord
-import requests
 from discord import app_commands
 
 from config import Config
@@ -19,6 +19,8 @@ def parse_workshop_data(workshop_items: list) -> str:
             mods.append(
                 f"[{item['title']}](https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']})\n\n"
             )
+        else:
+            print(f"title is not in item:\n{item}")
 
     mods.insert(0, f"**Mod Count: {len(mods)}**\n\n")
 
@@ -28,24 +30,23 @@ def parse_workshop_data(workshop_items: list) -> str:
     return sorted_mods
 
 
-def update_gist(server_name: str, sorted_mods: str, server_gist_id: str) -> None:
+async def update_gist(server_name: str, sorted_mods: str, server_gist_id: str) -> None:
     """Update gist with new mods list!"""
     url = f"https://api.github.com/gists/{server_gist_id}"
-
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {GITHUB_PAT}",
         "X-GitHub-Api-Version": "2022-11-28",
     }
-
     payload = {
         "description": f"West Coast Noobs {server_name} Mods List",
         "files": {f"{server_name}_mods.md": {"content": sorted_mods}},
     }
 
-    response = requests.patch(url, headers=headers, json=payload)
-    print(response.status_code)
-    # print(response.json())
+    # Using aiohttp instead of requests for async HTTP requests
+    async with aiohttp.ClientSession() as session:
+        async with session.patch(url, headers=headers, json=payload) as response:
+            print(response.status)
 
 
 async def update_all_gists():
@@ -69,7 +70,7 @@ async def update_all_gists():
         ):
 
             data = parse_workshop_data(servers_mods[system_user])
-            update_gist(system_user, data, zomboid_server["gists"]["modlist"])
+            await update_gist(system_user, data, zomboid_server["gists"]["modlist"])
             link = (
                 f"https://gist.github.com/br3ntor/{zomboid_server['gists']['modlist']}"
             )
