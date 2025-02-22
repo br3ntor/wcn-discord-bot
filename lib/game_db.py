@@ -6,8 +6,6 @@ import aiosqlite
 
 from config import Config
 
-DONATION_STARTING_AMOUNT = Config.DONATION_STARTING_AMOUNT
-
 
 # I was going to generalize this to the other functions in here but dont have time right now so
 # my enum will only be used in the get password function for now.

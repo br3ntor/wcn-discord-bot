@@ -7,7 +7,7 @@ from discord.ext import commands
 
 # from bot import MyBot
 from config import Config
-from lib.local_db import add_donation
+from lib.local_db import add_donation, get_total_donations_since
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 WEBHOOK_SECRET = Config.WEBHOOK_SECRET
@@ -30,16 +30,31 @@ def get_last_14th() -> datetime:
         return datetime(today.year, today.month, 14)
 
 
+def show_donation_progress(current_amount, goal_amount):
+    # Calculate percentage (rounded to 1 decimal place)
+    percentage = (current_amount / goal_amount) * 100
+    percentage = round(percentage, 1)
+
+    # Create progress bar (20 characters long)
+    bar_length = 20
+    filled_length = int(bar_length * min(percentage, 100) / 100)
+    bar = "█" * filled_length + "░" * (bar_length - filled_length)
+
+    # Build the message string with newline separators
+    message = f"Donation Progress: [{bar}] {percentage}%\n"
+    message += f"We are {percentage}% towards our goal of ${goal_amount}!\n"
+    message += f"Current amount raised: ${current_amount:.2f}"
+
+    # Add special message when goal is met or exceeded
+    if percentage >= 100:
+        message += "\n🎉 Congratulations! We've met or exceeded our donation goal! 🎉"
+
+    return message
+
+
 class WebhookCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    async def donation_goal_message(self):
-        # Get the most recent 14th date
-        last_14th = get_last_14th()
-
-        # Get all donations since that date
-        donations = await get_donations_since(last_14th)
 
     # Experimenting with using the underscore for private methods
     async def _handle_webhook(self, request):
@@ -55,32 +70,48 @@ class WebhookCog(commands.Cog):
 
         # Publish donation action, thank user by given name
         if verification_token == WEBHOOK_SECRET and is_public:
-            thanks_msg1 = (
+            thanks_msg = (
                 f"🎉 Thank you **{donator}** for your generous donation! 💸\n{url}"
             )
+        # Thanks when donator doesn't give name.
+        elif verification_token == WEBHOOK_SECRET and not is_public:
+            thanks_msg = (
+                "🎉 Thank you anonymous member for your generous donation! 💸❔"
+            )
+        else:
+            print("Verification token not valid?")
+            print(data)
+            return web.Response()
 
-            # Send thankyou message to discord
-            discord_channel = self.bot.get_channel(948548630439165956)
-            if isinstance(discord_channel, discord.TextChannel):
-                await discord_channel.send(thanks_msg1)
-            else:
-                # TODO: Learn how to use the damn built in logging module
-                print(
-                    "WARNING: Discord message not sent. discord_channel is not a TextChannel."
-                )
-            print(thanks_msg1)
+        # Send thankyou message, and progress to discord
+        discord_channel = self.bot.get_channel(948548630439165956)
+        if isinstance(discord_channel, discord.TextChannel):
+            await discord_channel.send(thanks_msg)
+            print(thanks_msg)
 
             # Add the donation to the database
             added_to_db = await add_donation(donator, email, donation["amount"])
             if not added_to_db:
                 print("ERROR: Donation was not added to the db.")
 
-        # Thanks when donator doesn't give name.
-        elif verification_token == WEBHOOK_SECRET and not is_public:
-            print("🎉 Thank you anonymous member for your generous donation! 💸❔")
+            # Bill comes on the 14th
+            last_14th = get_last_14th()
+            donos_since_last_bill = await get_total_donations_since(last_14th)
+
+            # Amount from patrons
+            starting_amount = 20
+
+            current_amount = donos_since_last_bill + starting_amount
+
+            donation_progress = show_donation_progress(current_amount, 60)
+            await discord_channel.send(donation_progress)
+
         else:
-            print("Verification token not valid?")
-            print(data)
+            # TODO: Learn how to use the damn built in logging module
+            print(
+                "WARNING: Discord message not sent. discord_channel is not a TextChannel."
+            )
+
         return web.Response()
 
     @commands.Cog.listener()

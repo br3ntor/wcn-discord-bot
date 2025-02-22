@@ -4,10 +4,6 @@ from typing import Iterable, List, Tuple
 
 import aiosqlite
 
-from config import Config
-
-DONATION_STARTING_AMOUNT = Config.DONATION_STARTING_AMOUNT
-
 db_path = "data/bot_database.db"
 
 
@@ -25,16 +21,6 @@ def get_last_14th() -> datetime:
     # If we're after the 14th, use current month's 14th
     else:
         return datetime(today.year, today.month, 14)
-
-
-# def init_db_file():
-#     """Make sure the db file exists."""
-#     global db_path
-#     # Convert to absolute path if relative path is given
-#     db_path = os.path.abspath(db_path)
-#
-#     # Ensure the directory exists
-#     os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
 
 async def init_db():
@@ -178,3 +164,29 @@ async def get_donations_since(
         async with db.execute(query, (date_str,)) as cursor:
             results = await cursor.fetchall()
             return [(row[0], float(row[1]), row[2]) for row in results]
+
+
+async def get_total_donations_since(from_date: datetime) -> float:
+    """
+    Get the total sum of donations since the specified date.
+
+    Args:
+        from_date (datetime): Sum donations from this date onwards
+
+    Returns:
+        float: Total sum of donations.
+    """
+    async with aiosqlite.connect(db_path) as db:
+        date_str = from_date.strftime("%Y-%m-%d %H:%M:%S")
+        query = """
+            SELECT SUM(amount)
+            FROM donations
+            WHERE donation_date >= ?
+        """
+
+        async with db.execute(query, (date_str,)) as cursor:
+            result = await cursor.fetchone()
+            if result and result[0] is not None:
+                return float(result[0])
+            else:
+                return 0.0  # Return 0 if no donations found or sum is NULL

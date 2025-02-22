@@ -28,7 +28,6 @@ class Config:
     SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
     STEAM_KEY = os.getenv("STEAM_WEBAPI")
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
-    DONATION_STARTING_AMOUNT = os.getenv("DONATION_STARTING_AMOUNT")
 
     SERVER_DATA: List[ServerConfig] = [
         {
