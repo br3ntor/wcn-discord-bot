@@ -4,3 +4,4 @@ TODO
 .env
 subprocessdemote.py
 test.py
+data/*

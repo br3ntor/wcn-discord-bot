@@ -5,6 +5,7 @@ from discord.ext import commands
 # My command modules folder
 import my_commands
 from config import Config
+from lib.local_db import init_db
 from my_cogs.tasks import TasksCog
 from my_cogs.webhook import WebhookCog
 
@@ -12,6 +13,7 @@ MY_GUILD = discord.Object(id=int(Config.MY_GUILD))
 
 
 class MyBot(commands.Bot):
+
     def __init__(self, *, intents: discord.Intents):
         super().__init__(command_prefix="-", intents=intents)
         # A CommandTree is a special type that holds all the application command
@@ -40,6 +42,9 @@ class MyBot(commands.Bot):
         # This copies the global commands over to your guild.
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
+
+        # Creates the file and tables if not exist
+        await init_db()
 
 
 intents = discord.Intents.all()

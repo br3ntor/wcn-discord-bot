@@ -28,6 +28,7 @@ class Config:
     SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
     STEAM_KEY = os.getenv("STEAM_WEBAPI")
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
+    DONATION_STARTING_AMOUNT = os.getenv("DONATION_STARTING_AMOUNT")
 
     SERVER_DATA: List[ServerConfig] = [
         {
@@ -38,9 +39,12 @@ class Config:
         },
         {
             "system_user": "pel_pzserver",
-            "server_name": "Vanilla_2",
+            "server_name": "Light",
             "port": 16261,
-            "gists": None,
+            "gists": {
+                "modlist": "368a4d58ab96964575dfb292c597810c",
+                "sandbox": "f6f6163393c21e92a5147b9e535eb0d3",
+            },
         },
         {
             "system_user": "medium_pzserver",

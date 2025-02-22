@@ -4,7 +4,9 @@ from typing import Optional
 
 import aiosqlite
 
-# TODO: Maybe all of these should only output the raw call, half do half dont
+from config import Config
+
+DONATION_STARTING_AMOUNT = Config.DONATION_STARTING_AMOUNT
 
 
 # I was going to generalize this to the other functions in here but dont have time right now so
@@ -17,6 +19,7 @@ class PasswordResetStatus(Enum):
     UNKNOWN_ERROR = 4
 
 
+# TODO: Maybe all of these should only output the raw call, half do half dont
 def check_db_file(server: str) -> tuple[bool, str]:
     path = f"/home/{server}/Zomboid/db/pzserver.db"
     if not os.path.exists(path):
