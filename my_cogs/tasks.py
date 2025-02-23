@@ -28,19 +28,25 @@ class TasksCog(commands.Cog):
 
     def cog_unload(self):
         self.check_mod_updates.cancel()
-        # self.my_ad.cancel()
+        self.my_ad.cancel()
 
     @commands.Cog.listener()
     async def on_ready(self):
         print("Starting tasks...")
         self.check_mod_updates.start()
-        # self.my_ad.start()
+        self.my_ad.start()
 
     @tasks.loop(time=times)
+    # @tasks.loop(minutes=5)
     async def my_ad(self):
-        ad_msg = "Help us to reach our monthly goal!\n"
+        ad_msg = "Help us reach our monthly goal!\n"
+
+        # This shows our goal but in a picture and we cant access the data
+        # So if we want to stop ad if goal is reached we can access the db
+        # To write a condition for it, TODO
         goal_url = "https://ko-fi.com/westcoastnoobs/goal"
-        chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
+        # chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
+        chan = self.bot.get_channel(948548630439165956)
 
         if not chan:
             print("Unable to get discord channel.")
