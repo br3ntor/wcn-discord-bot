@@ -39,5 +39,5 @@ __all__ = [
     "restart_group",
     "send_message",
     "speak",
-    "update_group",
+    # "update_group",
 ]

@@ -31,34 +31,10 @@ class Config:
 
     SERVER_DATA: List[ServerConfig] = [
         {
-            "system_user": "test_pzserver",
-            "server_name": "Test_Server",
-            "port": 17261,
-            "gists": {"modlist": "f4ae50a891ec2643bddc12ba140b4183"},
-        },
-        {
-            "system_user": "pel_pzserver",
-            "server_name": "Vanilla_2",
+            "system_user": "pzserver",
+            "server_name": "Vanilla",
             "port": 16261,
             "gists": None,
-        },
-        {
-            "system_user": "medium_pzserver",
-            "server_name": "Medium",
-            "port": 16267,
-            "gists": {
-                "modlist": "92bb4ee5f74bf724fff11e2e8642c2dd",
-                "sandbox": "9fba49d384131d76b147e2a8d087394e",
-            },
-        },
-        {
-            "system_user": "heavy_pzserver",
-            "server_name": "Heavy",
-            "port": 16265,
-            "gists": {
-                "modlist": "bd6cd4aa1fc6571260be63654f0995db",
-                "sandbox": "cc814a2b2c1978ca119cb658bba3114d",
-            },
         },
     ]
 
