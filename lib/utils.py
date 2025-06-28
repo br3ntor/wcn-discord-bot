@@ -17,6 +17,33 @@ def get_last_14th() -> datetime:
         return datetime(today.year, today.month, 14)
 
 
+def get_last_occurrence_of_day(day_number: int) -> datetime:
+    """
+    Get the date of the most recent occurrence of a specific day of the month.
+
+    Args:
+        day_number: The day of the month (e.g., 14 for the 14th) you want to find.
+
+    Returns:
+        A datetime object representing the most recent occurrence of that day.
+    """
+    if not 1 <= day_number <= 31:
+        raise ValueError("day_number must be between 1 and 31.")
+
+    today = datetime.now()
+
+    # If today's day is before the specified day_number, get the day from the previous month
+    if today.day < day_number:
+        # If it's January, go back to December of the previous year
+        if today.month == 1:
+            return datetime(today.year - 1, 12, day_number)
+        else:
+            return datetime(today.year, today.month - 1, day_number)
+    # Otherwise, use the specified day from the current month
+    else:
+        return datetime(today.year, today.month, day_number)
+
+
 def show_donation_progress(current_amount, goal_amount):
     """Prints a nice progress meter."""
     # Calculate percentage (rounded to 1 decimal place)

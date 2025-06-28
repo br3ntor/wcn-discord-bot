@@ -7,7 +7,7 @@ from discord.ext import commands
 # from bot import MyBot
 from config import Config
 from lib.local_db import add_donation, get_total_donations_since
-from lib.utils import get_last_14th, show_donation_progress
+from lib.utils import get_last_occurrence_of_day, show_donation_progress
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 WEBHOOK_SECRET = Config.WEBHOOK_SECRET
@@ -58,16 +58,16 @@ class WebhookCog(commands.Cog):
             if not added_to_db:
                 print("ERROR: Donation was not added to the db.")
 
-            # Bill comes on the 14th
-            last_14th = get_last_14th()
-            donos_since_last_bill = await get_total_donations_since(last_14th)
+            # Day that the bill hits
+            last_6th = get_last_occurrence_of_day(6)
+            donos_since_last_bill = await get_total_donations_since(last_6th)
 
             # Amount from patrons
-            starting_amount = 20
+            starting_amount = 15
 
             current_amount = donos_since_last_bill + starting_amount
 
-            donation_progress = show_donation_progress(current_amount, 60)
+            donation_progress = show_donation_progress(current_amount, 40)
             await discord_channel.send(donation_progress)
 
         else:
