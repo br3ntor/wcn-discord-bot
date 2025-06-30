@@ -5,15 +5,10 @@ from discord.ext import commands
 # My command modules folder
 import my_commands
 from config import Config
-<<<<<<< HEAD
 
 # from my_cogs.tasks import TasksCog
 # from my_cogs.webhook import WebhookCog
-=======
 from lib.local_db import init_db
-from my_cogs.tasks import TasksCog
-from my_cogs.webhook import WebhookCog
->>>>>>> origin/main
 
 MY_GUILD = discord.Object(id=int(Config.MY_GUILD))
 
