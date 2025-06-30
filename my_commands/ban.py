@@ -6,7 +6,7 @@ from discord import app_commands
 from tabulate import tabulate
 
 from config import Config
-from lib.db import (
+from lib.game_db import (
     get_all_banned_players,
     get_banned_player,
     get_player,

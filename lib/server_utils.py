@@ -1,5 +1,6 @@
 import asyncio
 import configparser
+import os
 
 from config import Config
 
@@ -54,27 +55,99 @@ async def server_setting_paths() -> list:
     return server_files
 
 
+# Pure slop lol, but good slop?
 async def get_servers_workshop_ids(
     file_paths: list[str],
 ) -> dict[str, list[str]]:
-    """Returns running server names with their workshop ids"""
+    """
+    Returns running server names (which are the usernames) with their workshop ids.
+    Assumes the file path is like '/home/{username}/Zomboid/Server/pzserver.ini'.
+    """
 
-    # Well use a dictionary to map running servers to thier workshop_ids list
+    print(f"Processing server config files from paths: {file_paths}")
     servers_workshopids_lists: dict[str, list[str]] = {}
 
-    config = configparser.ConfigParser()
     for path in file_paths:
-        # This sets proper syntax to parse file with ConfigParser
-        with open(path) as stream:
-            config.read_string("[default]\n" + stream.read())
+        print(f"Attempting to process file: {path}")
+        server_name = ""
+        try:
+            # Extract the username from the path
+            # For '/home/{username}/Zomboid/Server/pzserver.ini',
+            # split('/') gives ['', 'home', 'username', 'Zomboid', 'Server', 'pzserver.ini']
+            # So, index 2 will be 'username'.
+            parts = path.split(os.sep)  # Use os.sep for cross-platform compatibility
+            if len(parts) > 2 and parts[1] == "home":  # Ensure it's a /home/user path
+                server_name = parts[2]
+            else:
+                print(
+                    f"Warning: Could not determine username from path: {path}. Skipping this file."
+                )
+                continue
 
-        # Just go to next path if we got no workshop items
-        if not config["default"]["WorkshopItems"]:
-            continue
+            if not server_name:
+                print(
+                    f"Warning: Server name (username) is empty for path: {path}. Skipping this file."
+                )
+                continue
 
-        servers_workshopids_lists.update(
-            {path.split("/")[2]: config["default"]["WorkshopItems"].split(";")}
-        )
+            config = configparser.ConfigParser()
+            with open(path, "r") as stream:
+                # configparser needs a section header, so we add '[default]'
+                config.read_string("[default]\n" + stream.read())
+
+            # Ensure the 'default' section exists before trying to access keys
+            if "default" not in config:
+                print(
+                    f"Warning: '[default]' section not found in {path} for server '{server_name}'. Skipping."
+                )
+                continue
+
+            # Safely get 'WorkshopItems', defaulting to an empty string if not found
+            workshop_items_str = config["default"].get("WorkshopItems", "")
+
+            # If 'WorkshopItems' is empty or not present, skip
+            if not workshop_items_str:
+                print(
+                    f"Info: No 'WorkshopItems' found or it's empty for server '{server_name}' in {path}."
+                )
+                continue
+
+            # Split by semicolon and clean up each item (remove whitespace, skip empty strings)
+            workshop_ids = [
+                item.strip() for item in workshop_items_str.split(";") if item.strip()
+            ]
+
+            # Only add to the dictionary if there are actual valid workshop IDs
+            if workshop_ids:
+                servers_workshopids_lists[server_name] = workshop_ids
+            else:
+                print(
+                    f"Info: 'WorkshopItems' found but contained no valid IDs after cleaning for server '{server_name}' in {path}."
+                )
+
+        except FileNotFoundError:
+            print(f"Error: File not found at '{path}'. Skipping this file.")
+        except IndexError:
+            # Catches issues if path.split('/') doesn't have enough parts
+            print(
+                f"Error: Path format unexpected for '{path}'. Could not extract username. Skipping."
+            )
+        except KeyError as e:
+            # This would catch if config["default"] was missing, but .get() handles WorkshopItems
+            print(
+                f"Error: Missing expected configuration key '{e}' in {path} for server '{server_name}'. Skipping."
+            )
+        except Exception as e:
+            # Catch any other unexpected errors during processing
+            print(
+                f"An unexpected error occurred while processing '{path}' for server '{server_name}': {e}. Skipping."
+            )
+
+    print("\n---")
+    print(
+        "All collected workshop items by server (username):", servers_workshopids_lists
+    )
+    print("---")
     return servers_workshopids_lists
 
 

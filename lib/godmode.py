@@ -4,7 +4,7 @@ import time
 from typing import Callable, Coroutine
 
 from config import Config
-from lib.db import get_player
+from lib.game_db import get_player
 from lib.pzserver import pz_heal_player, pz_send_command
 
 SERVER_NAMES = Config.SERVER_NAMES

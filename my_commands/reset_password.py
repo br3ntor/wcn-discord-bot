@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 
 from config import Config
-from lib.db import PasswordResetStatus, reset_player_password
+from lib.game_db import PasswordResetStatus, reset_player_password
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES

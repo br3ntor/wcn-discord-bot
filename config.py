@@ -32,8 +32,21 @@ class Config:
     SERVER_DATA: List[ServerConfig] = [
         {
             "system_user": "pzserver",
+<<<<<<< HEAD
             "server_name": "Vanilla",
+=======
+            "server_name": "Modded",
+>>>>>>> origin/main
             "port": 16261,
+            "gists": {
+                "modlist": "9d174805e9ff5939e83128b7f5b085fe",
+                "sandbox": "425e3a551d4ef5463944f8ae38d6bb7f",
+            },
+        },
+        {
+            "system_user": "test_pzserver",
+            "server_name": "Test",
+            "port": 17261,
             "gists": None,
         },
     ]

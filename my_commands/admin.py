@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from config import Config
-from lib.db import get_admins, get_player
+from lib.game_db import get_admins, get_player
 from lib.pzserver import pz_send_command
 from lib.server_utils import server_isrunning
 
