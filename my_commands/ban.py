@@ -1,3 +1,4 @@
+import asyncio
 import re
 
 import discord
@@ -23,6 +24,26 @@ SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 
+async def wait_for_ban_issue(system_user, player_id, max_attempts=5, delay=0.5):
+    for attempt in range(max_attempts):
+        print("Attempt:", attempt)
+        banned_player = await get_banned_player(system_user, player_id)
+        if banned_player and len(banned_player) > 0 and banned_player[0] == player_id:
+            return banned_player
+        await asyncio.sleep(delay)
+    return None
+
+
+async def wait_for_ban_removal(system_user, player_id, max_attempts=5, delay=0.5):
+    for attempt in range(max_attempts):
+        print("Attempt:", attempt)
+        banned_player = await get_banned_player(system_user, player_id)
+        if banned_player and len(banned_player) > 0 and banned_player[0] == player_id:
+            await asyncio.sleep(delay)
+            continue
+        return None
+
+
 @ban_group.command()
 @app_commands.choices(
     server=[
@@ -32,56 +53,74 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 )
 @app_commands.describe(
     server="Which server?",
-    player="Which player?",
+    player="Enter player's name or SteamID.",
 )
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def issue(
-    interaction: discord.Interaction, server: app_commands.Choice[int], player: str
+    interaction: discord.Interaction,
+    server: app_commands.Choice[int],
+    player: str,
 ):
-    """Ban a player."""
-    if re.search(r"[\"']", player):
-        await interaction.response.send_message("Quotes not allowed.")
+    """Ban a player by name or SteamID."""
+    player_input = player.strip()
+
+    if re.search(r"[\"']", player_input):
+        await interaction.response.send_message("Quotes are not allowed.")
         return
 
     await interaction.response.defer()
-
     system_user = SYSTEM_USERS[server.name]
 
-    player_row = await get_player(system_user, player)
-    if not player_row:
-        await interaction.followup.send("User not found")
-        return
-    elif isinstance(player_row, str):
-        await interaction.followup.send(player_row)
-        return
-
-    # Check if game server is running before we send any commands
-    is_running = await server_isrunning(system_user)
-    if not is_running:
-        await interaction.followup.send(f"{server.name} is **NOT** running!")
-        return
-
-    id: str = player_row[11]
-    server_cmd = f"banid {id}"
-    _ = await pz_send_command(system_user, server_cmd)
-
-    banned_player = await get_banned_player(system_user, id)
-
-    if banned_player is None:
-        msg = f"Command was sent but user **{player}** not found in bannedid's db. What happen?"
-        await interaction.followup.send(msg)
-    elif len(banned_player) > 0 and banned_player[0] == id:
-        msg = (
-            f"Player **{player}** has been **banned** from the "
-            f"**{server.name}** server.\n"
-            f"Username: {player}\n"
-            f"SteamID: {id}"
-        )
-        await interaction.followup.send(msg)
-    elif isinstance(banned_player, str):
-        await interaction.followup.send(banned_player)
+    # Determine if input is a SteamID
+    if player_input.isdigit():
+        steam_id = player_input
+        row = await get_player_by_steamid(system_user, steam_id)
+        player_name = row[2] if row else None
     else:
-        await interaction.followup.send("An unexpected value was returned.")
+        # Lookup player by name
+        player_row = await get_player(system_user, player_input)
+
+        if isinstance(player_row, str):
+            await interaction.followup.send(player_row)
+            return
+        if not player_row:
+            await interaction.followup.send(
+                f"No player found with name **{player_input}**."
+            )
+            return
+
+        steam_id = player_row[11]
+        player_name = player_input
+
+    # Check if the game server is running
+    if not await server_isrunning(system_user):
+        await interaction.followup.send(f"**{server.name}** is **NOT** running!")
+        return
+
+    # Issue the ban command
+    server_cmd = f"banid {steam_id}"
+    await pz_send_command(system_user, server_cmd)
+
+    banned_player = await wait_for_ban_issue(system_user, steam_id)
+
+    # Construct response
+    if banned_player is None:
+        msg = (
+            f"Ban command sent, but SteamID **{steam_id}** not found in banned list.\n"
+            f"Player input was: **{player_input}**"
+        )
+    elif isinstance(banned_player, str):
+        msg = banned_player
+    elif len(banned_player) > 0 and banned_player[0] == steam_id:
+        msg = (
+            f"Player has been **banned** from the **{server.name}** server.\n"
+            f"Username: **{player_name or '(unknown)'}**\n"
+            f"SteamID: **{steam_id}**"
+        )
+    else:
+        msg = "An unexpected result occurred when checking the ban status."
+
+    await interaction.followup.send(msg)
 
 
 @ban_group.command()
@@ -93,39 +132,62 @@ async def issue(
 )
 @app_commands.describe(
     server="Which server?",
-    player="Which player?",
+    player="Enter player's name or SteamID.",
 )
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def revoke(
-    interaction: discord.Interaction, server: app_commands.Choice[int], player: str
+    interaction: discord.Interaction,
+    server: app_commands.Choice[int],
+    player: str,
 ):
-    """Un-Ban a player."""
-    if re.search(r"[\"']", player):
-        await interaction.response.send_message("Quotes not allowed.")
+    """Unban a player by name or SteamID."""
+    player_input = player.strip()
+
+    if re.search(r"[\"']", player_input):
+        await interaction.response.send_message("Quotes are not allowed.")
         return
 
     await interaction.response.defer()
-
     system_user = SYSTEM_USERS[server.name]
 
-    player_row = await get_player(system_user, player)
-    if not player_row:
-        await interaction.followup.send("User not found")
-        return
-    elif isinstance(player_row, str):
-        await interaction.followup.send(player_row)
-        return
+    # Determine if input is a SteamID
+    if player_input.isdigit():
+        steam_id = player_input
+        row = await get_player_by_steamid(system_user, steam_id)
+        player_name = row[2] if row else None
+    else:
+        player_row = await get_player(system_user, player_input)
 
-    id = player_row[11]
-    server_cmd = f"unbanid {id}"
-    _ = await pz_send_command(system_user, server_cmd)
+        if isinstance(player_row, str):
+            await interaction.followup.send(player_row)
+            return
+        if not player_row:
+            await interaction.followup.send(
+                f"No player found with name **{player_input}**."
+            )
+            return
 
-    banned_player = await get_banned_player(system_user, id)
-    msg = (
-        f"Player **{player}** has been **UN-banned** from the **{server.name}** server"
-        if banned_player is None
-        else "Command was sent but user is still in the bannedid's db. What happen?"
-    )
+        steam_id = player_row[11]
+        player_name = player_input
+
+    # Send unban command
+    server_cmd = f"unbanid {steam_id}"
+    await pz_send_command(system_user, server_cmd)
+
+    banned_player = await wait_for_ban_removal(system_user, steam_id)
+
+    if banned_player is None:
+        msg = (
+            f"Player has been **unbanned** from the **{server.name}** server.\n"
+            f"Username: **{player_name or '(unknown)'}**\n"
+            f"SteamID: **{steam_id}**"
+        )
+    else:
+        msg = (
+            f"Unban command sent, but SteamID **{steam_id}** still appears in the ban list.\n"
+            f"Player input was: **{player_input}**"
+        )
+
     await interaction.followup.send(msg)
 
 
