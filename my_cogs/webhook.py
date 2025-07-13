@@ -29,13 +29,16 @@ class WebhookCog(commands.Cog):
         verification_token = donation["verification_token"]
         is_public = donation["is_public"]
         donator = donation["from_name"]
+        # I stopped sending this back because I think its just meant for the one who issued the donation.
         url = donation["url"]
         email = donation["email"]
+
+        goal_url = "https://ko-fi.com/westcoastnoobs/goal"
 
         # Publish donation action, thank user by given name
         if verification_token == WEBHOOK_SECRET and is_public:
             thanks_msg = (
-                f"🎉 Thank you **{donator}** for your generous donation! 💸\n{url}"
+                f"🎉 Thank you **{donator}** for your generous donation! 💸\n{goal_url}"
             )
         # Thanks when donator doesn't give name.
         elif verification_token == WEBHOOK_SECRET and not is_public:

@@ -17,8 +17,8 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 california = datetime.timezone(datetime.timedelta(hours=-8))
 
 times = [
-    datetime.time(hour=2, tzinfo=california),
-    datetime.time(hour=14, tzinfo=california),
+    datetime.time(hour=6, tzinfo=california),
+    datetime.time(hour=18, tzinfo=california),
 ]
 
 
@@ -29,15 +29,28 @@ class TasksCog(commands.Cog):
     def cog_unload(self):
         self.check_mod_updates.cancel()
         self.my_ad.cancel()
+        self.scoreboard_message.cancel()
 
     @commands.Cog.listener()
     async def on_ready(self):
         print("Starting tasks...")
         self.check_mod_updates.start()
         self.my_ad.start()
+        self.scoreboard_message.start()
 
     @tasks.loop(time=times)
-    # @tasks.loop(minutes=5)
+    async def scoreboard_message(self):
+        chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
+        if not chan:
+            print("Unable to get discord channel.")
+            return
+        if not isinstance(chan, discord.TextChannel):
+            print("Chan is not TextChannel?")
+            return
+
+        await chan.send("https://westcoastnoobs.com")
+
+    @tasks.loop(time=times)
     async def my_ad(self):
         ad_msg = "Help us reach our monthly goal!\n"
 
