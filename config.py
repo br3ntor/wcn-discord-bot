@@ -28,6 +28,7 @@ class Config:
     SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
     STEAM_KEY = os.getenv("STEAM_WEBAPI")
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
+    SETTINGS_PATH = os.getenv("SETTINGS_PATH")
 
     SERVER_DATA: List[ServerConfig] = [
         {

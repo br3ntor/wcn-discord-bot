@@ -10,6 +10,7 @@ from .reset_password import reset_password
 from .restart_server import restart_server
 from .restart_server_auto import cancel_restart, restart_server_auto
 from .send_message import send_message
+from .server_settings import server_settings
 from .speak import speak
 from .update_mods_lists import update_mods_lists
 from .update_sandbox_settings import update_sandbox_settings
@@ -40,4 +41,5 @@ __all__ = [
     "send_message",
     "speak",
     "update_group",
+    "server_settings",
 ]
