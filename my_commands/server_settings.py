@@ -72,7 +72,7 @@ async def server_settings(
                 f"{key}: {value or 'None'}" for key, value in display_settings.items()
             )
             await interaction.response.send_message(
-                f"```Game Server Settings\n===================\n\n{settings_text}\n```"
+                f"```Zomboid Server Settings\n=======================\n\n{settings_text}\n```"
             )
             return
 
@@ -81,7 +81,7 @@ async def server_settings(
             mode="w", suffix=".txt", delete=False
         ) as temp_file:
             temp_file.write("Zomboid Server Settings\n")
-            temp_file.write("===================\n\n")
+            temp_file.write("=======================\n\n")
             for key, value in display_settings.items():
                 temp_file.write(f"{key}: {value or 'None'}\n\n")
             temp_file_path = temp_file.name

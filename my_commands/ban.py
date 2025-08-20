@@ -1,8 +1,10 @@
 import asyncio
+import io
 import re
 
 import discord
 from discord import app_commands
+from discord.ext import commands
 from tabulate import tabulate
 
 from config import Config
@@ -258,9 +260,58 @@ async def list(interaction: discord.Interaction):
         banned_list = [[p[0], p[1]] for p in banned_lists[server]]
         formatted_messages.append(format_message(banned_list, category))
 
-    output = (
-        "*If the players name is None then they were banned before ever joining.\n\n"
-        + "".join(formatted_messages)
-    )
+    note = "*If the players name is None then they were banned before ever joining.\n\n"
 
-    await interaction.followup.send(output)
+    for msg in formatted_messages:
+        if msg:
+            await interaction.followup.send(note + msg)
+
+    # ai slop #2
+    # formatted_messages = []
+    # for category, server in SYSTEM_USERS.items():
+    #     banned_list = [[p[0], p[1]] for p in banned_lists[server]]
+    #     formatted_messages.append((category, format_message(banned_list, category)))
+    #
+    # note = "*If the players name is None then they were banned before ever joining.\n\n"
+    #
+    # await interaction.followup.send(note)
+    #
+    # for category, msg in formatted_messages:
+    #     if not msg:
+    #         continue
+    #     content = note + msg
+    #     file = discord.File(
+    #         io.BytesIO(content.encode()), filename=f"banned_{category}.txt"
+    #     )
+    #     await interaction.followup.send(f"Banned list for {category}:", file=file)
+
+    # ai slop #1
+    # formatted_messages = []
+    # for category, server in SYSTEM_USERS.items():
+    #     banned_list = [[p[0], p[1]] for p in banned_lists[server]]
+    #     formatted_messages.append(format_message(banned_list, category))
+    #
+    # output = (
+    #     "*If the players name is None then they were banned before ever joining.\n\n"
+    #     + "".join(formatted_messages)
+    # )
+    #
+    # paginator = commands.Paginator(prefix="```", suffix="```", max_size=2000)
+    # for line in output.splitlines():
+    #     paginator.add_line(line)
+    #
+    # for page in paginator.pages:
+    #     await interaction.followup.send(page)
+
+    # old code
+    # formatted_messages = []
+    # for category, server in SYSTEM_USERS.items():
+    #     banned_list = [[p[0], p[1]] for p in banned_lists[server]]
+    #     formatted_messages.append(format_message(banned_list, category))
+    #
+    # output = (
+    #     "*If the players name is None then they were banned before ever joining.\n\n"
+    #     + "".join(formatted_messages)
+    # )
+    #
+    # await interaction.followup.send(output)

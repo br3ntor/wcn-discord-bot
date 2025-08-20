@@ -9,6 +9,7 @@ from .logs import logs_group
 from .reset_password import reset_password
 from .restart_server import restart_server
 from .restart_server_auto import cancel_restart, restart_server_auto
+from .restore_skills import restore_levels
 from .send_message import send_message
 from .server_settings import server_settings
 from .speak import speak
@@ -42,4 +43,5 @@ __all__ = [
     "speak",
     "update_group",
     "server_settings",
+    "restore_levels",
 ]
