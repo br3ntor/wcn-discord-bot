@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Dict, List, Optional, TypedDict
 
@@ -12,6 +13,18 @@ class ServerConfig(TypedDict):
     server_name: str
     port: int
     gists: Optional[Dict[str, str]]
+
+
+def load_server_data(filepath: str) -> List[ServerConfig]:
+    try:
+        with open(filepath, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Server config file not found at {filepath}, using empty list.")
+        return []
+    except json.JSONDecodeError:
+        print(f"Error decoding JSON from {filepath}, using empty list.")
+        return []
 
 
 # TODO: Setup config so init only populates available commands based on populated env vars
@@ -30,23 +43,7 @@ class Config:
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
     SETTINGS_PATH = os.getenv("SETTINGS_PATH")
 
-    SERVER_DATA: List[ServerConfig] = [
-        {
-            "system_user": "pzserver",
-            "server_name": "Modded",
-            "port": 16261,
-            "gists": {
-                "modlist": "9d174805e9ff5939e83128b7f5b085fe",
-                "sandbox": "425e3a551d4ef5463944f8ae38d6bb7f",
-            },
-        },
-        {
-            "system_user": "test_pzserver",
-            "server_name": "Test",
-            "port": 17261,
-            "gists": None,
-        },
-    ]
+    SERVER_DATA: List[ServerConfig] = load_server_data("servers.json")
 
     # Map server name to system user.
     SYSTEM_USERS = {srv["server_name"]: srv["system_user"] for srv in SERVER_DATA}

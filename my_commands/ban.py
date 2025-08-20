@@ -4,7 +4,6 @@ import re
 
 import discord
 from discord import app_commands
-from discord.ext import commands
 from tabulate import tabulate
 
 from config import Config
@@ -193,125 +192,64 @@ async def revoke(
     await interaction.followup.send(msg)
 
 
+# Updated format_message without markdown
 def format_message(banned_table: list, server: str) -> str:
-    msg = f"""**{server} Bans:**
-```
-{tabulate(banned_table, headers=["Name", "SteamID"])}
-```
-"""
+    msg = f"{server} Bans:\n{tabulate(banned_table, headers=['Name', 'SteamID'])}"
     return msg
 
 
 @ban_group.command()
+@app_commands.choices(
+    server=[
+        app_commands.Choice(name=srv, value=index + 1)
+        for index, srv in enumerate(SERVER_NAMES.values())
+    ]
+)
+@app_commands.describe(
+    server="Which server?",
+)
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
-async def list(interaction: discord.Interaction):
-    """Retrieve a list of all banned players across servers."""
+async def list(interaction: discord.Interaction, server: app_commands.Choice[int]):
+    """Retrieve a list of all banned players on the selected server."""
     await interaction.response.defer()
+    system_user = SYSTEM_USERS[server.name]
 
-    # We will build three inputs for our format_message function
-    banned_lists = {server: [] for server in SYSTEM_USERS.values()}
+    servers_banned_players = await get_all_banned_players(system_user)
 
-    # Really what I should do is query with all the banned
-    # usernames collected first, not make a call for each one in a loop
-    for server in SYSTEM_USERS.values():
+    if not servers_banned_players:
+        await interaction.followup.send("No banned players on this server.")
+        return
 
-        servers_banned_players = await get_all_banned_players(server)
-        print(server)
-        print(servers_banned_players)
+    banned_players = []
+    seen_players = []
+    for b_player in servers_banned_players:
+        steamid = b_player[0]
 
-        if not servers_banned_players:
+        if steamid in seen_players:
             continue
 
-        banned_players = []
-        # Banned players tend to get multiple db entries but
-        # we only need one so if a player is already processed well skip dupes
-        seen_players = []
-        for b_player in servers_banned_players:
-            steamid = b_player[0]
+        seen_players.append(steamid)
 
-            if steamid in seen_players:
-                print(f"{steamid} seen in seen_players")
-                continue
+        user = await get_player_by_steamid(system_user, steamid)
+        if not user:
+            banned_players.append(("None", steamid))
+            continue
+        elif isinstance(user, str):
+            continue
 
-            seen_players.append(steamid)
+        banned_players.append((user[2], steamid))
 
-            # Lets see if we can get name of the banned player
-            # which well use to create the data object we want
-            user = await get_player_by_steamid(server, steamid)
-            if not user:
-                print(
-                    "User banned but not in whitelist, banned before joined server prob..."
-                )
-                banned_players.append(("None", steamid))
-                continue
-            elif isinstance(user, str):
-                print(user)
-                continue
+    category = next(k for k, v in SYSTEM_USERS.items() if v == system_user)
 
-            print(user)
-            banned_players.append((user[2], steamid))
+    banned_list = [[p[0], p[1]] for p in banned_players]
+    msg = format_message(banned_list, category)
 
-        print(f"For the {server} server:")
-        print(banned_players)
-        banned_lists[server].extend(banned_players)
+    note = "If the players name is None then they were banned before ever joining.\n\n"
 
-    formatted_messages = []
-    for category, server in SYSTEM_USERS.items():
-        banned_list = [[p[0], p[1]] for p in banned_lists[server]]
-        formatted_messages.append(format_message(banned_list, category))
+    if not msg:
+        await interaction.followup.send("No banned players on this server.")
+        return
 
-    note = "*If the players name is None then they were banned before ever joining.\n\n"
-
-    for msg in formatted_messages:
-        if msg:
-            await interaction.followup.send(note + msg)
-
-    # ai slop #2
-    # formatted_messages = []
-    # for category, server in SYSTEM_USERS.items():
-    #     banned_list = [[p[0], p[1]] for p in banned_lists[server]]
-    #     formatted_messages.append((category, format_message(banned_list, category)))
-    #
-    # note = "*If the players name is None then they were banned before ever joining.\n\n"
-    #
-    # await interaction.followup.send(note)
-    #
-    # for category, msg in formatted_messages:
-    #     if not msg:
-    #         continue
-    #     content = note + msg
-    #     file = discord.File(
-    #         io.BytesIO(content.encode()), filename=f"banned_{category}.txt"
-    #     )
-    #     await interaction.followup.send(f"Banned list for {category}:", file=file)
-
-    # ai slop #1
-    # formatted_messages = []
-    # for category, server in SYSTEM_USERS.items():
-    #     banned_list = [[p[0], p[1]] for p in banned_lists[server]]
-    #     formatted_messages.append(format_message(banned_list, category))
-    #
-    # output = (
-    #     "*If the players name is None then they were banned before ever joining.\n\n"
-    #     + "".join(formatted_messages)
-    # )
-    #
-    # paginator = commands.Paginator(prefix="```", suffix="```", max_size=2000)
-    # for line in output.splitlines():
-    #     paginator.add_line(line)
-    #
-    # for page in paginator.pages:
-    #     await interaction.followup.send(page)
-
-    # old code
-    # formatted_messages = []
-    # for category, server in SYSTEM_USERS.items():
-    #     banned_list = [[p[0], p[1]] for p in banned_lists[server]]
-    #     formatted_messages.append(format_message(banned_list, category))
-    #
-    # output = (
-    #     "*If the players name is None then they were banned before ever joining.\n\n"
-    #     + "".join(formatted_messages)
-    # )
-    #
-    # await interaction.followup.send(output)
+    content = note + msg
+    file = discord.File(io.BytesIO(content.encode()), filename=f"banned_{category}.txt")
+    await interaction.followup.send(f"Banned list for {category}:", file=file)

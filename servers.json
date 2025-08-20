@@ -1,0 +1,17 @@
+[
+  {
+    "system_user": "pzserver",
+    "server_name": "Modded",
+    "port": 16261,
+    "gists": {
+      "modlist": "9d174805e9ff5939e83128b7f5b085fe",
+      "sandbox": "425e3a551d4ef5463944f8ae38d6bb7f"
+    }
+  },
+  {
+    "system_user": "test_pzserver",
+    "server_name": "Test",
+    "port": 17261,
+    "gists": null
+  }
+]
