@@ -1,0 +1,11 @@
+[
+  {
+    "system_user": "INSERT_SYSTEM_USER_NAME",
+    "server_name": "Default_Server",
+    "port": 16261,
+    "gists": {
+      "modlist": "YOUR_GIST_ID or BLANK",
+      "sandbox": "YOUR_GIST_ID or BLANK"
+    }
+  }
+]
