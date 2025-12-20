@@ -52,11 +52,26 @@ async def get_playerlist(
         return
 
     try:
+        # server_players = await asyncio.to_thread(gs.a2s_players, (SERVER_PUB_IP, port))
+        # player_table = []
+        # for player in server_players:
+        #     if player["name"]:
+        #         player_table.append([player["name"], format_time(player["duration"])])
+        # formated_message = format_message(player_table, server.name)
+        # await interaction.response.send_message(formated_message)
         server_players = await asyncio.to_thread(gs.a2s_players, (SERVER_PUB_IP, port))
+
+        # 1. Filter out players with no name
+        valid_players = [p for p in server_players if p["name"]]
+
+        # 2. Sort the list by duration (reverse=True for longest playtime at the top)
+        valid_players.sort(key=lambda x: x["duration"], reverse=True)
+
+        # 3. Now format the sorted list for the table
         player_table = []
-        for player in server_players:
-            if player["name"]:
-                player_table.append([player["name"], format_time(player["duration"])])
+        for player in valid_players:
+            player_table.append([player["name"], format_time(player["duration"])])
+
         formated_message = format_message(player_table, server.name)
         await interaction.response.send_message(formated_message)
     except socket.timeout:

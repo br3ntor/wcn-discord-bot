@@ -260,7 +260,7 @@ class LevelRestore:
 
         # Verify player is online
         check_if_online = asyncio.create_task(
-            self.log_watcher(self.verify_player_online, timeout=5)
+            self.log_watcher(self.verify_player_online, timeout=10)
         )
         await pz_send_command(SYSTEM_USERS[self.server_name], "players")
 
@@ -302,7 +302,7 @@ class LevelRestore:
 
         # Start watching for command confirmations
         check_commands = asyncio.create_task(
-            self.log_watcher(self.verify_addxp_commands, timeout=30)
+            self.log_watcher(self.verify_addxp_commands, timeout=60)
         )
 
         # Send all addXP commands

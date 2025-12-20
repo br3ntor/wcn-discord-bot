@@ -66,7 +66,7 @@ class WebhookCog(commands.Cog):
             donos_since_last_bill = await get_total_donations_since(last_6th)
 
             # Amount from patrons
-            starting_amount = 15
+            starting_amount = 5
 
             current_amount = donos_since_last_bill + starting_amount
 

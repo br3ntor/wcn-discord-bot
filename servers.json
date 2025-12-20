@@ -9,6 +9,12 @@
     }
   },
   {
+    "system_user": "pzserver42",
+    "server_name": "B42MP",
+    "port": 16361,
+    "gists": null
+  },
+  {
     "system_user": "test_pzserver",
     "server_name": "Test",
     "port": 17261,
