@@ -13,6 +13,7 @@ class ServerConfig(TypedDict):
     server_name: str
     port: int
     gists: Optional[Dict[str, str]]
+    discord_ids: Optional[Dict[str, int]]
 
 
 def load_server_data(filepath: str) -> List[ServerConfig]:

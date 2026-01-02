@@ -2,7 +2,9 @@ import discord
 from discord import app_commands
 
 from config import Config
-from lib.game_db import PasswordResetStatus, reset_player_password
+from lib.game_db import PasswordResetStatus, is_db_locked, reset_player_password
+from lib.pzserver import pz_setpassword
+from lib.utils import generate_pz_password
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
@@ -23,6 +25,28 @@ async def reset_password(
 ):
     """Reset a players password."""
     system_user = SYSTEM_USERS[server.name]
+
+    # I believe the db getting locked is the result of an sqlite error I'm finding
+    # in the game server console logs. I'm side stepping the issue by using the
+    # games built in setpassword command documented when you type the help command
+    # in the game server console.
+    # * setpassword : Use this command to change password for a user. Use: /setpassword "username" "newpassword"
+    #
+    # I learned to reset the password we could also use the game command
+    # * removeuserfromwhitelist : Remove a user from the whitelist. Use: /removeuserfromwhitelist "username"
+    # TODO: Maybe we can implement that later or give an option for the user to choose.
+    #
+    if is_db_locked(f"/home/{system_user}/Zomboid/db/pzserver.db"):
+        new_pass = generate_pz_password(12)
+        success = await pz_setpassword(system_user, playername, new_pass)
+        if success:
+            await interaction.response.send_message(
+                f"The password for {playername} has been reset to: {new_pass}"
+            )
+        else:
+            await interaction.response.send_message("There's nothing we can do")
+        return
+
     reset_response = await reset_player_password(system_user, playername)
     match reset_response:
         case PasswordResetStatus.USER_NOT_FOUND:
@@ -38,4 +62,4 @@ async def reset_password(
         case PasswordResetStatus.SUCCESS:
             response_msg = f"**{playername}**'s password has been reset on the **{server.name}** server. They may login with any new password."
 
-    await interaction.response.send_message(response_msg)
+    await interaction.response.send_message(response_msg, ephemeral=True)

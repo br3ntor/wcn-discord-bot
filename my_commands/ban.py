@@ -14,7 +14,7 @@ from lib.game_db import (
     get_player_by_steamid,
 )
 from lib.pzserver import pz_send_command
-from lib.server_utils import server_isrunning
+from lib.server_utils import get_game_version, server_isrunning
 
 ban_group = app_commands.Group(
     name="ban", description="Ban, unban, and list banned players."
@@ -71,6 +71,7 @@ async def issue(
 
     await interaction.response.defer()
     system_user = SYSTEM_USERS[server.name]
+    game_version = get_game_version(system_user)
 
     # Determine if input is a SteamID
     if player_input.isdigit():
@@ -81,6 +82,8 @@ async def issue(
         # Lookup player by name
         player_row = await get_player(system_user, player_input)
 
+        # If player_row is a str then there must be something wrong and then I"m just sending
+        # it as a discord message which is just lazy but I still haven't changed it.
         if isinstance(player_row, str):
             await interaction.followup.send(player_row)
             return
@@ -90,7 +93,12 @@ async def issue(
             )
             return
 
-        steam_id = player_row[11]
+        # print(player_row)
+        if game_version == "B41":
+            steam_id = player_row[11]
+        elif game_version == "B42":
+            steam_id = player_row[8]
+
         player_name = player_input
 
     # Check if the game server is running
@@ -150,6 +158,7 @@ async def revoke(
 
     await interaction.response.defer()
     system_user = SYSTEM_USERS[server.name]
+    game_version = get_game_version(system_user)
 
     # Determine if input is a SteamID
     if player_input.isdigit():
@@ -168,7 +177,11 @@ async def revoke(
             )
             return
 
-        steam_id = player_row[11]
+        if game_version == "B41":
+            steam_id = player_row[11]
+        elif game_version == "B42":
+            steam_id = player_row[8]
+
         player_name = player_input
 
     # Send unban command

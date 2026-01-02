@@ -1,3 +1,5 @@
+import secrets
+import string
 from datetime import datetime
 
 
@@ -67,3 +69,14 @@ def show_donation_progress(current_amount, goal_amount):
         message += "\n🎉 Congratulations! We've met and exceeded our donation goal! 🎉"
 
     return message
+
+
+def generate_pz_password(length: int = 12) -> str:
+    """Generates a random alphanumeric password without symbols."""
+    # Define the characters: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+    alphabet = string.ascii_letters + string.digits
+
+    # Generate a random string by picking characters from the alphabet
+    password = "".join(secrets.choice(alphabet) for _ in range(length))
+
+    return password

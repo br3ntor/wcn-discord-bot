@@ -5,9 +5,13 @@ from discord.ext import commands
 # My command modules folder
 import my_commands
 from config import Config
-from lib.local_db import init_db
-from my_cogs.tasks import TasksCog
-from my_cogs.webhook import WebhookCog
+
+# from my_cogs.tasks import TasksCog
+# from my_cogs.webhook import WebhookCog
+from my_cogs.playerlist import PlayerlistUpdater
+
+# from lib.local_db import init_db
+
 
 MY_GUILD = discord.Object(id=int(Config.MY_GUILD))
 
@@ -37,14 +41,15 @@ class MyBot(commands.Bot):
             ):
                 self.tree.add_command(attr)
 
-        await self.add_cog(TasksCog(self))
-        await self.add_cog(WebhookCog(self))
+        # await self.add_cog(TasksCog(self))
+        # await self.add_cog(WebhookCog(self))
+        await self.add_cog(PlayerlistUpdater(self))
         # This copies the global commands over to your guild.
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
 
         # Creates the file and tables if not exist
-        await init_db()
+        # await init_db()
 
 
 intents = discord.Intents.all()

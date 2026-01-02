@@ -6,7 +6,7 @@ from discord import app_commands
 from config import Config
 from lib.game_db import get_admins, get_player
 from lib.pzserver import pz_send_command
-from lib.server_utils import server_isrunning
+from lib.server_utils import get_game_version, server_isrunning
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
@@ -67,7 +67,14 @@ async def toggle(
         await interaction.followup.send(f"{server.name} is **NOT** running!")
         return
 
-    access_level = "admin" if accesslevel.value == 1 else "none"
+    # The new B42 permission system is different
+    game_version = get_game_version(system_user)
+    # Defaults to B42
+    access_level = "admin" if accesslevel.value == 1 else "user"
+    # Changes back to none if B41 and removing admin
+    if game_version == "B41" and accesslevel.value != 1:
+        access_level = "none"
+
     server_msg = f'setaccesslevel "{player}" {access_level}'
     result = await pz_send_command(system_user, server_msg)
 

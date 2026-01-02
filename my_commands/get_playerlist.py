@@ -1,85 +1,100 @@
-import asyncio
-import socket
-import time
-
 import discord
 from discord import app_commands
-from steam import game_servers as gs
-from tabulate import tabulate
 
 from config import Config
 
 SERVER_DATA = Config.SERVER_DATA
-SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
-SERVER_PUB_IP = Config.SERVER_PUB_IP
 
 
-def format_time(seconds: float) -> str:
-    time_str = time.strftime("%Hhr %Mmin", time.gmtime(seconds))
-    return time_str
-
-
-def format_message(player_table: list, server: str) -> str:
-    msg = f"""
-I can see **{len(player_table)}** players on the **{server}** server.
-```
-{tabulate(player_table, headers=["Name", "Duration"])}
-```
-    """
-    return msg
-
-
-@app_commands.command()
+@app_commands.command(
+    name="playerlist", description="Get a link to the current player list"
+)
 @app_commands.choices(
     server=[
-        app_commands.Choice(name=srv, value=index + 1)
-        for index, srv in enumerate(SERVER_NAMES.values())
+        app_commands.Choice(name=name, value=name) for name in SERVER_NAMES.values()
     ]
 )
 @app_commands.describe(server="Which server?")
 async def get_playerlist(
-    interaction: discord.Interaction, server: app_commands.Choice[int]
+    interaction: discord.Interaction,
+    server: app_commands.Choice[str],
 ):
-    """Get a list of players on a server."""
-    matching_servers = [srv for srv in SERVER_DATA if srv["server_name"] == server.name]
+    """Show a jump link to the player list message in the server's dedicated thread."""
+    await interaction.response.defer()
 
-    # Use the first matching server, should only be one.
-    if matching_servers:
-        port = int(matching_servers[0]["port"])
-    else:
-        await interaction.response.send_message("Server not found or something luls")
+    server_name = server.value
+
+    # Find server config
+    srv_info = next(
+        (srv for srv in SERVER_DATA if srv["server_name"] == server_name), None
+    )
+
+    if srv_info is None:
+        print(f"[Playerlist] No config found for server: {server_name}")
+        await interaction.followup.send(
+            "Couldn't find the player list for that server right now.", ephemeral=True
+        )
         return
 
-    try:
-        # server_players = await asyncio.to_thread(gs.a2s_players, (SERVER_PUB_IP, port))
-        # player_table = []
-        # for player in server_players:
-        #     if player["name"]:
-        #         player_table.append([player["name"], format_time(player["duration"])])
-        # formated_message = format_message(player_table, server.name)
-        # await interaction.response.send_message(formated_message)
-        server_players = await asyncio.to_thread(gs.a2s_players, (SERVER_PUB_IP, port))
+    # Safely get discord IDs
+    discord_ids = srv_info.get("discord_ids") or {}
+    thread_id = discord_ids.get("thread_id")
+    message_id = discord_ids.get("message_id")
 
-        # 1. Filter out players with no name
-        valid_players = [p for p in server_players if p["name"]]
-
-        # 2. Sort the list by duration (reverse=True for longest playtime at the top)
-        valid_players.sort(key=lambda x: x["duration"], reverse=True)
-
-        # 3. Now format the sorted list for the table
-        player_table = []
-        for player in valid_players:
-            player_table.append([player["name"], format_time(player["duration"])])
-
-        formated_message = format_message(player_table, server.name)
-        await interaction.response.send_message(formated_message)
-    except socket.timeout:
-        print("Request timed out while fetching player list.")
-        await interaction.response.send_message(
-            "Network request timed out, probably steam network."
+    if not thread_id or not message_id:
+        print(f"[Playerlist] Missing thread_id or message_id for server: {server_name}")
+        await interaction.followup.send(
+            "The player list isn't set up for that server yet.", ephemeral=True
         )
-    except RuntimeError as e:
-        print(f"Runtime error: {e}")
+        return
+
+    guild = interaction.guild
+    if not isinstance(guild, discord.Guild):
+        print("[Playerlist] Command used outside a guild")
+        await interaction.followup.send(
+            "This command only works in a server.", ephemeral=True
+        )
+        return
+
+    # Get thread from cache
+    thread = guild.get_thread(thread_id)
+    if not thread or not isinstance(thread, discord.Thread):
+        print(
+            f"[Playerlist] Could not find thread {thread_id} for server: {server_name}"
+        )
+        await interaction.followup.send(
+            "Couldn't locate the player list thread right now.", ephemeral=True
+        )
+        return
+
+    # Fetch the pinned/important message
+    try:
+        message = await thread.fetch_message(message_id)
+    except discord.NotFound:
+        print(
+            f"[Playerlist] Message {message_id} not found in thread {thread_id} (server: {server_name})"
+        )
+        await interaction.followup.send(
+            "The player list message seems to have been deleted.", ephemeral=True
+        )
+        return
+    except discord.Forbidden:
+        print(
+            f"[Playerlist] No permission to read message {message_id} in thread {thread_id}"
+        )
+        await interaction.followup.send(
+            "I don't have permission to view the player list.", ephemeral=True
+        )
+        return
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"[Playerlist] Unexpected error fetching message {message_id}: {e}")
+        await interaction.followup.send(
+            "Something went wrong while fetching the player list.", ephemeral=True
+        )
+        return
+
+    # Success!
+    await interaction.followup.send(
+        f"Here's the current player list for **{server_name}**:\n{message.jump_url}"
+    )

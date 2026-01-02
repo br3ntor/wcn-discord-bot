@@ -6,3 +6,4 @@ subprocessdemote.py
 test.py
 data/*
 servers.json
+.python-version

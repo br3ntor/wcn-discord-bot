@@ -4,7 +4,7 @@ from typing import Optional
 
 import aiosqlite
 
-from config import Config
+from lib.server_utils import get_game_version
 
 
 # I was going to generalize this to the other functions in here but dont have time right now so
@@ -100,15 +100,27 @@ async def get_admins(server: str) -> str:
     if not file_exists:
         return result
 
+    # 1. Determine the query logic based on version
+    game_version = get_game_version(server)
+
+    # Default for B42 and others
+    where_clause = "role='7'"
+
+    # Override for B41
+    if game_version == "B41":
+        where_clause = "accesslevel='admin'"
+
     try:
         async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
-            async with db.execute(
-                "SELECT username FROM whitelist WHERE accesslevel='admin'"
-            ) as cursor:
-                the_boys = []
-                async for row in cursor:
-                    the_boys.append(row[0])
+            # 2. Inject the dynamic clause, safe because I'm making it right above
+            # it's not anything user can inject. Yea I'm in this situation in the first place
+            # because I'm listening to the AI slop output!
+            query = f"SELECT username FROM whitelist WHERE {where_clause}"
+
+            async with db.execute(query) as cursor:
+                the_boys = [row[0] async for row in cursor]
                 return ", ".join(sorted(the_boys, key=str.casefold))
+
     except aiosqlite.Error as e:
         print(f"Database error occurred: {e}")
         return f"Error accessing database for {server} server"
@@ -149,3 +161,27 @@ async def reset_player_password(server: str, player: str) -> PasswordResetStatus
     except aiosqlite.Error as e:
         print(f"Database error occurred: {e}")
         return PasswordResetStatus.DATABASE_ACCESS_ERROR
+
+
+async def is_db_locked(db_path):
+    """
+    Returns True if the database is locked.
+    Uses a tiny timeout to check availability without hanging the bot.
+    """
+    if not os.path.exists(db_path):
+        return False  # Or handle as error
+
+    try:
+        # We set a very short timeout (0.1s) for the connection itself
+        async with aiosqlite.connect(db_path, timeout=0.1) as db:
+            # Attempt to start a write-intent transaction
+            await db.execute("BEGIN IMMEDIATE")
+            await db.rollback()
+            return False  # Success! The database is NOT locked.
+    except Exception as e:
+        # SQLite raises an OperationalError when the DB is locked
+        if "locked" in str(e).lower():
+            return True
+        # If it's a different error, you might want to log it
+        print(f"Database error: {e}")
+        return True

@@ -198,3 +198,33 @@ async def restart_zomboid_server(system_user: str):
         print(f"error occurred: {e}")
         return False
     return True
+
+
+def get_game_version(servername: str):
+    """
+    Detects the PZ version based on the Java release file.
+    Example path: /home/pzserver/serverfiles/jre64/release
+    """
+    # Construct the dynamic path based on the servername parameter
+    path = f"/home/{servername}/serverfiles/jre64/release"
+
+    if not os.path.exists(path):
+        print(f"Warning: Path not found: {path}")
+        return "UNKNOWN"
+
+    try:
+        with open(path, "r") as f:
+            content = f.read()
+
+            # Build 42 uses Java 25
+            if 'JAVA_VERSION="25' in content:
+                return "B42"
+
+            # Build 41 uses Java 17
+            elif 'JAVA_VERSION="17' in content:
+                return "B41"
+
+    except Exception as e:
+        print(f"Error reading release file for {servername}: {e}")
+
+    return "UNKNOWN"

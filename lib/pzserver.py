@@ -50,3 +50,10 @@ async def pz_heal_player(server: str, player: str) -> bool:
         return False
     await asyncio.sleep(1)
     return await pz_send_command(server, blessing)
+
+
+async def pz_setpassword(server: str, player: str, new_password: str) -> bool:
+    """Use this command to change password for a user. Use: setpassword "username" "newpassword" """
+    # Wrapping arguments in double quotes as per PZ documentation requirements
+    server_command = f'setpassword "{player}" "{new_password}"'
+    return await pz_send_command(server, server_command)
