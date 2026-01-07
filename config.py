@@ -16,6 +16,12 @@ class ServerConfig(TypedDict):
     discord_ids: Optional[Dict[str, int]]
 
 
+class CogConfig(TypedDict):
+    enabled: bool
+    class_name: str
+    description: str
+
+
 def load_server_data(filepath: str) -> List[ServerConfig]:
     try:
         with open(filepath, "r") as f:
@@ -26,6 +32,19 @@ def load_server_data(filepath: str) -> List[ServerConfig]:
     except json.JSONDecodeError:
         print(f"Error decoding JSON from {filepath}, using empty list.")
         return []
+
+
+def load_cogs_config(filepath: str) -> Dict[str, CogConfig]:
+    try:
+        with open(filepath, "r") as f:
+            data = json.load(f)
+            return data.get("cogs", {})
+    except FileNotFoundError:
+        print(f"Cogs config file not found at {filepath}, using empty config.")
+        return {}
+    except json.JSONDecodeError:
+        print(f"Error decoding JSON from {filepath}, using empty config.")
+        return {}
 
 
 # TODO: Setup config so init only populates available commands based on populated env vars
@@ -51,6 +70,8 @@ class Config:
 
     # Map system user to server name.
     SERVER_NAMES = {srv["system_user"]: srv["server_name"] for srv in SERVER_DATA}
+
+    COGS_CONFIG: Dict[str, CogConfig] = load_cogs_config("cogs.json")
 
     @staticmethod
     def validate():

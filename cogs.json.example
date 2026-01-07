@@ -1,0 +1,19 @@
+{
+  "cogs": {
+    "playerlist": {
+      "enabled": true,
+      "class_name": "PlayerlistUpdater",
+      "description": "Updates player list threads every 60 seconds"
+    },
+    "tasks": {
+      "enabled": false,
+      "class_name": "TasksCog", 
+      "description": "Handles scheduled tasks like mod updates and announcements"
+    },
+    "webhook": {
+      "enabled": true,
+      "class_name": "WebhookCog",
+      "description": "Handles Ko-fi donation webhooks"
+    }
+  }
+}
