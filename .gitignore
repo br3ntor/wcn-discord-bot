@@ -8,3 +8,4 @@ data/*
 servers.json
 cogs.json
 .python-version
+.opencode/
