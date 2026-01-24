@@ -5,10 +5,24 @@ from typing import Callable, Coroutine
 
 from config import Config
 from lib.game_db import get_player
-from lib.pzserver import pz_heal_player, pz_send_command
+from lib.pzserver import pz42_heal_player, pz_heal_player, pz_send_command
+from lib.server_utils import get_game_version
 
 SERVER_NAMES = Config.SERVER_NAMES
 SYSTEM_USERS = Config.SYSTEM_USERS
+
+VERSION_CONFIG = {
+    "B41": {
+        "access_idx": 13,
+        "is_normal_player": lambda val: val is None or str(val).strip() == "",
+        "heal_func": pz_heal_player,
+    },
+    "B42": {
+        "access_idx": 5,
+        "is_normal_player": lambda val: str(val) == "2",
+        "heal_func": pz42_heal_player,
+    },
+}
 
 
 class GodMode:
@@ -49,15 +63,24 @@ class GodMode:
             return False
 
     async def verify_player_healed(self, log_line: str) -> bool | None:
-        """Verify godmode was applied and removed by watching for the correct
-        sequence of log lines."""
+        # 1. Track activation
         if f"User {self.player_name} is now invincible." in log_line:
             self.godmode_on = True
-        if f"User {self.player_name} is no more invincible." in log_line:
+            return None
+
+        # 2. Track deactivation (Check both version strings)
+        off_strings = [
+            f"User {self.player_name} is no more invincible.",  # B41
+            f"User {self.player_name} is no longer invincible.",  # B42
+        ]
+
+        if any(s in log_line for s in off_strings):
             if self.godmode_on:
                 print(f"Godmode was given and taken away for {self.player_name}.")
-                return True
-            print("Godmode was taken away but not given? Maybe admin.")
+            else:
+                print("Godmode was taken away but not given? Maybe admin.")
+
+            self.godmode_on = False  # Reset state
             return True
 
     async def log_watcher(
@@ -113,35 +136,57 @@ class GodMode:
                 except ProcessLookupError:
                     print("ProcessLookupError occurred, process already stopped?")
 
-    async def gogo_godmode(self):
-        """Guaranteed to work godmode!"""
-        # Makes sure player has no accesslevel
-        player_row = await get_player(SYSTEM_USERS[self.server_name], self.player_name)
-        if player_row and player_row[13]:
-            print("Accesslevel:", player_row[13])
-            print("No reason to use this on immortals.")
+    async def gogo_godmode(self) -> bool:
+        """Guaranteed to work godmode by verifying state transitions via logs."""
+
+        # 1. Initialize Version Config
+        version = get_game_version(SYSTEM_USERS[self.server_name])
+        config = VERSION_CONFIG.get(version)
+
+        if not config:
+            print(f"Error: Unsupported game version '{version}'")
             return False
 
-        # This is going to start off listenting to log and scanning log lines
-        # until it finds the player online or runs out of players to check.
-        check_if_online = asyncio.create_task(
+        # 2. Explicit Permission Check
+        # We only want to run this on 'normal' players (non-admins)
+        player_row = await get_player(SYSTEM_USERS[self.server_name], self.player_name)
+
+        if not player_row:
+            print(f"Player {self.player_name} not found in database.")
+            return False
+
+        raw_access = player_row[config["access_idx"]]
+        if not config["is_normal_player"](raw_access):
+            print(
+                f"Accesslevel '{raw_access}' detected. No reason to use this on immortals."
+            )
+            return False
+
+        # 3. Verify Player is Online
+        # We start the listener BEFORE sending the command to capture the response
+        check_online_task = asyncio.create_task(
             self.log_watcher(self.verify_player_online)
         )
         await pz_send_command(SYSTEM_USERS[self.server_name], "players")
 
-        is_online = await check_if_online
-        if not is_online:
+        if not await check_online_task:
+            print(f"Abort: {self.player_name} is not currently online.")
             return False
 
-        # Now that we know player is online, we watch for logs to confirm
-        # Godmode was given and taken away.
-        check_if_healed = asyncio.create_task(
+        # 4. Apply Godmode/Heal and Verify via Logs
+        check_healed_task = asyncio.create_task(
             self.log_watcher(self.verify_player_healed)
         )
-        await pz_heal_player(SYSTEM_USERS[self.server_name], self.player_name)
 
-        is_healed = await check_if_healed
-        if not is_healed:
-            return False
+        # Execute the version-specific heal command
+        await config["heal_func"](SYSTEM_USERS[self.server_name], self.player_name)
 
-        return True
+        # Wait for verify_player_healed to confirm the "invincible" log sequence
+        is_healed = await check_healed_task
+
+        if is_healed:
+            print(f"Successfully verified healing sequence for {self.player_name}.")
+            return True
+
+        print(f"Failed to verify healing sequence for {self.player_name}.")
+        return False

@@ -52,6 +52,16 @@ async def pz_heal_player(server: str, player: str) -> bool:
     return await pz_send_command(server, blessing)
 
 
+async def pz42_heal_player(server: str, player: str) -> bool:
+    """Toggles godmode on a player to heal them."""
+    god_on = f'godmodeplayer "{player}" -true'
+    god_off = f'godmodeplayer "{player}" -false'
+    if not await pz_send_command(server, god_on):
+        return False
+    await asyncio.sleep(1)
+    return await pz_send_command(server, god_off)
+
+
 async def pz_setpassword(server: str, player: str, new_password: str) -> bool:
     """Use this command to change password for a user. Use: setpassword "username" "newpassword" """
     # Wrapping arguments in double quotes as per PZ documentation requirements
