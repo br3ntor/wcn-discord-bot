@@ -34,6 +34,11 @@ class PlayerlistUpdater(commands.Cog):
                 )
                 continue
 
+            # Quick and dirty for setup
+            if msg_id == 123:
+                await thread.send("Initial msg copy this id")
+                return
+
             try:
                 content = await get_player_list_string(
                     ip, int(srv_info["port"]), srv_info["server_name"]

@@ -46,6 +46,8 @@ async def server_isrunning(server: str) -> bool:
 async def server_setting_paths() -> list:
     """Return list of paths to running servers settings files"""
     server_files = []
+    # This migh not be the best way to decide if we should get the path
+    # A better way would be if it had workshop ids probably
     servers_with_gists = [
         server["system_user"] for server in SERVER_DATA if server["gists"]
     ]

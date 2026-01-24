@@ -8,6 +8,7 @@ print("Loading Config...")
 # This program is setup for one or more project zomboid servers running
 # on the same machine with a single IP. Each game instance is run under
 # its own user on a seperate port and managed as a systemd service.
+# TODO: Switch to using RCON for issuing server commands maybe
 class ServerConfig(TypedDict):
     system_user: str
     server_name: str
