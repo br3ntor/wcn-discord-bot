@@ -3,17 +3,32 @@
     "playerlist": {
       "enabled": true,
       "class_name": "PlayerlistUpdater",
-      "description": "Updates player list threads every 60 seconds"
+      "description": "Updates player list threads every 60 seconds",
+      "requires_database": false
     },
-    "tasks": {
+    "mod_updates": {
+      "enabled": true,
+      "class_name": "ModUpdatesCog", 
+      "description": "Checks for mod updates every 5 minutes and handles workshop errors",
+      "requires_database": false
+    },
+    "advertisements": {
       "enabled": false,
-      "class_name": "TasksCog", 
-      "description": "Handles scheduled tasks like mod updates and announcements"
+      "class_name": "AdvertisementCog",
+      "description": "Posts donation goal ads at scheduled times",
+      "requires_database": true
+    },
+    "scoreboard": {
+      "enabled": false,
+      "class_name": "ScoreboardCog",
+      "description": "Posts website link at scheduled times", 
+      "requires_database": false
     },
     "webhook": {
       "enabled": true,
       "class_name": "WebhookCog",
-      "description": "Handles Ko-fi donation webhooks"
+      "description": "Handles Ko-fi donation webhooks",
+      "requires_database": true
     }
   }
 }

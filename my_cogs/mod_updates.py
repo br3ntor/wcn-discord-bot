@@ -19,64 +19,20 @@ ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 MY_GUILD = Config.MY_GUILD
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
-california = datetime.timezone(datetime.timedelta(hours=-8))
 
-times = [
-    datetime.time(hour=6, tzinfo=california),
-    datetime.time(hour=18, tzinfo=california),
-]
-
-
-class TasksCog(commands.Cog):
+class ModUpdatesCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.error_check_counter = 0  # Initialize counter for limited iterations
 
     async def cog_unload(self):
         self.check_mod_updates.cancel()
-        # self.my_ad.cancel()
-        # self.scoreboard_message.cancel()
-        self.check_workshop_errors.cancel()  # Add cleanup
+        self.check_workshop_errors.cancel()
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Starting tasks...")
+        print("Starting mod updates tasks...")
         self.check_mod_updates.start()
-        # self.my_ad.start()
-        # self.scoreboard_message.start()
-
-    @tasks.loop(time=times)
-    async def scoreboard_message(self):
-        chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
-        if not chan:
-            print("Unable to get discord channel.")
-            return
-        if not isinstance(chan, discord.TextChannel):
-            print("Chan is not TextChannel?")
-            return
-
-        await chan.send("https://westcoastnoobs.com")
-
-    @tasks.loop(time=times)
-    async def my_ad(self):
-        ad_msg = "Help us reach our monthly goal!\n"
-
-        # This shows our goal but in a picture and we cant access the data
-        # So if we want to stop ad if goal is reached we can access the db
-        # To write a condition for it, TODO
-        goal_url = "https://ko-fi.com/westcoastnoobs/goal"
-        # chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
-        chan = self.bot.get_channel(948548630439165956)
-
-        if not chan:
-            print("Unable to get discord channel.")
-            return
-        if not isinstance(chan, discord.TextChannel):
-            print("Chan is not TextChannel?")
-            return
-
-        await chan.send(ad_msg + goal_url)
-        print("My ad is running!")
 
     @tasks.loop(minutes=5)
     async def check_mod_updates(self):

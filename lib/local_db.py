@@ -3,9 +3,6 @@ from datetime import datetime
 
 import aiosqlite
 
-# from typing import Iterable, List, Tuple
-
-
 db_path = "data/bot_database.db"
 
 

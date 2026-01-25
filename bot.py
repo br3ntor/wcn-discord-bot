@@ -8,8 +8,6 @@ from discord.ext import commands
 import my_commands
 from config import Config
 
-# from lib.local_db import init_db
-
 
 def import_cog(cog_name: str, class_name: str):
     """Dynamically import a cog class."""
@@ -53,10 +51,36 @@ class MyBot(commands.Bot):
             ):
                 self.tree.add_command(attr)
 
+        # Check if any enabled cogs require database
+        database_needed = any(
+            cog_config.get("requires_database", False)
+            for cog_config in Config.COGS_CONFIG.values()
+            if cog_config.get("enabled", False)
+        )
+
+        database_available = False
+        if database_needed:
+            print("Database-dependent cogs detected, initializing database...")
+            try:
+                from lib.local_db import init_db
+
+                await init_db()
+                database_available = True
+                print("✅ Database initialized successfully")
+            except Exception as e:
+                print(f"❌ Database initialization failed: {e}")
+                print("⚠️  Database-dependent cogs will be disabled")
+
         # Load cogs based on configuration
         enabled_cogs = []
         for cog_name, cog_config in Config.COGS_CONFIG.items():
             if cog_config.get("enabled", False):
+                # Check database dependency with our new tracking
+                if cog_config.get("requires_database", False):
+                    if not database_available:
+                        print(f"Skipping {cog_name}: Database required but unavailable")
+                        continue
+
                 cog_class = import_cog(cog_name, cog_config["class_name"])
                 if cog_class:
                     try:
@@ -73,12 +97,22 @@ class MyBot(commands.Bot):
         else:
             print("No cogs enabled in configuration")
 
+        # Report database status
+        if database_needed:
+            status = "✅ Available" if database_available else "❌ Unavailable"
+            print(f"Database Status: {status}")
+            if database_available:
+                db_dependent_enabled = sum(
+                    1
+                    for config in Config.COGS_CONFIG.values()
+                    if config.get("enabled", False)
+                    and config.get("requires_database", False)
+                )
+                print(f"Database-dependent cogs loaded: {db_dependent_enabled}")
+
         # Sync commands (existing logic)
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
-
-        # Creates the file and tables if not exist
-        # await init_db()
 
 
 intents = discord.Intents.all()
