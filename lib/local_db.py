@@ -40,7 +40,21 @@ async def init_db():
                 amount REAL NOT NULL,
                 donation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """
+            """
+        )
+
+        # Create ticket tracking table
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ticket_notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticket_id INTEGER NOT NULL,
+                discord_message_id INTEGER NOT NULL,
+                thread_id INTEGER NOT NULL,
+                processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(ticket_id)
+            )
+            """
         )
 
         await db.commit()
@@ -134,6 +148,44 @@ async def get_total_donations_since(from_date: datetime) -> float:
 #             return float(result[0])
 #
 #
+async def add_ticket_notification(ticket_id: int, discord_message_id: int, thread_id: int) -> bool:
+    """Record that a ticket has been posted to Discord."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                "INSERT INTO ticket_notifications (ticket_id, discord_message_id, thread_id) VALUES (?, ?, ?)",
+                (ticket_id, discord_message_id, thread_id),
+            )
+            await db.commit()
+            return True
+    except aiosqlite.IntegrityError:  # Ticket already processed
+        return False
+    except Exception:
+        return False
+
+
+async def is_ticket_processed(ticket_id: int) -> bool:
+    """Check if a ticket has already been processed."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            "SELECT 1 FROM ticket_notifications WHERE ticket_id = ?", (ticket_id,)
+        ) as cursor:
+            return await cursor.fetchone() is not None
+
+
+async def get_last_processed_ticket_id() -> int:
+    """Get the highest ticket ID that has been processed."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            "SELECT MAX(ticket_id) FROM ticket_notifications"
+        ) as cursor:
+            result = await cursor.fetchone()
+            if result and result[0] is not None:
+                return int(result[0])
+            else:
+                return 0  # Return 0 if no tickets have been processed
+
+
 # async def get_recent_donations(limit: int = 5) -> Iterable[aiosqlite.Row]:
 #     """Get recent donations with limit."""
 #     async with aiosqlite.connect(db_path) as db:

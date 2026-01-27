@@ -55,6 +55,7 @@ class Config:
     ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
     MY_GUILD = int(os.getenv("MY_GUILD", 0))
     PZ_ADMIN_ROLE_ID = int(os.getenv("PZ_ADMIN_ROLE_ID", 0))
+    MOD_CHANNEL = int(os.getenv("MOD_CHANNEL", 0))
     DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
     # Optional Env Vars - TODO: Commands that depend on these shouldn't be made available
@@ -85,4 +86,6 @@ class Config:
             raise EnvironmentError("MY_GUILD environment variable is not set")
         if not Config.PZ_ADMIN_ROLE_ID:
             raise EnvironmentError("PZ_ADMIN_ROLE_ID environment variable is not set")
+        if not Config.MOD_CHANNEL:
+            raise EnvironmentError("MOD_CHANNEL environment variable is not set")
         return True
