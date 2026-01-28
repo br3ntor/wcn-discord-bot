@@ -5,14 +5,14 @@ from discord import app_commands
 from discord.ext import commands
 
 # My command modules folder
-import my_commands
+import bot_commands
 from config import Config
 
 
 def import_cog(cog_name: str, class_name: str):
     """Dynamically import a cog class."""
     try:
-        module = importlib.import_module(f"my_cogs.{cog_name}")
+        module = importlib.import_module(f"bot_cogs.{cog_name}")
         return getattr(module, class_name)
     except (ImportError, AttributeError) as e:
         print(f"Failed to import cog {cog_name}.{class_name}: {e}")
@@ -44,8 +44,8 @@ class MyBot(commands.Bot):
         # and my old way to toggle commands on and off was just to comment
         # them out in __all__ of the __init__ thing, the way below through Congif
         # is preferred I think. TODO: Switch this to that!
-        for command_name in my_commands.__all__:
-            attr = getattr(my_commands, command_name)
+        for command_name in bot_commands.__all__:
+            attr = getattr(bot_commands, command_name)
             if isinstance(attr, app_commands.Command) or isinstance(
                 attr, app_commands.Group
             ):
