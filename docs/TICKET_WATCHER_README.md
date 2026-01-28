@@ -44,7 +44,7 @@ The bot needs the following permissions in your mod channel:
 
 - **Automatic Thread Management**: Creates and maintains a dedicated thread for ticket notifications
 - **Rich Embeds**: Posts nicely formatted Discord embeds with ticket details
-- **Smart Filtering**: Only posts unviewed tickets (viewed = 0)
+- **Smart Filtering**: Only posts unanswered tickets
 - **Database Resilience**: Handles database locks with automatic retry logic
 - **Duplicate Prevention**: Local tracking prevents re-notification of the same ticket
 

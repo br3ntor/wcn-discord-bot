@@ -27,7 +27,7 @@ async def init_db():
                 banned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(steam_id)
             )
-        """
+            """
         )
 
         # Create donations table
@@ -52,10 +52,22 @@ async def init_db():
                 discord_message_id INTEGER NOT NULL,
                 thread_id INTEGER NOT NULL,
                 processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_state TEXT DEFAULT 'unanswered',
                 UNIQUE(ticket_id)
             )
             """
         )
+
+        # Add migration for existing databases - add last_state column if it doesn't exist
+        # Not sure if I need this anymore since ill be starting fresh each time...
+        try:
+            await db.execute(
+                "ALTER TABLE ticket_notifications ADD COLUMN last_state TEXT DEFAULT 'unanswered'"
+            )
+            print("[DB] Added last_state column to ticket_notifications table")
+        except aiosqlite.OperationalError:
+            # Column already exists, which is fine
+            pass
 
         await db.commit()
         print("Database exists!")
@@ -148,13 +160,15 @@ async def get_total_donations_since(from_date: datetime) -> float:
 #             return float(result[0])
 #
 #
-async def add_ticket_notification(ticket_id: int, discord_message_id: int, thread_id: int) -> bool:
+async def add_ticket_notification(
+    ticket_id: int, discord_message_id: int, thread_id: int
+) -> bool:
     """Record that a ticket has been posted to Discord."""
     try:
         async with aiosqlite.connect(db_path) as db:
             await db.execute(
-                "INSERT INTO ticket_notifications (ticket_id, discord_message_id, thread_id) VALUES (?, ?, ?)",
-                (ticket_id, discord_message_id, thread_id),
+                "INSERT INTO ticket_notifications (ticket_id, discord_message_id, thread_id, last_state) VALUES (?, ?, ?, ?)",
+                (ticket_id, discord_message_id, thread_id, "unanswered"),
             )
             await db.commit()
             return True
@@ -184,6 +198,56 @@ async def get_last_processed_ticket_id() -> int:
                 return int(result[0])
             else:
                 return 0  # Return 0 if no tickets have been processed
+
+
+async def get_tracked_tickets() -> list:
+    """Get all tickets that have Discord notifications posted."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            """
+            SELECT ticket_id, discord_message_id, thread_id, last_state
+            FROM ticket_notifications
+            ORDER BY ticket_id ASC
+            """
+        ) as cursor:
+            results = await cursor.fetchall()
+            return [(row[0], row[1], row[2], row[3]) for row in results]
+
+
+async def update_ticket_state(ticket_id: int, new_state: str) -> bool:
+    """Update the last known state of a ticket."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                "UPDATE ticket_notifications SET last_state = ? WHERE ticket_id = ?",
+                (new_state, ticket_id),
+            )
+            await db.commit()
+            return True
+    except Exception:
+        return False
+
+
+async def get_ticket_last_state(ticket_id: int) -> str:
+    """Get the last known state of a ticket."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            "SELECT last_state FROM ticket_notifications WHERE ticket_id = ?",
+            (ticket_id,),
+        ) as cursor:
+            result = await cursor.fetchone()
+            return result[0] if result else "unanswered"
+
+
+async def clear_local_tracking() -> bool:
+    """Clear all ticket notifications from local database."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute("DELETE FROM ticket_notifications")
+            await db.commit()
+            return True
+    except Exception:
+        return False
 
 
 # async def get_recent_donations(limit: int = 5) -> Iterable[aiosqlite.Row]:
