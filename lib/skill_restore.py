@@ -61,6 +61,25 @@ class LevelRestore:
             perk_files, key=lambda x: datetime.fromtimestamp(os.path.getmtime(x))
         )
 
+    def extract_timestamp(self, line: str) -> Optional[float]:
+        """Extract timestamp from a log line and return as float seconds."""
+        # Pattern: [02-02-26 06:46:22.689] -> return 6*3600 + 46*60 + 22.689
+        match = re.search(r"\[\d{2}-\d{2}-\d{2} (\d{2}):(\d{2}):(\d{2}\.\d{3})\]", line)
+        if match:
+            hours = int(match.group(1))
+            minutes = int(match.group(2))
+            seconds = float(match.group(3))
+            return hours * 3600 + minutes * 60 + seconds
+        return None
+
+    def timestamps_close(
+        self, ts1: Optional[float], ts2: Optional[float], threshold: float = 1.0
+    ) -> bool:
+        """Check if two timestamps are within threshold seconds of each other."""
+        if ts1 is None or ts2 is None:
+            return False
+        return abs(ts1 - ts2) <= threshold
+
     def parse_skill_line(self, line: str) -> Dict[str, int]:
         """Parse a skill line and return a dictionary of skill levels."""
         skills = {}
@@ -75,6 +94,76 @@ class LevelRestore:
                     skills[skill.strip()] = int(level.strip())
         return skills
 
+    def is_skill_line(self, line: str) -> bool:
+        """Check if a line contains skill data (has skill=level pattern and Hours Survived)."""
+        return (
+            "=" in line
+            and "Hours Survived:" in line
+            and not any(
+                keyword in line
+                for keyword in [
+                    "[Login]",
+                    "[Died]",
+                    "[Created Player",
+                    "[Level Changed]",
+                ]
+            )
+        )
+
+    def find_skills_by_proximity(
+        self, lines: list, reference_index: int, search_range: int = 3
+    ) -> Dict[str, int]:
+        """Find skill line closest to a reference event using time proximity."""
+        if reference_index < 0 or reference_index >= len(lines):
+            return {}
+
+        ref_timestamp = self.extract_timestamp(lines[reference_index])
+        if ref_timestamp is None:
+            print("DEBUG: No timestamp found in reference line")
+            return {}
+
+        print(f"DEBUG: Reference timestamp: {ref_timestamp}")
+        print(f"DEBUG: Reference line: {lines[reference_index][:80]}...")
+
+        # Search forward first (next line most likely)
+        for offset in range(1, min(search_range + 1, len(lines) - reference_index)):
+            candidate = lines[reference_index + offset]
+            if self.is_skill_line(candidate):
+                candidate_ts = self.extract_timestamp(candidate)
+                if candidate_ts and self.timestamps_close(
+                    ref_timestamp, candidate_ts, 1.0
+                ):
+                    time_diff = abs(candidate_ts - ref_timestamp)
+                    print(
+                        f"DEBUG: Found skills at +{offset} lines, time diff: {time_diff:.3f}s"
+                    )
+                    print(
+                        f"DEBUG: Reference: {ref_timestamp}, Candidate: {candidate_ts}"
+                    )
+                    print(f"DEBUG: Candidate line: {candidate[:80]}...")
+                    return self.parse_skill_line(candidate)
+
+        # Then search backward (if skill line came before)
+        for offset in range(1, min(search_range + 1, reference_index + 1)):
+            candidate = lines[reference_index - offset]
+            if self.is_skill_line(candidate):
+                candidate_ts = self.extract_timestamp(candidate)
+                if candidate_ts and self.timestamps_close(
+                    ref_timestamp, candidate_ts, 1.0
+                ):
+                    time_diff = abs(candidate_ts - ref_timestamp)
+                    print(
+                        f"DEBUG: Found skills at -{offset} lines, time diff: {time_diff:.3f}s"
+                    )
+                    print(
+                        f"DEBUG: Reference: {ref_timestamp}, Candidate: {candidate_ts}"
+                    )
+                    print(f"DEBUG: Candidate line: {candidate[:80]}...")
+                    return self.parse_skill_line(candidate)
+
+        print("DEBUG: No skill lines found within 1.0s proximity")
+        return {}
+
     def get_xp_for_level(self, skill: str, level: int) -> int:
         """Get the total XP needed to reach a specific level."""
         if skill in PASSIVE_SKILLS:
@@ -87,6 +176,7 @@ class LevelRestore:
     ) -> Tuple[Optional[Dict[str, int]], Optional[Dict[str, int]]]:
         """
         Analyze player's most significant death and return pre-death and current skill levels.
+        Uses time proximity matching for both B41 and B42 log patterns.
         Returns (pre_death_skills, current_skills) or (None, None) if no death found.
         """
         perk_log_file = self.get_latest_perk_log()
@@ -139,31 +229,49 @@ class LevelRestore:
             print("No login found before death")
             return None, None
 
-        # Get skills from the line after login (current skills at login time)
-        pre_death_skills = {}
-        if login_line_index + 1 < len(player_lines):
-            next_line = player_lines[login_line_index + 1]
-            if "Hours Survived:" in next_line and "=" in next_line:
-                pre_death_skills = self.parse_skill_line(next_line)
+        # Get pre-death skills using time proximity matching
+        pre_death_skills = self.find_skills_by_proximity(player_lines, login_line_index)
 
-        # Apply any level changes between login and death
-        for i in range(login_line_index + 2, death_line_index):
-            line = player_lines[i]
-            if "[Level Changed]" in line:
-                match = re.search(r"\[Level Changed\]\[([^\]]+)\]\[(\d+)\]", line)
-                if match:
-                    skill_name = match.group(1)
-                    new_level = int(match.group(2))
-                    pre_death_skills[skill_name] = new_level
+        # if not pre_death_skills:
+        #     print("No pre-death skills found via proximity, trying fallback...")
+        #     # Fallback: try next line method
+        #     if login_line_index + 1 < len(player_lines):
+        #         next_line = player_lines[login_line_index + 1]
+        #         if self.is_skill_line(next_line):
+        #             pre_death_skills = self.parse_skill_line(next_line)
 
-        # Find current skills (after "Created Player" line)
+        # Apply any level changes between login and death (for B41 compatibility)
+        if pre_death_skills:
+            for i in range(login_line_index + 1, death_line_index):
+                line = player_lines[i]
+                if "[Level Changed]" in line:
+                    match = re.search(r"\[Level Changed\]\[([^\]]+)\]\[(\d+)\]", line)
+                    if match:
+                        skill_name = match.group(1)
+                        new_level = int(match.group(2))
+                        pre_death_skills[skill_name] = new_level
+
+        # Find current skills - look for either Login or Created Player after death
         current_skills = {}
-        for i, line in enumerate(player_lines):
-            if "[Created Player" in line and i + 1 < len(player_lines):
-                next_line = player_lines[i + 1]
-                if "Hours Survived: 0" in next_line and "=" in next_line:
-                    current_skills = self.parse_skill_line(next_line)
+        for i in range(death_line_index + 1, len(player_lines)):
+            line = player_lines[i]
+            if "[Login][Hours Survived:" in line or "[Created Player" in line:
+                print(
+                    f"DEBUG: Found {'Login' if '[Login' in line else 'Created Player'} at index {i}"
+                )
+                skills = self.find_skills_by_proximity(player_lines, i)
+                if skills:
+                    current_skills = skills
+                    print(f"DEBUG: Successfully found {len(skills)} current skills")
                     break
+
+        # if not current_skills:
+        #     print("No current skills found via proximity, trying fallback...")
+        #     # Fallback: look for the most recent skill line with 0 hours survived
+        #     for i in range(len(player_lines) - 1, death_line_index, -1):
+        #         if "Hours Survived: 0" in player_lines[i] and self.is_skill_line(player_lines[i]):
+        #             current_skills = self.parse_skill_line(player_lines[i])
+        #             break
 
         return pre_death_skills, current_skills
 
@@ -206,6 +314,7 @@ class LevelRestore:
         timeout: int = 10,
     ):
         """Watches log lines with tail and runs a callback on each line."""
+        process = None
         try:
             process = await asyncio.create_subprocess_exec(
                 "tail",
