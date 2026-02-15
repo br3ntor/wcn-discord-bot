@@ -16,7 +16,6 @@ from lib.local_db import (
 )
 
 MOD_CHANNEL = Config.MOD_CHANNEL
-PZSERVER_DB_PATH = "/home/pzserver42/Zomboid/db/pzserver.db"
 
 
 class TicketWatcherCog(commands.Cog):
@@ -25,6 +24,9 @@ class TicketWatcherCog(commands.Cog):
         self.ticket_thread_id = None
         self.retry_count = 0
         self.max_retries = 3
+        self.server_last_ticket_ids = {}  # Track last ticket ID per server
+        for server_config in Config.SERVER_DATA:
+            self.server_last_ticket_ids[server_config['server_name']] = 0
 
     async def cog_unload(self):
         """Clean up when cog is unloaded."""
@@ -46,103 +48,110 @@ class TicketWatcherCog(commands.Cog):
 
     async def sync_with_game_database(self):
         """Sync local tracking with current game database state on startup."""
-        if not os.path.exists(PZSERVER_DB_PATH):
-            print(f"[TicketWatcher] Game database not found: {PZSERVER_DB_PATH}")
+        print("[TicketWatcher] Syncing with game databases...")
+        
+        if not self.ticket_thread_id:
+            print("[TicketWatcher] No ticket thread available for sync")
             return
 
-        print("[TicketWatcher] Syncing with game database...")
+        thread = self.bot.get_channel(self.ticket_thread_id)
+        if not thread or not isinstance(thread, discord.Thread):
+            print("[TicketWatcher] Could not find ticket thread for sync")
+            return
 
-        try:
-            # Get all currently existing original tickets from game database (answeredID = NULL)
-            # Use read-only mode to avoid conflicts with PZ server
+        total_tickets_added = 0
+        total_tickets_skipped = 0
+        
+        for server_config in Config.SERVER_DATA:
+            server_name = server_config['server_name']
+            system_user = server_config['system_user']
+            db_path = f"/home/{system_user}/Zomboid/db/pzserver.db"
+            
+            if not os.path.exists(db_path):
+                print(f"[TicketWatcher] Database not found for {server_name}: {db_path}")
+                continue
+
             try:
-                async with aiosqlite.connect(f"file:{PZSERVER_DB_PATH}?mode=ro", uri=True) as pz_db:
+                # Use read-only mode to avoid conflicts with PZ server
+                async with aiosqlite.connect(f"file:{db_path}?mode=ro", uri=True) as pz_db:
                     async with pz_db.execute(
                         "SELECT id, message, author, answeredID FROM tickets WHERE answeredID IS NULL ORDER BY id ASC"
                     ) as cursor:
                         all_tickets = await cursor.fetchall()
                         ticket_count = sum(1 for _ in all_tickets) if all_tickets else 0
+
+                print(f"[TicketWatcher] Found {ticket_count} tickets in {server_name} database")
+
+                tickets_added = 0
+                tickets_skipped = 0
+                
+                for ticket in all_tickets:
+                    ticket_id, message, author, answered_id = ticket
+
+                    # Check if we already have this ticket in our tracking (duplicate prevention)
+                    if await is_ticket_processed(server_name, ticket_id):
+                        tickets_skipped += 1
+                        continue
+
+                    # For original tickets, check if there's an answer (simplified 2-state system)
+                    async with aiosqlite.connect(f"file:{db_path}?mode=ro", uri=True) as pz_db:
+                        answer = await self._find_answer_for_ticket(pz_db, ticket_id)
+                        if answer:
+                            state = "answered"
+                        else:
+                            state = "unanswered"
+
+                        # Create embed for existing ticket
+                        embed = discord.Embed(
+                            title=f"🎫 [{server_name}] Support Ticket #{ticket_id}",
+                            color=self._get_state_color(state),
+                            timestamp=datetime.now(timezone.utc),
+                        )
+                        embed.add_field(
+                            name="Status", value=self._get_state_text(state), inline=True
+                        )
+                        embed.description = await self._build_ticket_description(
+                            pz_db, ticket_id, message, author, answered_id
+                        )
+                        embed.set_footer(text="WCN Ticket System")
+
+                        try:
+                            discord_message = await thread.send(embed=embed)
+
+                            # Record the notification
+                            await add_ticket_notification(
+                                server_name, ticket_id, discord_message.id, thread.id
+                            )
+
+                            # Update state tracking
+                            await update_ticket_state(server_name, ticket_id, state)
+                            tickets_added += 1
+
+                            print(f"[TicketWatcher] Added {server_name} ticket #{ticket_id} from {author}")
+
+                        except discord.Forbidden:
+                            print(
+                                "[TicketWatcher] Missing permissions to send messages during sync"
+                            )
+                            break
+                        except Exception as e:
+                            print(
+                                f"[TicketWatcher] Error sending {server_name} ticket #{ticket_id} during sync: {e}"
+                            )
+
+                total_tickets_added += tickets_added
+                total_tickets_skipped += tickets_skipped
+                print(f"[TicketWatcher] {server_name} sync completed - added {tickets_added} tickets, skipped {tickets_skipped} already tracked")
+
             except aiosqlite.OperationalError as e:
                 if "database is locked" in str(e).lower():
-                    print(f"[TicketWatcher] Database locked during sync, will retry on next monitor cycle")
-                    return
+                    print(f"[TicketWatcher] {server_name} database locked during sync, will retry on next monitor cycle")
                 else:
-                    raise
+                    print(f"[TicketWatcher] {server_name} database error during sync: {e}")
+            except Exception as e:
+                print(f"[TicketWatcher] Error during {server_name} database sync: {e}")
 
-            print(f"[TicketWatcher] Found {ticket_count} tickets in game database")
-
-            # Only track tickets that exist in game database
-            if not self.ticket_thread_id:
-                print("[TicketWatcher] No ticket thread available for sync")
-                return
-
-            thread = self.bot.get_channel(self.ticket_thread_id)
-            if not thread or not isinstance(thread, discord.Thread):
-                print("[TicketWatcher] Could not find ticket thread for sync")
-                return
-
-            # Process all existing original tickets, but only add ones we don't already track
-            tickets_added = 0
-            tickets_skipped = 0
-            
-            for ticket in all_tickets:
-                ticket_id, message, author, answered_id = ticket
-
-                # Check if we already have this ticket in our tracking (duplicate prevention)
-                if await is_ticket_processed(ticket_id):
-                    tickets_skipped += 1
-                    print(f"[TicketWatcher] Ticket #{ticket_id} already tracked, skipping")
-                    continue
-
-                # For original tickets, check if there's an answer (simplified 2-state system)
-                answer = await self._find_answer_for_ticket(pz_db, ticket_id)
-                if answer:
-                    state = "answered"
-                else:
-                    state = "unanswered"
-
-                # Create embed for existing ticket
-                embed = discord.Embed(
-                    title=f"🎫 Support Ticket #{ticket_id}",
-                    color=self._get_state_color(state),
-                    timestamp=datetime.now(timezone.utc),
-                )
-                embed.add_field(
-                    name="Status", value=self._get_state_text(state), inline=True
-                )
-                embed.description = await self._build_ticket_description(
-                    pz_db, ticket_id, message, author, answered_id
-                )
-                embed.set_footer(text="WCN Ticket System")
-
-                try:
-                    discord_message = await thread.send(embed=embed)
-
-                    # Record the notification
-                    await add_ticket_notification(
-                        ticket_id, discord_message.id, thread.id
-                    )
-
-                    # Update state tracking
-                    await update_ticket_state(ticket_id, state)
-                    tickets_added += 1
-
-                    print(f"[TicketWatcher] Added ticket #{ticket_id} from {author}")
-
-                except discord.Forbidden:
-                    print(
-                        "[TicketWatcher] Missing permissions to send messages during sync"
-                    )
-                    break
-                except Exception as e:
-                    print(
-                        f"[TicketWatcher] Error sending ticket #{ticket_id} during sync: {e}"
-                    )
-
-            print(f"[TicketWatcher] Sync completed - added {tickets_added} tickets, skipped {tickets_skipped} already tracked")
-
-        except Exception as e:
-            print(f"[TicketWatcher] Error during database sync: {e}")
+        print(f"[TicketWatcher] Overall sync completed - added {total_tickets_added} tickets, skipped {total_tickets_skipped} already tracked")
 
     async def ensure_ticket_thread(self):
         """Create or retrieve the support tickets thread."""
@@ -185,10 +194,6 @@ class TicketWatcherCog(commands.Cog):
             print("[TicketWatcher] No thread ID set, skipping check")
             return
 
-        if not os.path.exists(PZSERVER_DB_PATH):
-            print(f"[TicketWatcher] Database file not found: {PZSERVER_DB_PATH}")
-            return
-
         try:
             # Get thread reference
             thread = self.bot.get_channel(self.ticket_thread_id)
@@ -196,37 +201,51 @@ class TicketWatcherCog(commands.Cog):
                 print(f"[TicketWatcher] Could not find thread {self.ticket_thread_id}")
                 return
 
-            # Connect to PZ server database
-            async with aiosqlite.connect(PZSERVER_DB_PATH) as pz_db:
-                # Phase 1: Process new tickets
-                await self._process_new_tickets(pz_db, thread)
+            # Process each server
+            for server_config in Config.SERVER_DATA:
+                server_name = server_config['server_name']
+                system_user = server_config['system_user']
+                db_path = f"/home/{system_user}/Zomboid/db/pzserver.db"
+                
+                if not os.path.exists(db_path):
+                    print(f"[TicketWatcher] Database file not found for {server_name}: {db_path}")
+                    continue
 
-                # Phase 2: Process status updates on tracked tickets
-                await self._process_status_updates(pz_db, thread)
+                try:
+                    # Connect to PZ server database
+                    async with aiosqlite.connect(db_path) as pz_db:
+                        # Phase 1: Process new tickets
+                        await self._process_new_tickets(server_name, pz_db, thread)
+
+                        # Phase 2: Process status updates on tracked tickets
+                        await self._process_status_updates(server_name, pz_db, thread)
+
+                except aiosqlite.OperationalError as e:
+                    if "database is locked" in str(e).lower():
+                        print(f"[TicketWatcher] {server_name} database locked (attempt {self.retry_count + 1})")
+                        self.retry_count += 1
+                        if self.retry_count >= self.max_retries:
+                            print(
+                                "[TicketWatcher] Max retries reached, stopping loop temporarily"
+                            )
+                            self.ticket_monitor.restart()
+                    else:
+                        print(f"[TicketWatcher] {server_name} database error: {e}")
+                    continue  # Skip to next server
+                except Exception as e:
+                    print(f"[TicketWatcher] Unexpected error for {server_name}: {e}")
+                    continue  # Skip to next server
 
             # Reset retry count on success
             self.retry_count = 0
 
-        except aiosqlite.OperationalError as e:
-            if "database is locked" in str(e).lower():
-                print(
-                    f"[TicketWatcher] Database locked (attempt {self.retry_count + 1})"
-                )
-                self.retry_count += 1
-                if self.retry_count >= self.max_retries:
-                    print(
-                        "[TicketWatcher] Max retries reached, stopping loop temporarily"
-                    )
-                    self.ticket_monitor.restart()
-            else:
-                print(f"[TicketWatcher] Database error: {e}")
         except Exception as e:
-            print(f"[TicketWatcher] Unexpected error: {e}")
+            print(f"[TicketWatcher] Unexpected error in monitor loop: {e}")
 
-    async def _process_new_tickets(self, pz_db, thread):
+    async def _process_new_tickets(self, server_name: str, pz_db, thread):
         """Process and post new unanswered tickets."""
-        # Get last processed ticket ID
-        last_ticket_id = await get_last_processed_ticket_id()
+        # Get last processed ticket ID for this server
+        last_ticket_id = await get_last_processed_ticket_id(server_name)
 
         # Query for new original tickets only (answeredID IS NULL)
         query = """
@@ -244,12 +263,12 @@ class TicketWatcherCog(commands.Cog):
                 ticket_id, message, author = ticket
 
                 # Skip if already processed (duplicate prevention)
-                if await is_ticket_processed(ticket_id):
+                if await is_ticket_processed(server_name, ticket_id):
                     continue
 
                 # Create and send embed
                 embed = discord.Embed(
-                    title=f"🎫 New Support Ticket #{ticket_id}",
+                    title=f"🎫 [{server_name}] New Support Ticket #{ticket_id}",
                     color=self._get_state_color("unanswered"),
                     timestamp=datetime.now(timezone.utc),
                 )
@@ -266,10 +285,10 @@ class TicketWatcherCog(commands.Cog):
 
                     # Record the notification
                     await add_ticket_notification(
-                        ticket_id, discord_message.id, thread.id
+                        server_name, ticket_id, discord_message.id, thread.id
                     )
 
-                    print(f"[TicketWatcher] Posted ticket #{ticket_id} from {author}")
+                    print(f"[TicketWatcher] Posted {server_name} ticket #{ticket_id} from {author}")
 
                 except discord.Forbidden:
                     print("[TicketWatcher] Missing permissions to send messages")
@@ -277,13 +296,19 @@ class TicketWatcherCog(commands.Cog):
                 except Exception as e:
                     print(f"[TicketWatcher] Error sending message: {e}")
 
-    async def _process_status_updates(self, pz_db, thread):
+    async def _process_status_updates(self, server_name: str, pz_db, thread):
         """Process status updates for existing tracked tickets."""
         tracked_tickets = await get_tracked_tickets()
 
-            # Count how many tickets actually need updates for progress tracking
+        # Count how many tickets actually need updates for progress tracking
         tickets_needing_updates = []
-        for ticket_id, discord_message_id, thread_id, last_state in tracked_tickets:
+        for tracked_ticket in tracked_tickets:
+            tracked_server_name, ticket_id, discord_message_id, thread_id, last_state = tracked_ticket
+            
+            # Only process tickets for this server
+            if tracked_server_name != server_name:
+                continue
+                
             try:
                 current_state = await self._determine_ticket_state(pz_db, ticket_id)
                 # Skip deleted tickets (current_state is None) - we'll handle them in _update_ticket_embed
@@ -298,13 +323,13 @@ class TicketWatcherCog(commands.Cog):
                         )
                     )
             except Exception as e:
-                print(f"[TicketWatcher] Error checking ticket #{ticket_id}: {e}")
+                print(f"[TicketWatcher] Error checking {server_name} ticket #{ticket_id}: {e}")
 
         total_updates = len(tickets_needing_updates)
 
         # Show progress for large batches
         if total_updates > 5:
-            print(f"[TicketWatcher] Processing {total_updates} ticket updates...")
+            print(f"[TicketWatcher] Processing {total_updates} {server_name} ticket updates...")
 
         # Process the updates
         for i, (
@@ -316,31 +341,31 @@ class TicketWatcherCog(commands.Cog):
         ) in enumerate(tickets_needing_updates):
             try:
                 await self._update_ticket_embed(
-                    thread, discord_message_id, ticket_id, current_state, pz_db
+                    server_name, thread, discord_message_id, ticket_id, current_state, pz_db
                 )
 
                 # Update our tracking
-                await update_ticket_state(ticket_id, current_state)
+                await update_ticket_state(server_name, ticket_id, current_state)
                 print(
-                    f"[TicketWatcher] Updated ticket #{ticket_id}: {last_state} → {current_state}"
+                    f"[TicketWatcher] Updated {server_name} ticket #{ticket_id}: {last_state} → {current_state}"
                 )
 
                 # Show progress for large batches
                 if total_updates > 5 and (i + 1) % 5 == 0:
                     print(
-                        f"[TicketWatcher] Progress: {i + 1}/{total_updates} updates completed"
+                        f"[TicketWatcher] Progress: {i + 1}/{total_updates} {server_name} updates completed"
                     )
 
             except discord.NotFound:
                 print(
-                    f"[TicketWatcher] Message {discord_message_id} for ticket #{ticket_id} not found"
+                    f"[TicketWatcher] Message {discord_message_id} for {server_name} ticket #{ticket_id} not found"
                 )
             except Exception as e:
-                print(f"[TicketWatcher] Error updating ticket #{ticket_id}: {e}")
+                print(f"[TicketWatcher] Error updating {server_name} ticket #{ticket_id}: {e}")
 
         # Final progress update for large batches
         if total_updates > 5:
-            print(f"[TicketWatcher] Completed {total_updates} ticket updates")
+            print(f"[TicketWatcher] Completed {total_updates} {server_name} ticket updates")
 
     async def _determine_ticket_state(self, pz_db, ticket_id):
         """Determine the current state of a ticket (simplified 2-state system)."""
@@ -363,21 +388,21 @@ class TicketWatcherCog(commands.Cog):
                 return "unanswered"
 
     async def _update_ticket_embed(
-        self, thread, discord_message_id, ticket_id, state, pz_db
+        self, server_name: str, thread, discord_message_id, ticket_id, state, pz_db
     ):
         """Update the Discord embed with new ticket status."""
         # Skip updates for deleted tickets (state is None)
         if state is None:
-            print(f"[TicketWatcher] Ticket #{ticket_id} deleted, stopping tracking")
+            print(f"[TicketWatcher] {server_name} ticket #{ticket_id} deleted, stopping tracking")
             # Remove from local tracking database
             try:
                 import aiosqlite
                 from lib.local_db import db_path
                 async with aiosqlite.connect(db_path) as db:
-                    await db.execute("DELETE FROM ticket_notifications WHERE ticket_id = ?", (ticket_id,))
+                    await db.execute("DELETE FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?", (server_name, ticket_id,))
                     await db.commit()
             except Exception as e:
-                print(f"[TicketWatcher] Error removing deleted ticket #{ticket_id} from tracking: {e}")
+                print(f"[TicketWatcher] Error removing deleted {server_name} ticket #{ticket_id} from tracking: {e}")
             return
 
         # Get ticket details for embed update
@@ -393,7 +418,7 @@ class TicketWatcherCog(commands.Cog):
 
         # Create updated embed
         embed = discord.Embed(
-            title=f"🎫 Support Ticket #{ticket_id}",
+            title=f"🎫 [{server_name}] Support Ticket #{ticket_id}",
             color=self._get_state_color(state),
             timestamp=datetime.now(timezone.utc),
         )
@@ -412,14 +437,14 @@ class TicketWatcherCog(commands.Cog):
                 await asyncio.sleep(0.6)
         except discord.NotFound:
             print(
-                f"[TicketWatcher] Could not find message {discord_message_id} to edit"
+                f"[TicketWatcher] Could not find message {discord_message_id} for {server_name} ticket #{ticket_id} to edit"
             )
         except discord.Forbidden:
             print(
-                f"[TicketWatcher] Missing permissions to edit message {discord_message_id}"
+                f"[TicketWatcher] Missing permissions to edit message {discord_message_id} for {server_name} ticket #{ticket_id}"
             )
         except Exception as e:
-            print(f"[TicketWatcher] Error editing message {discord_message_id}: {e}")
+            print(f"[TicketWatcher] Error editing message {discord_message_id} for {server_name} ticket #{ticket_id}: {e}")
 
     async def _get_answer_details(self, pz_db, answered_id):
         """Get full details about the ticket answer."""

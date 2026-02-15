@@ -48,26 +48,46 @@ async def init_db():
             """
             CREATE TABLE IF NOT EXISTS ticket_notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_name TEXT NOT NULL,
                 ticket_id INTEGER NOT NULL,
                 discord_message_id INTEGER NOT NULL,
                 thread_id INTEGER NOT NULL,
                 processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_state TEXT DEFAULT 'unanswered',
-                UNIQUE(ticket_id)
+                UNIQUE(server_name, ticket_id)
             )
             """
         )
 
-        # Add migration for existing databases - add last_state column if it doesn't exist
-        # Not sure if I need this anymore since ill be starting fresh each time...
+        # Add migration for existing databases - add server_name column if it doesn't exist
+        # Clean break approach: drop and recreate table with new schema
         try:
-            await db.execute(
-                "ALTER TABLE ticket_notifications ADD COLUMN last_state TEXT DEFAULT 'unanswered'"
-            )
-            print("[DB] Added last_state column to ticket_notifications table")
-        except aiosqlite.OperationalError:
-            # Column already exists, which is fine
-            pass
+            # Check if server_name column exists
+            async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
+                columns = await cursor.fetchall()
+                has_server_name = any(col[1] == 'server_name' for col in columns)
+            
+            if not has_server_name:
+                print("[DB] Migrating ticket_notifications table to support multiple servers")
+                # Drop old table and recreate with new schema
+                await db.execute("DROP TABLE IF EXISTS ticket_notifications")
+                await db.execute(
+                    """
+                    CREATE TABLE ticket_notifications (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_name TEXT NOT NULL,
+                        ticket_id INTEGER NOT NULL,
+                        discord_message_id INTEGER NOT NULL,
+                        thread_id INTEGER NOT NULL,
+                        processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_state TEXT DEFAULT 'unanswered',
+                        UNIQUE(server_name, ticket_id)
+                    )
+                    """
+                )
+                print("[DB] Migration completed - now supporting multiple servers")
+        except Exception as e:
+            print(f"[DB] Error during migration: {e}")
 
         await db.commit()
         print("Database exists!")
@@ -161,14 +181,14 @@ async def get_total_donations_since(from_date: datetime) -> float:
 #
 #
 async def add_ticket_notification(
-    ticket_id: int, discord_message_id: int, thread_id: int
+    server_name: str, ticket_id: int, discord_message_id: int, thread_id: int
 ) -> bool:
     """Record that a ticket has been posted to Discord."""
     try:
         async with aiosqlite.connect(db_path) as db:
             await db.execute(
-                "INSERT INTO ticket_notifications (ticket_id, discord_message_id, thread_id, last_state) VALUES (?, ?, ?, ?)",
-                (ticket_id, discord_message_id, thread_id, "unanswered"),
+                "INSERT INTO ticket_notifications (server_name, ticket_id, discord_message_id, thread_id, last_state) VALUES (?, ?, ?, ?, ?)",
+                (server_name, ticket_id, discord_message_id, thread_id, "unanswered"),
             )
             await db.commit()
             return True
@@ -178,20 +198,20 @@ async def add_ticket_notification(
         return False
 
 
-async def is_ticket_processed(ticket_id: int) -> bool:
+async def is_ticket_processed(server_name: str, ticket_id: int) -> bool:
     """Check if a ticket has already been processed."""
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
-            "SELECT 1 FROM ticket_notifications WHERE ticket_id = ?", (ticket_id,)
+            "SELECT 1 FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?", (server_name, ticket_id)
         ) as cursor:
             return await cursor.fetchone() is not None
 
 
-async def get_last_processed_ticket_id() -> int:
-    """Get the highest ticket ID that has been processed."""
+async def get_last_processed_ticket_id(server_name: str) -> int:
+    """Get the highest ticket ID that has been processed for a specific server."""
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
-            "SELECT MAX(ticket_id) FROM ticket_notifications"
+            "SELECT MAX(ticket_id) FROM ticket_notifications WHERE server_name = ?", (server_name,)
         ) as cursor:
             result = await cursor.fetchone()
             if result and result[0] is not None:
@@ -205,22 +225,22 @@ async def get_tracked_tickets() -> list:
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
             """
-            SELECT ticket_id, discord_message_id, thread_id, last_state
+            SELECT server_name, ticket_id, discord_message_id, thread_id, last_state
             FROM ticket_notifications
-            ORDER BY ticket_id ASC
+            ORDER BY server_name, ticket_id ASC
             """
         ) as cursor:
             results = await cursor.fetchall()
-            return [(row[0], row[1], row[2], row[3]) for row in results]
+            return [(row[0], row[1], row[2], row[3], row[4]) for row in results]
 
 
-async def update_ticket_state(ticket_id: int, new_state: str) -> bool:
+async def update_ticket_state(server_name: str, ticket_id: int, new_state: str) -> bool:
     """Update the last known state of a ticket."""
     try:
         async with aiosqlite.connect(db_path) as db:
             await db.execute(
-                "UPDATE ticket_notifications SET last_state = ? WHERE ticket_id = ?",
-                (new_state, ticket_id),
+                "UPDATE ticket_notifications SET last_state = ? WHERE server_name = ? AND ticket_id = ?",
+                (new_state, server_name, ticket_id),
             )
             await db.commit()
             return True
@@ -228,12 +248,12 @@ async def update_ticket_state(ticket_id: int, new_state: str) -> bool:
         return False
 
 
-async def get_ticket_last_state(ticket_id: int) -> str:
+async def get_ticket_last_state(server_name: str, ticket_id: int) -> str:
     """Get the last known state of a ticket."""
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
-            "SELECT last_state FROM ticket_notifications WHERE ticket_id = ?",
-            (ticket_id,),
+            "SELECT last_state FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?",
+            (server_name, ticket_id),
         ) as cursor:
             result = await cursor.fetchone()
             return result[0] if result else "unanswered"
@@ -244,6 +264,17 @@ async def clear_local_tracking() -> bool:
     try:
         async with aiosqlite.connect(db_path) as db:
             await db.execute("DELETE FROM ticket_notifications")
+            await db.commit()
+            return True
+    except Exception:
+        return False
+
+
+async def clear_server_tracking(server_name: str) -> bool:
+    """Clear all ticket notifications for a specific server from local database."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute("DELETE FROM ticket_notifications WHERE server_name = ?", (server_name,))
             await db.commit()
             return True
     except Exception:
