@@ -6,6 +6,9 @@ from typing import Dict, List, Optional, TypedDict
 print("Loading Config...")
 
 CONFIG_DIR = Path(__file__).parent.parent / "config"
+DATA_DIR = Path(__file__).parent.parent / "data"
+DB_PATH = DATA_DIR / "bot_database.db"
+DATA_DIR.mkdir(exist_ok=True)
 
 
 # This program is setup for one or more project zomboid servers running

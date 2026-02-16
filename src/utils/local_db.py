@@ -3,7 +3,8 @@ from pathlib import Path
 
 import aiosqlite
 
-db_path = Path(__file__).parent.parent / "data" / "bot_database.db"
+project_root = Path(__file__).parent.parent.parent
+db_path = project_root / "data" / "bot_database.db"
 
 
 async def init_db():

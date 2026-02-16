@@ -1,11 +1,10 @@
-__pycache__
 .venv
 .env
-subprocessdemote.py
-test.py
-data/
-src/data/
-servers.json
-cogs.json
 .python-version
 .opencode/
+subprocessdemote.py
+test.py
+servers.json
+cogs.json
+data/
+__pycache__/
