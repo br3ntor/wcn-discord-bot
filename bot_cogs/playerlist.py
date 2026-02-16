@@ -7,7 +7,8 @@ from config import Config
 from lib.steam_utils import get_player_list_string
 
 
-class PlayerlistUpdater(commands.Cog):
+class PlayerlistCog(commands.Cog):
+    """Cog for periodically updating the playerlist message in Discord threads."""
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 

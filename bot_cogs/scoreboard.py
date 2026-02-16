@@ -16,19 +16,22 @@ times = [
 
 
 class ScoreboardCog(commands.Cog):
+    """Cog for posting periodic scoreboard link messages to Discord."""
+    
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     async def cog_unload(self):
-        self.scoreboard_message.cancel()
+        self.send_scoreboard.cancel()
 
     @commands.Cog.listener()
     async def on_ready(self):
         print("Starting scoreboard tasks...")
-        self.scoreboard_message.start()
+        self.send_scoreboard.start()
 
     @tasks.loop(time=times)
-    async def scoreboard_message(self):
+    async def send_scoreboard(self):
+        """Sends the scoreboard URL message to Discord."""
         chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
         if not chan:
             print("Unable to get discord channel.")

@@ -16,19 +16,22 @@ times = [
 
 
 class AdvertisementCog(commands.Cog):
+    """Cog for posting periodic donation advertisements to Discord."""
+    
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     async def cog_unload(self):
-        self.my_ad.cancel()
+        self.send_advertisement.cancel()
 
     @commands.Cog.listener()
     async def on_ready(self):
         print("Starting advertisement tasks...")
-        self.my_ad.start()
+        self.send_advertisement.start()
 
     @tasks.loop(time=times)
-    async def my_ad(self):
+    async def send_advertisement(self):
+        """Sends the donation goal advertisement message to Discord."""
         ad_msg = "Help us reach our monthly goal!\n"
 
         # This shows our goal but in a picture and we cant access the data

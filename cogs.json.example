@@ -2,7 +2,7 @@
   "cogs": {
     "playerlist": {
       "enabled": true,
-      "class_name": "PlayerlistUpdater",
+      "class_name": "PlayerlistCog",
       "description": "Updates player list threads every 60 seconds",
       "requires_database": false
     },
@@ -16,7 +16,7 @@
       "enabled": false,
       "class_name": "AdvertisementCog",
       "description": "Posts donation goal ads at scheduled times",
-      "requires_database": true
+      "requires_database": false
     },
     "scoreboard": {
       "enabled": false,
@@ -24,10 +24,16 @@
       "description": "Posts website link at scheduled times", 
       "requires_database": false
     },
-    "webhook": {
+    "kofihook": {
       "enabled": true,
-      "class_name": "WebhookCog",
+      "class_name": "KoFiDonationCog",
       "description": "Handles Ko-fi donation webhooks",
+      "requires_database": true
+    },
+    "ticket_watcher": {
+      "enabled": true,
+      "class_name": "TicketWatcherCog",
+      "description": "Monitors PZ server database for new support tickets",
       "requires_database": true
     }
   }

@@ -14,13 +14,15 @@ WEBHOOK_SECRET = Config.WEBHOOK_SECRET
 WEBHOOK_PATH = "/hook"
 
 
-class WebhookCog(commands.Cog):
+class KoFiDonationCog(commands.Cog):
+    """Cog for handling Ko-fi donation webhooks and posting them to Discord."""
+    
     def __init__(self, bot):
         self.bot = bot
 
     # Experimenting with using the underscore for private methods
-    async def _handle_webhook(self, request):
-        """Handles the incoming Ko-fi webhook."""
+    async def _handle_kofi_donation(self, request):
+        """Handles incoming Ko-fi webhook for donation events."""
         # Post request from ko-fi sent on donation
         # TODO: Needs error handling
         data = await request.post()
@@ -83,10 +85,11 @@ class WebhookCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Bot is ready, starting webhook listener on port 5000...")
+        """Starts the Ko-fi webhook HTTP listener on port 5000."""
+        print("Bot is ready, starting Ko-fi webhook listener on port 5000...")
 
         app = web.Application()
-        app.router.add_post(WEBHOOK_PATH, self._handle_webhook)
+        app.router.add_post(WEBHOOK_PATH, self._handle_kofi_donation)
 
         runner = web.AppRunner(app)
         await runner.setup()
