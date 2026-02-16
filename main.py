@@ -6,11 +6,11 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     print("Loading env...")
     load_dotenv()
-    from config import Config
+    from src.config import Config
 
     Config.validate()
 
-    from bot import bot
+    from src.bot import bot
 
     token = Config.DISCORD_TOKEN
     if token is None:
