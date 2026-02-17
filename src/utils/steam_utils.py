@@ -7,8 +7,6 @@ from tabulate import tabulate
 
 from src.config import Config
 
-STEAM_KEY = Config.STEAM_KEY
-
 
 async def get_workshop_items(workshop_ids: list[str]) -> list:
     """Calls steam api to get mod data."""

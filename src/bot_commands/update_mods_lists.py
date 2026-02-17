@@ -6,7 +6,6 @@ from src.config import Config
 from src.utils.server_utils import get_servers_workshop_ids, server_setting_paths
 from src.utils.steam_utils import get_servers_workshop_items
 
-STEAM_KEY = Config.STEAM_KEY
 GITHUB_PAT = Config.GITHUB_PAT
 SERVER_DATA = Config.SERVER_DATA
 
