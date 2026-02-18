@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.features.auto_restart import abort_signal, auto_restart, countdown_isrunning
+from src.features.auto_restart import auto_restart
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -89,18 +89,19 @@ async def restart_server_auto(
 
 
 @app_commands.command(name="cancel")
-async def cancel_restart(interaction: discord.Interaction):
-    """Cancels all running restart countdowns."""
-    if abort_signal["aborted"]:
-        await interaction.response.send_message("You already cancelled let it finish!")
-        return
-
-    is_running = any(countdown_isrunning.values())
-
-    if is_running:
-        abort_signal["aborted"] = True
-        await interaction.response.send_message("Abort signal sent!")
+@app_commands.choices(
+    server=[
+        app_commands.Choice(name=srv, value=index + 1)
+        for index, srv in enumerate(SERVER_NAMES.values())
+    ]
+)
+@app_commands.describe(server="Which server?")
+async def cancel_restart(interaction: discord.Interaction, server: app_commands.Choice[int]):
+    """Cancels a running restart countdown for a specific server."""
+    if auto_restart.is_running(server.name):
+        auto_restart.abort(server.name)
+        await interaction.response.send_message(f"Abort signal sent for **{server.name}**!")
     else:
         await interaction.response.send_message(
-            "There are no countdown happening, this is you 🤡"
+            f"There is no countdown happening for **{server.name}**, this is you 🤡"
         )

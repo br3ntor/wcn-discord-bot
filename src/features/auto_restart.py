@@ -10,9 +10,6 @@ ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 
-countdown_isrunning = {server: False for server in SYSTEM_USERS.values()}
-abort_signal = {"aborted": False}
-
 
 class AutoRestart:
     """
@@ -20,7 +17,18 @@ class AutoRestart:
     """
 
     def __init__(self):
-        pass
+        self._countdown_running = {server: False for server in SYSTEM_USERS.values()}
+        self._abort_signals = {server: False for server in SYSTEM_USERS.values()}
+
+    def is_running(self, server_name: str) -> bool:
+        """Check if a countdown is running for a server."""
+        system_user = SYSTEM_USERS[server_name]
+        return self._countdown_running[system_user]
+
+    def abort(self, server_name: str) -> None:
+        """Set abort signal for a specific server."""
+        system_user = SYSTEM_USERS[server_name]
+        self._abort_signals[system_user] = True
 
     async def run_countdown(self, system_user: str, duration: int) -> tuple[bool, str]:
         """
@@ -35,22 +43,22 @@ class AutoRestart:
         """
         server_name = SERVER_NAMES[system_user]
 
-        if countdown_isrunning[system_user]:
+        if self._countdown_running[system_user]:
             return (
                 False,
                 f"There is already a countdown running for **{server_name}** server.",
             )
-        if abort_signal["aborted"]:
+        if self._abort_signals[system_user]:
             return False, f"Countdown abort in progress for **{server_name}** server."
 
-        countdown_isrunning[system_user] = True
+        self._countdown_running[system_user] = True
         seconds_left = duration
         while seconds_left > 0:
-            if abort_signal["aborted"]:
-                countdown_isrunning[system_user] = False
+            if self._abort_signals[system_user]:
+                self._countdown_running[system_user] = False
 
-                if not any(countdown_isrunning.values()):
-                    abort_signal["aborted"] = False
+                if not any(self._countdown_running.values()):
+                    self._abort_signals[system_user] = False
 
                 await pz_send_message(system_user, "Restart has been ABORTED")
 
@@ -64,7 +72,7 @@ class AutoRestart:
 
             await asyncio.sleep(5)
             seconds_left -= 5
-        countdown_isrunning[system_user] = True
+        self._countdown_running[system_user] = True
         return True, ""
 
     async def restart_server(self, system_user: str) -> bool:
@@ -103,6 +111,8 @@ class AutoRestart:
                 f"There was a problem restarting the **{server_name}** server."
             )
             return False
+
+        self._countdown_running[system_user] = False
 
         msg = f"Success! The **{server_name}** was restarted and is now loading back up."
         await channel.send(msg)
