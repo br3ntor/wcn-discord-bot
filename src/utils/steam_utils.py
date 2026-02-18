@@ -15,13 +15,18 @@ async def get_workshop_items(workshop_ids: list[str]) -> list:
         item_count = len(int_ids)
 
         url = "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/"
-        data = aiohttp.FormData()
-        data.add_field("itemcount", str(item_count))
-        for id in int_ids:
-            data.add_field("publishedfileids", str(id))
+
+        # Build form data with proper format: publishedfileids[0], publishedfileids[1], etc.
+        data = {"itemcount": str(item_count)}
+        for i, id in enumerate(int_ids):
+            data[f"publishedfileids[{i}]"] = str(id)
+
+        headers = {
+            "User-Agent": "WCN-DiscordBot/1.0",
+        }
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=data) as resp:
+            async with session.post(url, data=data, headers=headers) as resp:
                 result = await resp.json()
 
         items = result["response"]["publishedfiledetails"]
