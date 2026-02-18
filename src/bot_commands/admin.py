@@ -4,9 +4,9 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.utils.game_db import get_admins, get_player
-from src.utils.pzserver import pz_send_command
-from src.utils.server_utils import get_game_version, server_isrunning
+from src.services.game_db import get_admins, get_player
+from src.services.pz_server import pz_send_command
+from src.services.server import get_game_version, server_isrunning
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES

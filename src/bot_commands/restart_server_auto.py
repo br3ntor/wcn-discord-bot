@@ -2,8 +2,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.utils.countdown import abort_signal, countdown_isrunning
-from src.utils.discord_utils import auto_restart_server
+from src.features.auto_restart import abort_signal, auto_restart, countdown_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -83,7 +82,7 @@ async def restart_server_auto(
         if not isinstance(announce_chan, discord.TextChannel):
             raise TypeError("Not a text channel")
 
-        await auto_restart_server(announce_chan, server.name, init_msg)
+        await auto_restart.auto_restart(announce_chan, server.name, init_msg)
 
     else:
         print(f"Restart cancelled for {server.name}...")

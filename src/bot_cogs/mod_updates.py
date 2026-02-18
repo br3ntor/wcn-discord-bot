@@ -6,14 +6,14 @@ import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
-from src.utils.discord_utils import auto_restart_server
-from src.utils.pz_workshop_error_scan import extract_workshop_ids, write_ids_to_file
-from src.utils.server_utils import (
+from src.features.auto_restart import auto_restart
+from src.services.workshop import extract_workshop_ids, write_ids_to_file
+from src.services.server import (
     combine_servers_workshop_ids,
     restart_zomboid_server,
     servers_with_mod_update,
 )
-from src.utils.steam_utils import get_workshop_items
+from src.services.steam import get_workshop_items
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 MY_GUILD = Config.MY_GUILD
@@ -102,7 +102,7 @@ class ModUpdatesCog(commands.Cog):
 
                     # Run auto restart for each server containing updated mod concurrently
                     tasks = [
-                        auto_restart_server(
+                        auto_restart.auto_restart(
                             chan,
                             server_name,
                             f"Auto restart triggered for the **{server_name}** server. Restarting in 5min.",

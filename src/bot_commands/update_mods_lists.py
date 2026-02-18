@@ -3,8 +3,8 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.utils.server_utils import get_servers_workshop_ids, server_setting_paths
-from src.utils.steam_utils import get_servers_workshop_items
+from src.services.server import get_servers_workshop_ids, server_setting_paths
+from src.services.steam import get_servers_workshop_items
 
 GITHUB_PAT = Config.GITHUB_PAT
 SERVER_DATA = Config.SERVER_DATA

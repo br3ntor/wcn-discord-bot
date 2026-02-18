@@ -2,10 +2,10 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.utils.game_db import PasswordResetStatus, is_db_locked, reset_player_password
-from src.utils.pzserver import pz_setpassword
-from src.utils.server_utils import get_game_version
-from src.utils.utils import generate_pz_password
+from src.services.game_db import PasswordResetStatus, is_db_locked, reset_player_password
+from src.services.pz_server import pz_setpassword
+from src.services.server import get_game_version
+from src.utils.helpers import generate_pz_password
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES

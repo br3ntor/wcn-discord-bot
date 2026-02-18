@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
-from src.utils.local_db import (
+from src.services.bot_db import (
     add_ticket_notification,
     get_last_processed_ticket_id,
     get_tracked_tickets,
@@ -397,7 +397,7 @@ class TicketWatcherCog(commands.Cog):
             # Remove from local tracking database
             try:
                 import aiosqlite
-                from src.utils.local_db import db_path
+                from src.services.bot_db import db_path
                 async with aiosqlite.connect(db_path) as db:
                     await db.execute("DELETE FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?", (server_name, ticket_id,))
                     await db.commit()

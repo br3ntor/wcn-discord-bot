@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
-from src.utils.steam_utils import get_player_list_string
+from src.services.steam import get_player_list_string
 
 
 class PlayerlistCog(commands.Cog):

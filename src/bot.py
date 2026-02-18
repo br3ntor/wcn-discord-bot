@@ -62,7 +62,7 @@ class MyBot(commands.Bot):
         if database_needed:
             print("Database-dependent cogs detected, initializing database...")
             try:
-                from src.utils.local_db import init_db
+                from src.services.bot_db import init_db
 
                 await init_db()
                 database_available = True

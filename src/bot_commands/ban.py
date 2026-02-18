@@ -7,14 +7,14 @@ from discord import app_commands
 from tabulate import tabulate
 
 from src.config import Config
-from src.utils.game_db import (
+from src.services.game_db import (
     get_all_banned_players,
     get_banned_player,
     get_player,
     get_player_by_steamid,
 )
-from src.utils.pzserver import pz_send_command
-from src.utils.server_utils import get_game_version, server_isrunning
+from src.services.pz_server import pz_send_command
+from src.services.server import get_game_version, server_isrunning
 
 ban_group = app_commands.Group(
     name="ban", description="Ban, unban, and list banned players."

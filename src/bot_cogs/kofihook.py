@@ -6,8 +6,8 @@ from discord.ext import commands
 
 # from bot import MyBot
 from src.config import Config
-from src.utils.local_db import add_donation, get_total_donations_since
-from src.utils.utils import get_last_occurrence_of_day, show_donation_progress
+from src.services.bot_db import add_donation, get_total_donations_since
+from src.utils.helpers import get_last_occurrence_of_day, show_donation_progress
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 WEBHOOK_SECRET = Config.WEBHOOK_SECRET

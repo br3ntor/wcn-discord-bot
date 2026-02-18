@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.utils.skill_restore import LevelRestore
+from src.features.skill_restore import LevelRestore
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID

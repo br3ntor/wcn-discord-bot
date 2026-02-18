@@ -2,8 +2,8 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.utils.pzserver import pz_send_message
-from src.utils.server_utils import server_isrunning
+from src.services.pz_server import pz_send_message
+from src.services.server import server_isrunning
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES

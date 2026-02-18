@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.utils.server_utils import restart_zomboid_server, server_isrunning
+from src.services.server import restart_zomboid_server, server_isrunning
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SYSTEM_USERS = Config.SYSTEM_USERS

@@ -7,7 +7,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.utils.game_db import get_player
+from src.services.game_db import get_player
 
 SERVER_DATA = Config.SERVER_DATA
 SYSTEM_USERS = Config.SYSTEM_USERS
