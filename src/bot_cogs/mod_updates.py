@@ -23,7 +23,9 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 class ModUpdatesCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.error_check_counter = 0  # Initialize counter for limited iterations
+        self.error_check_counter = 0
+        self.mod_update_times: dict[str, int] = {}
+        self.workshop_ids: list[str] | None = None
 
     async def cog_unload(self):
         self.check_mod_updates.cancel()
@@ -31,97 +33,103 @@ class ModUpdatesCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
+        print("Initializing mod update tracking...")
+        self.workshop_ids = await combine_servers_workshop_ids()
+        workshop_items = await get_workshop_items(self.workshop_ids)
+        for item in workshop_items:
+            if "time_updated" in item:
+                self.mod_update_times[item["publishedfileid"]] = item["time_updated"]
+        print(f"Recorded timestamps for {len(self.mod_update_times)} mods")
         print("Starting mod updates tasks...")
         self.check_mod_updates.start()
 
     @tasks.loop(minutes=5)
     async def check_mod_updates(self):
-        """Checks if mod has been updated in the last n minutes.
-        Sends ping to admins if there is updates"""
+        """Checks if mods have been updated since last check.
+        Sends ping to admins if there are updates."""
         print("Checking for mod updates...")
 
-        workshop_ids = await combine_servers_workshop_ids()
-        workshop_items = await get_workshop_items(workshop_ids)
+        if self.workshop_ids is None:
+            print("Workshop IDs not initialized, skipping check")
+            return
+
+        workshop_items = await get_workshop_items(self.workshop_ids)
 
         for item in workshop_items:
-            if "title" in item:
+            if "title" not in item:
+                continue
+
+            workshop_id = item["publishedfileid"]
+            stored_time = self.mod_update_times.get(workshop_id, 0)
+
+            if item["time_updated"] > stored_time:
+                self.mod_update_times[workshop_id] = item["time_updated"]
+
+                servers_with_mod = await servers_with_mod_update(
+                    item["publishedfileid"]
+                )
+                print(servers_with_mod)
 
                 local_time = ZoneInfo("localtime")
-                now = datetime.datetime.now(local_time)
-
-                # Convert the timestamp to a timezone-aware datetime object
                 time_updated = datetime.datetime.fromtimestamp(
                     item["time_updated"], tz=local_time
                 )
+                formatted_time = time_updated.strftime("%b %d @ %I:%M%p %Z")
 
-                # TODO: Maybe trigger auto restart code here
-                if (now - time_updated).total_seconds() / 60 < 5:
+                guild = self.bot.get_guild(MY_GUILD)
+                if not guild:
+                    print("Unable to get guild")
+                    continue
+                ar = guild.get_role(PZ_ADMIN_ROLE_ID)
+                if not ar:
+                    print("Unable to get admin role id")
+                    continue
+                admin_role = ar.mention
 
-                    # Here we need to check on which servers the item exists
-                    # Then we can use that in the output below
-                    servers_with_mod = await servers_with_mod_update(
-                        item["publishedfileid"]
+                update_msg = (
+                    f"{admin_role} A mod has updated on **{'** and **'.join(servers_with_mod)}**!\n"
+                    f"Title: {item['title'].strip()}\n"
+                    f"Updated: {formatted_time}\n"
+                    f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
+                )
+
+                chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
+                if not chan:
+                    print("Unable to get discord channel.")
+                    continue
+                if not isinstance(chan, discord.TextChannel):
+                    print("Chan is not TextChannel?")
+                    continue
+
+                await chan.send(update_msg)
+
+                print("A mod has updated!")
+                print(f"title: {item['title'].strip()}")
+                print(f"updated: {formatted_time}")
+                print(
+                    f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
+                )
+
+                tasks = [
+                    auto_restart.auto_restart(
+                        chan,
+                        server_name,
+                        f"Auto restart triggered for the **{server_name}** server. Restarting in 5min.",
                     )
-                    print(servers_with_mod)
+                    for server_name in servers_with_mod
+                ]
+                try:
+                    results = await asyncio.gather(*tasks)
+                    print("Results:", results)
 
-                    formatted_time = time_updated.strftime("%b %d @ %I:%M%p %Z")
-
-                    guild = self.bot.get_guild(MY_GUILD)
-                    if not guild:
-                        print("Unable to get guild")
-                        return
-                    ar = guild.get_role(PZ_ADMIN_ROLE_ID)
-                    if not ar:
-                        print("Unable to get admin role id")
-                        return
-                    admin_role = ar.mention
-
-                    update_msg = (
-                        f"{admin_role} A mod has updated on **{'** and **'.join(servers_with_mod)}**!\n"
-                        f"Title: {item['title'].strip()}\n"
-                        f"Updated: {formatted_time}\n"
-                        f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
-                    )
-
-                    chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
-                    if not chan:
-                        print("Unable to get discord channel.")
-                        return
-                    if not isinstance(chan, discord.TextChannel):
-                        print("Chan is not TextChannel?")
-                        return
-
-                    await chan.send(update_msg)
-
-                    print("A mod has updated!")
-                    print(f"title: {item['title'].strip()}")
-                    print(f"updated: {formatted_time}")
-                    print(
-                        f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
-                    )
-
-                    # Run auto restart for each server containing updated mod concurrently
-                    tasks = [
-                        auto_restart.auto_restart(
-                            chan,
-                            server_name,
-                            f"Auto restart triggered for the **{server_name}** server. Restarting in 5min.",
-                        )
-                        for server_name in servers_with_mod
-                    ]
-                    try:
-                        results = await asyncio.gather(*tasks)
-                        print("Results:", results)
-
-                        # Trigger workshop error scanning after mod update restarts
-                        if not self.check_workshop_errors.is_running():
-                            self.error_check_counter = 0
-                            self.check_workshop_errors.start()
-                            print("Started workshop error scanning task")
-                        else:
-                            print("Workshop error scanning already running")
-                    except Exception as e:
-                        print(f"An unexpected exception occurred: {e}")
+                    if not self.check_workshop_errors.is_running():
+                        self.error_check_counter = 0
+                        self.check_workshop_errors.start()
+                        print("Started workshop error scanning task")
+                    else:
+                        print("Workshop error scanning already running")
+                except Exception as e:
+                    print(f"An unexpected exception occurred: {e}")
 
     @tasks.loop(minutes=1)
     async def check_workshop_errors(self):
