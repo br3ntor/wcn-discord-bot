@@ -9,8 +9,10 @@ from discord.ext import commands, tasks
 from src.config import Config
 from src.services.bot_db import (
     add_ticket_notification,
+    clear_ticket_notifications_for_server,
     get_last_processed_ticket_id,
     get_tracked_tickets,
+    get_tracked_tickets_in_range,
     is_ticket_processed,
     update_ticket_state,
 )
@@ -244,19 +246,29 @@ class TicketWatcherCog(commands.Cog):
 
     async def _process_new_tickets(self, server_name: str, pz_db, thread):
         """Process and post new unanswered tickets."""
-        # Get last processed ticket ID for this server
-        last_ticket_id = await get_last_processed_ticket_id(server_name)
+        # Check for game world reset
+        async with pz_db.execute("SELECT MAX(id) FROM tickets") as cursor:
+            result = await cursor.fetchone()
+            game_max_id = result[0] if result and result[0] is not None else 0
 
-        # Query for new original tickets only (answeredID IS NULL)
+        last_tracked_id = await get_last_processed_ticket_id(server_name)
+
+        if game_max_id < last_tracked_id:
+            print(f"[TicketWatcher] Detected reset for {server_name} (last tracked: {last_tracked_id}, current max: {game_max_id}), resyncing...")
+            await clear_ticket_notifications_for_server(server_name)
+            await self.sync_with_game_database()
+            return
+
+        # Query for all unanswered tickets (filter handled by is_ticket_processed)
         query = """
             SELECT id, message, author 
             FROM tickets 
-            WHERE id > ? AND answeredID IS NULL
+            WHERE answeredID IS NULL
             ORDER BY id ASC
             LIMIT 10
         """
 
-        async with pz_db.execute(query, (last_ticket_id,)) as cursor:
+        async with pz_db.execute(query) as cursor:
             new_tickets = await cursor.fetchall()
 
             for ticket in new_tickets:
@@ -298,7 +310,14 @@ class TicketWatcherCog(commands.Cog):
 
     async def _process_status_updates(self, server_name: str, pz_db, thread):
         """Process status updates for existing tracked tickets."""
-        tracked_tickets = await get_tracked_tickets()
+        # Get valid ticket ID range from game DB
+        async with pz_db.execute("SELECT MIN(id), MAX(id) FROM tickets") as cursor:
+            row = await cursor.fetchone()
+            min_id = row[0] if row and row[0] is not None else 0
+            max_id = row[1] if row and row[1] is not None else 0
+
+        # Only get tracked tickets within the current game DB range
+        tracked_tickets = await get_tracked_tickets_in_range(server_name, min_id, max_id)
 
         # Count how many tickets actually need updates for progress tracking
         tickets_needing_updates = []

@@ -179,6 +179,29 @@ async def get_tracked_tickets() -> list:
             return [(row[0], row[1], row[2], row[3], row[4]) for row in results]
 
 
+async def get_tracked_tickets_in_range(server_name: str, min_id: int, max_id: int) -> list:
+    """Get tracked tickets within a specific ID range."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            """SELECT server_name, ticket_id, discord_message_id, thread_id, last_state
+               FROM ticket_notifications 
+               WHERE server_name = ? AND ticket_id BETWEEN ? AND ?
+               ORDER BY ticket_id ASC""",
+            (server_name, min_id, max_id)
+        ) as cursor:
+            results = await cursor.fetchall()
+            return [(row[0], row[1], row[2], row[3], row[4]) for row in results]
+
+
+async def clear_ticket_notifications_for_server(server_name: str):
+    """Remove all ticket tracking for a server (used on game world reset)."""
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            "DELETE FROM ticket_notifications WHERE server_name = ?", (server_name,)
+        )
+        await db.commit()
+
+
 async def update_ticket_state(server_name: str, ticket_id: int, new_state: str) -> bool:
     """Update the last known state of a ticket."""
     try:
