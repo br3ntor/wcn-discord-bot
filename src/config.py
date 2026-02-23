@@ -1,9 +1,11 @@
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Dict, List, Optional, TypedDict
 
-print("Loading Config...")
+logger = logging.getLogger(__name__)
+logger.info("Loading Config...")
 
 CONFIG_DIR = Path(__file__).parent.parent / "config"
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -35,10 +37,10 @@ def load_server_data(filepath: str) -> List[ServerConfig]:
         with open(filepath, "r") as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"Server config file not found at {filepath}, using empty list.")
+        logger.warning(f"Server config file not found at {filepath}, using empty list.")
         return []
     except json.JSONDecodeError:
-        print(f"Error decoding JSON from {filepath}, using empty list.")
+        logger.error(f"Error decoding JSON from {filepath}, using empty list.")
         return []
 
 
@@ -48,10 +50,10 @@ def load_cogs_config(filepath: str) -> Dict[str, CogConfig]:
             data = json.load(f)
             return data.get("cogs", {})
     except FileNotFoundError:
-        print(f"Cogs config file not found at {filepath}, using empty config.")
+        logger.warning(f"Cogs config file not found at {filepath}, using empty config.")
         return {}
     except json.JSONDecodeError:
-        print(f"Error decoding JSON from {filepath}, using empty config.")
+        logger.error(f"Error decoding JSON from {filepath}, using empty config.")
         return {}
 
 

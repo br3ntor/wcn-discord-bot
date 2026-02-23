@@ -1,3 +1,4 @@
+import logging
 import time
 
 import discord
@@ -5,6 +6,8 @@ from discord.ext import commands, tasks
 
 from src.config import Config
 from src.services.steam import get_player_list_string
+
+logger = logging.getLogger(__name__)
 
 
 class PlayerlistCog(commands.Cog):
@@ -16,7 +19,7 @@ class PlayerlistCog(commands.Cog):
     async def update_loop(self):
         ip = Config.SERVER_PUB_IP
         if not isinstance(ip, str):
-            print("[PlayerlistUpdater] SERVER_PUB_IP is not a string. Skipping loop.")
+            logger.warning("SERVER_PUB_IP is not a string. Skipping loop.")
             return
 
         for srv_info in Config.SERVER_DATA:
@@ -30,8 +33,8 @@ class PlayerlistCog(commands.Cog):
             if not thread or not isinstance(
                 thread, (discord.Thread, discord.TextChannel)
             ):
-                print(
-                    f"[PlayerlistUpdater] Could not find thread {thread_id} for {srv_info['server_name']}"
+                logger.warning(
+                    f"Could not find thread {thread_id} for {srv_info['server_name']}"
                 )
                 continue
 
@@ -53,12 +56,12 @@ class PlayerlistCog(commands.Cog):
                 await msg.edit(content=f"{content}{timestamp}")
 
             except discord.NotFound:
-                print(
-                    f"[PlayerlistUpdater] Message {msg_id} not found in {srv_info['server_name']}"
+                logger.warning(
+                    f"Message {msg_id} not found in {srv_info['server_name']}"
                 )
             except Exception as e:
-                print(
-                    f"[PlayerlistUpdater] Error updating {srv_info['server_name']}: {e}"
+                logger.error(
+                    f"Error updating {srv_info['server_name']}: {e}"
                 )
 
     @update_loop.before_loop

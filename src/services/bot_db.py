@@ -2,6 +2,9 @@ from datetime import datetime
 from pathlib import Path
 
 import aiosqlite
+import logging
+
+logger = logging.getLogger(__name__)
 
 project_root = Path(__file__).parent.parent.parent
 db_path = project_root / "data" / "bot_database.db"
@@ -61,7 +64,7 @@ async def init_db():
                 has_server_name = any(col[1] == 'server_name' for col in columns)
             
             if not has_server_name:
-                print("[DB] Migrating ticket_notifications table to support multiple servers")
+                logger.info("Migrating ticket_notifications table to support multiple servers")
                 await db.execute("DROP TABLE IF EXISTS ticket_notifications")
                 await db.execute(
                     """
@@ -77,12 +80,12 @@ async def init_db():
                     )
                     """
                 )
-                print("[DB] Migration completed - now supporting multiple servers")
+                logger.info("Migration completed - now supporting multiple servers")
         except Exception as e:
-            print(f"[DB] Error during migration: {e}")
+            logger.error(f"Error during migration: {e}")
 
         await db.commit()
-        print("Database exists!")
+        logger.info("Database initialized")
 
 
 async def add_donation(player_name: str, email: str, amount: float) -> bool:

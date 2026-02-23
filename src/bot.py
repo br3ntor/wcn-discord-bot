@@ -1,4 +1,5 @@
 import importlib
+import logging
 
 import discord
 from discord import app_commands
@@ -8,6 +9,8 @@ from discord.ext import commands
 import src.bot_commands as bot_commands
 from src.config import Config
 
+logger = logging.getLogger(__name__)
+
 
 def import_cog(cog_name: str, class_name: str):
     """Dynamically import a cog class."""
@@ -15,7 +18,7 @@ def import_cog(cog_name: str, class_name: str):
         module = importlib.import_module(f"src.bot_cogs.{cog_name}")
         return getattr(module, class_name)
     except (ImportError, AttributeError) as e:
-        print(f"Failed to import cog {cog_name}.{class_name}: {e}")
+        logger.error(f"Failed to import cog {cog_name}.{class_name}: {e}")
         return None
 
 
@@ -60,16 +63,16 @@ class MyBot(commands.Bot):
 
         database_available = False
         if database_needed:
-            print("Database-dependent cogs detected, initializing database...")
+            logger.info("Database-dependent cogs detected, initializing database...")
             try:
                 from src.services.bot_db import init_db
 
                 await init_db()
                 database_available = True
-                print("✅ Database initialized successfully")
+                logger.info("Database initialized successfully")
             except Exception as e:
-                print(f"❌ Database initialization failed: {e}")
-                print("⚠️  Database-dependent cogs will be disabled")
+                logger.error(f"Database initialization failed: {e}")
+                logger.warning("Database-dependent cogs will be disabled")
 
         # Load cogs based on configuration
         enabled_cogs = []
@@ -78,7 +81,7 @@ class MyBot(commands.Bot):
                 # Check database dependency with our new tracking
                 if cog_config.get("requires_database", False):
                     if not database_available:
-                        print(f"Skipping {cog_name}: Database required but unavailable")
+                        logger.warning(f"Skipping {cog_name}: Database required but unavailable")
                         continue
 
                 cog_class = import_cog(cog_name, cog_config["class_name"])
@@ -87,20 +90,20 @@ class MyBot(commands.Bot):
                         await self.add_cog(cog_class(self))
                         enabled_cogs.append(f"{cog_name} ({cog_config['description']})")
                     except Exception as e:
-                        print(f"Failed to load cog {cog_name}: {e}")
+                        logger.error(f"Failed to load cog {cog_name}: {e}")
 
         # Log enabled cogs
         if enabled_cogs:
-            print("Enabled Cogs:")
+            logger.info("Enabled Cogs:")
             for cog in enabled_cogs:
-                print(f"  - {cog}")
+                logger.info(f"  - {cog}")
         else:
-            print("No cogs enabled in configuration")
+            logger.info("No cogs enabled in configuration")
 
         # Report database status
         if database_needed:
-            status = "✅ Available" if database_available else "❌ Unavailable"
-            print(f"Database Status: {status}")
+            status = "Available" if database_available else "Unavailable"
+            logger.info(f"Database Status: {status}")
             if database_available:
                 db_dependent_enabled = sum(
                     1
@@ -108,7 +111,7 @@ class MyBot(commands.Bot):
                     if config.get("enabled", False)
                     and config.get("requires_database", False)
                 )
-                print(f"Database-dependent cogs loaded: {db_dependent_enabled}")
+                logger.info(f"Database-dependent cogs loaded: {db_dependent_enabled}")
 
         # Sync commands (existing logic)
         self.tree.copy_global_to(guild=MY_GUILD)
@@ -126,8 +129,7 @@ async def on_ready():
     # if client.user is not None:
     # I like this assert way, i know theres some others too.
     assert bot.user is not None
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-    print("------")
+    logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
 
 
 # Error handler for application command errors
@@ -144,4 +146,4 @@ async def on_application_command_error(
             "An error occurred while processing your command, check logs.",
             ephemeral=True,
         )
-    print(f"AppCommandError: {error}")
+    logger.error(f"AppCommandError: {error}")

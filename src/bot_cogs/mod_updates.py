@@ -1,11 +1,14 @@
 import asyncio
 import datetime
+import logging
 from zoneinfo import ZoneInfo
 
 import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
+
+logger = logging.getLogger(__name__)
 from src.features.auto_restart import auto_restart
 from src.services.workshop import extract_workshop_ids, write_ids_to_file
 from src.services.server import (
@@ -33,20 +36,20 @@ class ModUpdatesCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Starting mod updates tasks...")
+        logger.info("Starting mod updates tasks...")
         self.check_mod_updates.start()
 
     @tasks.loop(minutes=5)
     async def check_mod_updates(self):
         """Checks if mods have been updated since last check.
         Sends ping to admins if there are updates."""
-        print("Checking for mod updates...")
+        logger.info("Checking for mod updates...")
 
         # Dynamically fetch the latest workshop IDs from running servers
         current_workshop_ids = await combine_servers_workshop_ids()
         
         if not current_workshop_ids:
-            print("No workshop IDs found on any running servers, skipping check")
+            logger.info("No workshop IDs found on any running servers, skipping check")
             return
 
         self.workshop_ids = current_workshop_ids
@@ -60,7 +63,7 @@ class ModUpdatesCog(commands.Cog):
             
             # If we've never seen this mod before (newly added to config)
             if workshop_id not in self.mod_update_times:
-                print(f"Discovered new mod: {item['title'].strip()} ({workshop_id}). Recording initial timestamp.")
+                logger.info(f"Discovered new mod: {item['title'].strip()} ({workshop_id}). Recording initial timestamp.")
                 self.mod_update_times[workshop_id] = item["time_updated"]
                 continue
 
@@ -74,10 +77,10 @@ class ModUpdatesCog(commands.Cog):
                 )
                 
                 if not servers_with_mod:
-                    print(f"Mod {workshop_id} updated, but no running servers are using it. Skipping announcement.")
+                    logger.info(f"Mod {workshop_id} updated, but no running servers are using it. Skipping announcement.")
                     continue
 
-                print(servers_with_mod)
+                logger.debug(f"Servers with mod: {servers_with_mod}")
 
                 local_time = ZoneInfo("localtime")
                 time_updated = datetime.datetime.fromtimestamp(
@@ -87,11 +90,11 @@ class ModUpdatesCog(commands.Cog):
 
                 guild = self.bot.get_guild(MY_GUILD)
                 if not guild:
-                    print("Unable to get guild")
+                    logger.warning("Unable to get guild")
                     continue
                 ar = guild.get_role(PZ_ADMIN_ROLE_ID)
                 if not ar:
-                    print("Unable to get admin role id")
+                    logger.warning("Unable to get admin role id")
                     continue
                 admin_role = ar.mention
 
@@ -104,18 +107,18 @@ class ModUpdatesCog(commands.Cog):
 
                 chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
                 if not chan:
-                    print("Unable to get discord channel.")
+                    logger.warning("Unable to get discord channel.")
                     continue
                 if not isinstance(chan, discord.TextChannel):
-                    print("Chan is not TextChannel?")
+                    logger.warning("Chan is not TextChannel?")
                     continue
 
                 await chan.send(update_msg)
 
-                print("A mod has updated!")
-                print(f"title: {item['title'].strip()}")
-                print(f"updated: {formatted_time}")
-                print(
+                logger.info("A mod has updated!")
+                logger.info(f"title: {item['title'].strip()}")
+                logger.info(f"updated: {formatted_time}")
+                logger.info(
                     f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
                 )
 
@@ -129,34 +132,34 @@ class ModUpdatesCog(commands.Cog):
                 ]
                 try:
                     results = await asyncio.gather(*tasks)
-                    print("Results:", results)
+                    logger.debug(f"Results: {results}")
 
                     if not self.check_workshop_errors.is_running():
                         self.error_check_counter = 0
                         self.check_workshop_errors.start()
-                        print("Started workshop error scanning task")
+                        logger.info("Started workshop error scanning task")
                     else:
-                        print("Workshop error scanning already running")
+                        logger.info("Workshop error scanning already running")
                 except Exception as e:
-                    print(f"An unexpected exception occurred: {e}")
+                    logger.error(f"An unexpected exception occurred: {e}")
 
     @tasks.loop(minutes=1)
     async def check_workshop_errors(self):
         """Scans Modded_B42MP server logs for workshop errors and restarts affected server."""
         if self.error_check_counter >= 5:
             self.check_workshop_errors.cancel()
-            print("Workshop error scan completed (5 iterations)")
+            logger.info("Workshop error scan completed (5 iterations)")
             return
 
         self.error_check_counter += 1
-        print(f"Workshop error scan iteration {self.error_check_counter}/5")
+        logger.debug(f"Workshop error scan iteration {self.error_check_counter}/5")
 
         # Only check Modded_B42MP server
         server_name = "Modded_B42MP"
 
         # Check if the server exists in configuration
         if server_name not in Config.SYSTEM_USERS:
-            print(
+            logger.warning(
                 f"Server {server_name} not found in configuration. Stopping workshop error scan."
             )
             self.check_workshop_errors.cancel()
@@ -173,11 +176,11 @@ class ModUpdatesCog(commands.Cog):
             # i.e. we can run self.check_workshop_errors.cancel() somewhere
             # instead of just waiting for all 5 checks to finish
             if error_ids:
-                print(f"Found workshop errors on {server_name}: {error_ids}")
+                logger.warning(f"Found workshop errors on {server_name}: {error_ids}")
 
                 # Write IDs to specified file
                 await write_ids_to_file(error_ids, output_path)
-                print(f"Workshop IDs written to {output_path}")
+                logger.info(f"Workshop IDs written to {output_path}")
 
                 # Get announcement channel for notification
                 chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
@@ -201,16 +204,16 @@ class ModUpdatesCog(commands.Cog):
                     else:
                         await chan.send(f"❌ Failed to restart **{server_name}**!")
             else:
-                print(f"No workshop errors found on {server_name}")
+                logger.debug(f"No workshop errors found on {server_name}")
 
         except FileNotFoundError:
-            print(
+            logger.warning(
                 f"Log file not found for {server_name}: {log_path}. Stopping workshop error scan."
             )
             self.check_workshop_errors.cancel()
             return
         except Exception as e:
-            print(
+            logger.error(
                 f"Error checking workshop errors for {server_name}: {e}. Stopping workshop error scan."
             )
             self.check_workshop_errors.cancel()
