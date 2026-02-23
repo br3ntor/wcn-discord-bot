@@ -28,7 +28,7 @@ class TicketWatcherCog(commands.Cog):
         self.max_retries = 3
         self.server_last_ticket_ids = {}  # Track last ticket ID per server
         for server_config in Config.SERVER_DATA:
-            self.server_last_ticket_ids[server_config['server_name']] = 0
+            self.server_last_ticket_ids[server_config["server_name"]] = 0
 
     async def cog_unload(self):
         """Clean up when cog is unloaded."""
@@ -51,7 +51,7 @@ class TicketWatcherCog(commands.Cog):
     async def sync_with_game_database(self):
         """Sync local tracking with current game database state on startup."""
         print("[TicketWatcher] Syncing with game databases...")
-        
+
         if not self.ticket_thread_id:
             print("[TicketWatcher] No ticket thread available for sync")
             return
@@ -63,30 +63,36 @@ class TicketWatcherCog(commands.Cog):
 
         total_tickets_added = 0
         total_tickets_skipped = 0
-        
+
         for server_config in Config.SERVER_DATA:
-            server_name = server_config['server_name']
-            system_user = server_config['system_user']
+            server_name = server_config["server_name"]
+            system_user = server_config["system_user"]
             db_path = f"/home/{system_user}/Zomboid/db/pzserver.db"
-            
+
             if not os.path.exists(db_path):
-                print(f"[TicketWatcher] Database not found for {server_name}: {db_path}")
+                print(
+                    f"[TicketWatcher] Database not found for {server_name}: {db_path}"
+                )
                 continue
 
             try:
                 # Use read-only mode to avoid conflicts with PZ server
-                async with aiosqlite.connect(f"file:{db_path}?mode=ro", uri=True) as pz_db:
+                async with aiosqlite.connect(
+                    f"file:{db_path}?mode=ro", uri=True
+                ) as pz_db:
                     async with pz_db.execute(
                         "SELECT id, message, author, answeredID FROM tickets WHERE answeredID IS NULL ORDER BY id ASC"
                     ) as cursor:
                         all_tickets = await cursor.fetchall()
                         ticket_count = sum(1 for _ in all_tickets) if all_tickets else 0
 
-                print(f"[TicketWatcher] Found {ticket_count} tickets in {server_name} database")
+                print(
+                    f"[TicketWatcher] Found {ticket_count} tickets in {server_name} database"
+                )
 
                 tickets_added = 0
                 tickets_skipped = 0
-                
+
                 for ticket in all_tickets:
                     ticket_id, message, author, answered_id = ticket
 
@@ -96,7 +102,9 @@ class TicketWatcherCog(commands.Cog):
                         continue
 
                     # For original tickets, check if there's an answer (simplified 2-state system)
-                    async with aiosqlite.connect(f"file:{db_path}?mode=ro", uri=True) as pz_db:
+                    async with aiosqlite.connect(
+                        f"file:{db_path}?mode=ro", uri=True
+                    ) as pz_db:
                         answer = await self._find_answer_for_ticket(pz_db, ticket_id)
                         if answer:
                             state = "answered"
@@ -110,7 +118,9 @@ class TicketWatcherCog(commands.Cog):
                             timestamp=datetime.now(timezone.utc),
                         )
                         embed.add_field(
-                            name="Status", value=self._get_state_text(state), inline=True
+                            name="Status",
+                            value=self._get_state_text(state),
+                            inline=True,
                         )
                         embed.description = await self._build_ticket_description(
                             pz_db, ticket_id, message, author, answered_id
@@ -129,7 +139,9 @@ class TicketWatcherCog(commands.Cog):
                             await update_ticket_state(server_name, ticket_id, state)
                             tickets_added += 1
 
-                            print(f"[TicketWatcher] Added {server_name} ticket #{ticket_id} from {author}")
+                            print(
+                                f"[TicketWatcher] Added {server_name} ticket #{ticket_id} from {author}"
+                            )
 
                         except discord.Forbidden:
                             print(
@@ -143,17 +155,25 @@ class TicketWatcherCog(commands.Cog):
 
                 total_tickets_added += tickets_added
                 total_tickets_skipped += tickets_skipped
-                print(f"[TicketWatcher] {server_name} sync completed - added {tickets_added} tickets, skipped {tickets_skipped} already tracked")
+                print(
+                    f"[TicketWatcher] {server_name} sync completed - added {tickets_added} tickets, skipped {tickets_skipped} already tracked"
+                )
 
             except aiosqlite.OperationalError as e:
                 if "database is locked" in str(e).lower():
-                    print(f"[TicketWatcher] {server_name} database locked during sync, will retry on next monitor cycle")
+                    print(
+                        f"[TicketWatcher] {server_name} database locked during sync, will retry on next monitor cycle"
+                    )
                 else:
-                    print(f"[TicketWatcher] {server_name} database error during sync: {e}")
+                    print(
+                        f"[TicketWatcher] {server_name} database error during sync: {e}"
+                    )
             except Exception as e:
                 print(f"[TicketWatcher] Error during {server_name} database sync: {e}")
 
-        print(f"[TicketWatcher] Overall sync completed - added {total_tickets_added} tickets, skipped {total_tickets_skipped} already tracked")
+        print(
+            f"[TicketWatcher] Overall sync completed - added {total_tickets_added} tickets, skipped {total_tickets_skipped} already tracked"
+        )
 
     async def ensure_ticket_thread(self):
         """Create or retrieve the support tickets thread."""
@@ -205,12 +225,14 @@ class TicketWatcherCog(commands.Cog):
 
             # Process each server
             for server_config in Config.SERVER_DATA:
-                server_name = server_config['server_name']
-                system_user = server_config['system_user']
+                server_name = server_config["server_name"]
+                system_user = server_config["system_user"]
                 db_path = f"/home/{system_user}/Zomboid/db/pzserver.db"
-                
+
                 if not os.path.exists(db_path):
-                    print(f"[TicketWatcher] Database file not found for {server_name}: {db_path}")
+                    print(
+                        f"[TicketWatcher] Database file not found for {server_name}: {db_path}"
+                    )
                     continue
 
                 try:
@@ -224,7 +246,9 @@ class TicketWatcherCog(commands.Cog):
 
                 except aiosqlite.OperationalError as e:
                     if "database is locked" in str(e).lower():
-                        print(f"[TicketWatcher] {server_name} database locked (attempt {self.retry_count + 1})")
+                        print(
+                            f"[TicketWatcher] {server_name} database locked (attempt {self.retry_count + 1})"
+                        )
                         self.retry_count += 1
                         if self.retry_count >= self.max_retries:
                             print(
@@ -254,28 +278,38 @@ class TicketWatcherCog(commands.Cog):
         last_tracked_id = await get_last_processed_ticket_id(server_name)
 
         if game_max_id < last_tracked_id:
-            print(f"[TicketWatcher] Detected reset for {server_name} (last tracked: {last_tracked_id}, current max: {game_max_id}), resyncing...")
+            print(
+                f"[TicketWatcher] Detected reset for {server_name} (last tracked: {last_tracked_id}, current max: {game_max_id}), resyncing..."
+            )
             await clear_ticket_notifications_for_server(server_name)
             await self.sync_with_game_database()
             return
 
-        # Query for all unanswered tickets (filter handled by is_ticket_processed)
+        # Query only for tickets after the last tracked ID (efficient - skip already processed)
         query = """
             SELECT id, message, author 
             FROM tickets 
-            WHERE answeredID IS NULL
+            WHERE answeredID IS NULL AND id > ?
             ORDER BY id ASC
-            LIMIT 10
+            LIMIT 20
         """
 
-        async with pz_db.execute(query) as cursor:
+        async with pz_db.execute(query, (last_tracked_id,)) as cursor:
             new_tickets = await cursor.fetchall()
+
+            if new_tickets:
+                print(
+                    f"[TicketWatcher] Found {len(new_tickets)} new tickets for {server_name} (last tracked: {last_tracked_id})"
+                )
 
             for ticket in new_tickets:
                 ticket_id, message, author = ticket
 
                 # Skip if already processed (duplicate prevention)
                 if await is_ticket_processed(server_name, ticket_id):
+                    print(
+                        f"The ticket # {ticket_id} looks processed for the {server_name}."
+                    )
                     continue
 
                 # Create and send embed
@@ -300,7 +334,9 @@ class TicketWatcherCog(commands.Cog):
                         server_name, ticket_id, discord_message.id, thread.id
                     )
 
-                    print(f"[TicketWatcher] Posted {server_name} ticket #{ticket_id} from {author}")
+                    print(
+                        f"[TicketWatcher] Posted {server_name} ticket #{ticket_id} from {author}"
+                    )
 
                 except discord.Forbidden:
                     print("[TicketWatcher] Missing permissions to send messages")
@@ -317,17 +353,25 @@ class TicketWatcherCog(commands.Cog):
             max_id = row[1] if row and row[1] is not None else 0
 
         # Only get tracked tickets within the current game DB range
-        tracked_tickets = await get_tracked_tickets_in_range(server_name, min_id, max_id)
+        tracked_tickets = await get_tracked_tickets_in_range(
+            server_name, min_id, max_id
+        )
 
         # Count how many tickets actually need updates for progress tracking
         tickets_needing_updates = []
         for tracked_ticket in tracked_tickets:
-            tracked_server_name, ticket_id, discord_message_id, thread_id, last_state = tracked_ticket
-            
+            (
+                tracked_server_name,
+                ticket_id,
+                discord_message_id,
+                thread_id,
+                last_state,
+            ) = tracked_ticket
+
             # Only process tickets for this server
             if tracked_server_name != server_name:
                 continue
-                
+
             try:
                 current_state = await self._determine_ticket_state(pz_db, ticket_id)
                 # Skip deleted tickets (current_state is None) - we'll handle them in _update_ticket_embed
@@ -342,13 +386,17 @@ class TicketWatcherCog(commands.Cog):
                         )
                     )
             except Exception as e:
-                print(f"[TicketWatcher] Error checking {server_name} ticket #{ticket_id}: {e}")
+                print(
+                    f"[TicketWatcher] Error checking {server_name} ticket #{ticket_id}: {e}"
+                )
 
         total_updates = len(tickets_needing_updates)
 
         # Show progress for large batches
         if total_updates > 5:
-            print(f"[TicketWatcher] Processing {total_updates} {server_name} ticket updates...")
+            print(
+                f"[TicketWatcher] Processing {total_updates} {server_name} ticket updates..."
+            )
 
         # Process the updates
         for i, (
@@ -360,7 +408,12 @@ class TicketWatcherCog(commands.Cog):
         ) in enumerate(tickets_needing_updates):
             try:
                 await self._update_ticket_embed(
-                    server_name, thread, discord_message_id, ticket_id, current_state, pz_db
+                    server_name,
+                    thread,
+                    discord_message_id,
+                    ticket_id,
+                    current_state,
+                    pz_db,
                 )
 
                 # Update our tracking
@@ -380,11 +433,15 @@ class TicketWatcherCog(commands.Cog):
                     f"[TicketWatcher] Message {discord_message_id} for {server_name} ticket #{ticket_id} not found"
                 )
             except Exception as e:
-                print(f"[TicketWatcher] Error updating {server_name} ticket #{ticket_id}: {e}")
+                print(
+                    f"[TicketWatcher] Error updating {server_name} ticket #{ticket_id}: {e}"
+                )
 
         # Final progress update for large batches
         if total_updates > 5:
-            print(f"[TicketWatcher] Completed {total_updates} {server_name} ticket updates")
+            print(
+                f"[TicketWatcher] Completed {total_updates} {server_name} ticket updates"
+            )
 
     async def _determine_ticket_state(self, pz_db, ticket_id):
         """Determine the current state of a ticket (simplified 2-state system)."""
@@ -412,16 +469,28 @@ class TicketWatcherCog(commands.Cog):
         """Update the Discord embed with new ticket status."""
         # Skip updates for deleted tickets (state is None)
         if state is None:
-            print(f"[TicketWatcher] {server_name} ticket #{ticket_id} deleted, stopping tracking")
+            print(
+                f"[TicketWatcher] {server_name} ticket #{ticket_id} deleted, stopping tracking"
+            )
             # Remove from local tracking database
             try:
                 import aiosqlite
+
                 from src.services.bot_db import db_path
+
                 async with aiosqlite.connect(db_path) as db:
-                    await db.execute("DELETE FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?", (server_name, ticket_id,))
+                    await db.execute(
+                        "DELETE FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?",
+                        (
+                            server_name,
+                            ticket_id,
+                        ),
+                    )
                     await db.commit()
             except Exception as e:
-                print(f"[TicketWatcher] Error removing deleted {server_name} ticket #{ticket_id} from tracking: {e}")
+                print(
+                    f"[TicketWatcher] Error removing deleted {server_name} ticket #{ticket_id} from tracking: {e}"
+                )
             return
 
         # Get ticket details for embed update
@@ -463,7 +532,9 @@ class TicketWatcherCog(commands.Cog):
                 f"[TicketWatcher] Missing permissions to edit message {discord_message_id} for {server_name} ticket #{ticket_id}"
             )
         except Exception as e:
-            print(f"[TicketWatcher] Error editing message {discord_message_id} for {server_name} ticket #{ticket_id}: {e}")
+            print(
+                f"[TicketWatcher] Error editing message {discord_message_id} for {server_name} ticket #{ticket_id}: {e}"
+            )
 
     async def _get_answer_details(self, pz_db, answered_id):
         """Get full details about the ticket answer."""
@@ -572,8 +643,6 @@ class TicketWatcherCog(commands.Cog):
                     raise
 
         return False
-
-
 
     @ticket_monitor.before_loop
     async def before_ticket_monitor(self):

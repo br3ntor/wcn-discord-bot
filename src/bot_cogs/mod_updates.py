@@ -33,13 +33,6 @@ class ModUpdatesCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Initializing mod update tracking...")
-        self.workshop_ids = await combine_servers_workshop_ids()
-        workshop_items = await get_workshop_items(self.workshop_ids)
-        for item in workshop_items:
-            if "time_updated" in item:
-                self.mod_update_times[item["publishedfileid"]] = item["time_updated"]
-        print(f"Recorded timestamps for {len(self.mod_update_times)} mods")
         print("Starting mod updates tasks...")
         self.check_mod_updates.start()
 
@@ -49,10 +42,14 @@ class ModUpdatesCog(commands.Cog):
         Sends ping to admins if there are updates."""
         print("Checking for mod updates...")
 
-        if self.workshop_ids is None:
-            print("Workshop IDs not initialized, skipping check")
+        # Dynamically fetch the latest workshop IDs from running servers
+        current_workshop_ids = await combine_servers_workshop_ids()
+        
+        if not current_workshop_ids:
+            print("No workshop IDs found on any running servers, skipping check")
             return
 
+        self.workshop_ids = current_workshop_ids
         workshop_items = await get_workshop_items(self.workshop_ids)
 
         for item in workshop_items:
@@ -60,7 +57,14 @@ class ModUpdatesCog(commands.Cog):
                 continue
 
             workshop_id = item["publishedfileid"]
-            stored_time = self.mod_update_times.get(workshop_id, 0)
+            
+            # If we've never seen this mod before (newly added to config)
+            if workshop_id not in self.mod_update_times:
+                print(f"Discovered new mod: {item['title'].strip()} ({workshop_id}). Recording initial timestamp.")
+                self.mod_update_times[workshop_id] = item["time_updated"]
+                continue
+
+            stored_time = self.mod_update_times[workshop_id]
 
             if item["time_updated"] > stored_time:
                 self.mod_update_times[workshop_id] = item["time_updated"]
@@ -68,6 +72,11 @@ class ModUpdatesCog(commands.Cog):
                 servers_with_mod = await servers_with_mod_update(
                     item["publishedfileid"]
                 )
+                
+                if not servers_with_mod:
+                    print(f"Mod {workshop_id} updated, but no running servers are using it. Skipping announcement.")
+                    continue
+
                 print(servers_with_mod)
 
                 local_time = ZoneInfo("localtime")
