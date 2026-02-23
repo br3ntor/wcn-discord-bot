@@ -38,9 +38,9 @@ async def get_playerlist(
         return
 
     # Safely get discord IDs
-    discord_ids = srv_info.get("discord_ids") or {}
-    thread_id = discord_ids.get("thread_id")
-    message_id = discord_ids.get("message_id")
+    discord_playerlist = srv_info.get("discord_playerlist") or {}
+    thread_id = discord_playerlist.get("thread_id")
+    message_id = discord_playerlist.get("message_id")
 
     if not thread_id or not message_id:
         print(f"[Playerlist] Missing thread_id or message_id for server: {server_name}")

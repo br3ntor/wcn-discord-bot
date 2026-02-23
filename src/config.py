@@ -20,7 +20,7 @@ class ServerConfig(TypedDict):
     server_name: str
     port: int
     gists: Optional[Dict[str, str]]
-    discord_ids: Optional[Dict[str, int]]
+    discord_playerlist: Optional[Dict[str, int]]
 
 
 class CogConfig(TypedDict):

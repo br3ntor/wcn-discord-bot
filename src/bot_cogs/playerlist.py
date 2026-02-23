@@ -20,11 +20,11 @@ class PlayerlistCog(commands.Cog):
             return
 
         for srv_info in Config.SERVER_DATA:
-            if not srv_info["discord_ids"]:
+            if not srv_info["discord_playerlist"]:
                 continue
 
-            thread_id = srv_info["discord_ids"]["thread_id"]
-            msg_id = srv_info["discord_ids"]["message_id"]
+            thread_id = srv_info["discord_playerlist"]["thread_id"]
+            msg_id = srv_info["discord_playerlist"]["message_id"]
 
             thread = self.bot.get_channel(thread_id)
             if not thread or not isinstance(
