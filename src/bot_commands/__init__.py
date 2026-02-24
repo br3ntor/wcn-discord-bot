@@ -13,6 +13,7 @@ from .restore_skills import restore_levels
 from .send_message import send_message
 from .server_settings import server_settings
 from .speak import speak
+from .teleport import teleport
 from .update_mods_lists import update_mods_lists
 from .update_sandbox_settings import update_sandbox_settings
 
@@ -41,6 +42,7 @@ __all__ = [
     "restart_group",
     "send_message",
     "speak",
+    "teleport",
     "update_group",
     "server_settings",
     "restore_levels",

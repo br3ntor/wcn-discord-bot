@@ -2,6 +2,8 @@ import asyncio
 import logging
 import re
 
+from src.services.server import get_game_version
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,3 +69,15 @@ async def pz_setpassword(server: str, player: str, new_password: str) -> bool:
     """Use this command to change password for a user. Use: setpassword "username" "newpassword" """
     server_command = f'setpassword "{player}" "{new_password}"'
     return await pz_send_command(server, server_command)
+
+
+async def pz_teleport_player(server: str, player1: str, player2: str) -> bool:
+    """Teleport player1 to player2. Command varies by game version."""
+    version = get_game_version(server)
+
+    if version == "B42":
+        command = f'teleportplayer "{player1}" "{player2}"'
+    else:
+        command = f'teleport "{player1}" "{player2}"'
+
+    return await pz_send_command(server, command)
