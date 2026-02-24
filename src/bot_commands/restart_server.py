@@ -1,8 +1,12 @@
+import logging
+
 import discord
 from discord import app_commands
 
 from src.config import Config
 from src.services.server import restart_zomboid_server, server_isrunning
+
+logger = logging.getLogger(__name__)
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -60,9 +64,9 @@ async def restart_server(
 
     # Action taken based on interaction results
     if view.value is None:
-        print("Timed out...")
+        logger.info("Timed out...")
     elif view.value:
-        print("Restart Confirmed...")
+        logger.info("Restart Confirmed...")
 
         system_user = SYSTEM_USERS[server.name]
 
@@ -106,4 +110,4 @@ async def restart_server(
         await announce_chan.send(status_msg)
 
     else:
-        print(f"Restart cancelled for {server.name}...")
+        logger.info("Restart cancelled for %s...", server.name)

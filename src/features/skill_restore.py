@@ -1,5 +1,6 @@
 import asyncio
 import glob
+import logging
 import os
 import re
 import subprocess
@@ -10,6 +11,8 @@ from typing import Callable, Coroutine, Dict, Optional, Tuple
 from src.config import Config
 from src.services.game_db import get_player
 from src.services.pz_server import pz_send_command
+
+logger = logging.getLogger(__name__)
 
 SERVER_NAMES = Config.SERVER_NAMES
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -113,11 +116,11 @@ class LevelRestore:
 
         ref_timestamp = self.extract_timestamp(lines[reference_index])
         if ref_timestamp is None:
-            print("DEBUG: No timestamp found in reference line")
+            logger.debug("No timestamp found in reference line")
             return {}
 
-        print(f"DEBUG: Reference timestamp: {ref_timestamp}")
-        print(f"DEBUG: Reference line: {lines[reference_index][:80]}...")
+        logger.debug(f"Reference timestamp: {ref_timestamp}")
+        logger.debug(f"Reference line: {lines[reference_index][:80]}...")
 
         for offset in range(1, min(search_range + 1, len(lines) - reference_index)):
             candidate = lines[reference_index + offset]
@@ -127,13 +130,13 @@ class LevelRestore:
                     ref_timestamp, candidate_ts, 1.0
                 ):
                     time_diff = abs(candidate_ts - ref_timestamp)
-                    print(
-                        f"DEBUG: Found skills at +{offset} lines, time diff: {time_diff:.3f}s"
+                    logger.debug(
+                        f"Found skills at +{offset} lines, time diff: {time_diff:.3f}s"
                     )
-                    print(
-                        f"DEBUG: Reference: {ref_timestamp}, Candidate: {candidate_ts}"
+                    logger.debug(
+                        f"Reference: {ref_timestamp}, Candidate: {candidate_ts}"
                     )
-                    print(f"DEBUG: Candidate line: {candidate[:80]}...")
+                    logger.debug(f"Candidate line: {candidate[:80]}...")
                     return self.parse_skill_line(candidate)
 
         for offset in range(1, min(search_range + 1, reference_index + 1)):
@@ -144,16 +147,16 @@ class LevelRestore:
                     ref_timestamp, candidate_ts, 1.0
                 ):
                     time_diff = abs(candidate_ts - ref_timestamp)
-                    print(
-                        f"DEBUG: Found skills at -{offset} lines, time diff: {time_diff:.3f}s"
+                    logger.debug(
+                        f"Found skills at -{offset} lines, time diff: {time_diff:.3f}s"
                     )
-                    print(
-                        f"DEBUG: Reference: {ref_timestamp}, Candidate: {candidate_ts}"
+                    logger.debug(
+                        f"Reference: {ref_timestamp}, Candidate: {candidate_ts}"
                     )
-                    print(f"DEBUG: Candidate line: {candidate[:80]}...")
+                    logger.debug(f"Candidate line: {candidate[:80]}...")
                     return self.parse_skill_line(candidate)
 
-        print("DEBUG: No skill lines found within 1.0s proximity")
+        logger.debug("No skill lines found within 1.0s proximity")
         return {}
 
     def get_xp_for_level(self, skill: str, level: int) -> int:
@@ -173,14 +176,14 @@ class LevelRestore:
         """
         perk_log_file = self.get_latest_perk_log()
         if not perk_log_file:
-            print("No PerkLog file found")
+            logger.warning("No PerkLog file found")
             return None, None
 
         try:
             with open(perk_log_file, "r") as f:
                 lines = f.readlines()
         except Exception as e:
-            print(f"Error reading PerkLog file: {e}")
+            logger.error(f"Error reading PerkLog file: {e}")
             return None, None
 
         player_lines = [
@@ -188,7 +191,7 @@ class LevelRestore:
         ]
 
         if not player_lines:
-            print(f"No log entries found for player {self.player_name}")
+            logger.warning(f"No log entries found for player {self.player_name}")
             return None, None
 
         deaths = []
@@ -199,13 +202,13 @@ class LevelRestore:
                     deaths.append((i, int(match.group(1))))
 
         if not deaths:
-            print("No death records found")
+            logger.warning("No death records found")
             return None, None
 
         most_significant_death = max(deaths, key=lambda x: x[1])
         death_line_index, death_hours = most_significant_death
 
-        print(f"Most significant death at {death_hours} hours survived")
+        logger.info(f"Most significant death at {death_hours} hours survived")
 
         login_line_index = None
         for i in range(death_line_index - 1, -1, -1):
@@ -214,7 +217,7 @@ class LevelRestore:
                 break
 
         if login_line_index is None:
-            print("No login found before death")
+            logger.warning("No login found before death")
             return None, None
 
         pre_death_skills = self.find_skills_by_proximity(player_lines, login_line_index)
@@ -233,13 +236,13 @@ class LevelRestore:
         for i in range(death_line_index + 1, len(player_lines)):
             line = player_lines[i]
             if "[Login][Hours Survived:" in line or "[Created Player" in line:
-                print(
-                    f"DEBUG: Found {'Login' if '[Login' in line else 'Created Player'} at index {i}"
+                logger.debug(
+                    f"Found {'Login' if '[Login' in line else 'Created Player'} at index {i}"
                 )
                 skills = self.find_skills_by_proximity(player_lines, i)
                 if skills:
                     current_skills = skills
-                    print(f"DEBUG: Successfully found {len(skills)} current skills")
+                    logger.debug(f"Successfully found {len(skills)} current skills")
                     break
 
         return pre_death_skills, current_skills
@@ -247,32 +250,32 @@ class LevelRestore:
     async def verify_player_online(self, log_line: str) -> bool | None:
         """Monitor the log to verify player is online."""
         if "Players connected" in log_line:
-            print("Players command received!")
+            logger.info("Players command received!")
             self.players_command_received = True
             return None
 
         if self.players_command_received:
             if len(log_line) == 0:
-                print("No players or end of list.")
+                logger.info("No players or end of list.")
                 return False
             if log_line.startswith("-"):
                 if f"{self.player_name}" in log_line:
-                    print("Player found online!")
+                    logger.info("Player found online!")
                     return True
                 return None
-            print("Unexpected log line.")
+            logger.warning("Unexpected log line.")
             return False
 
     async def verify_addxp_commands(self, log_line: str) -> bool | None:
         """Verify addxp commands were executed successfully."""
         if "Added" in log_line and f"xp's to {self.player_name}" in log_line:
             self.addxp_commands_confirmed += 1
-            print(
+            logger.info(
                 f"AddXP command confirmed ({self.addxp_commands_confirmed}/{self.addxp_commands_sent})"
             )
 
             if self.addxp_commands_confirmed >= self.addxp_commands_sent:
-                print("All addXP commands confirmed!")
+                logger.info("All addXP commands confirmed!")
                 return True
 
         return None
@@ -294,39 +297,39 @@ class LevelRestore:
             )
 
             if process.stdout is None:
-                print("Failed to access log")
+                logger.error("Failed to access log")
                 return False
 
-            print(f"Tailing log file: {self.log_file_path}")
+            logger.info(f"Tailing log file: {self.log_file_path}")
             start_time = time.time()
             async for line in process.stdout:
                 decoded_line = line.decode("utf-8").strip()
-                print(decoded_line)
+                logger.debug(decoded_line)
                 result = await log_handler(decoded_line)
                 if result is None:
                     elapsed_time = time.time() - start_time
                     if elapsed_time > timeout:
-                        print(f"Watcher timed out after {timeout} seconds")
+                        logger.warning(f"Watcher timed out after {timeout} seconds")
                         return False
                     continue
                 if result:
                     return True
 
-                print("Log handler failed")
+                logger.error("Log handler failed")
                 return False
 
             return False
         except asyncio.CancelledError:
-            print(f"Task cancelled for: {self.log_file_path}")
+            logger.info(f"Task cancelled for: {self.log_file_path}")
             return False
         finally:
             if process:
                 try:
                     process.terminate()
                     await process.wait()
-                    print("Terminated log watcher process.")
+                    logger.info("Terminated log watcher process.")
                 except ProcessLookupError:
-                    print("ProcessLookupError occurred, process already stopped?")
+                    logger.warning("ProcessLookupError occurred, process already stopped?")
 
     async def restore_levels(self) -> bool:
         """Main method to restore player levels."""
@@ -337,17 +340,17 @@ class LevelRestore:
 
         is_online = await check_if_online
         if not is_online:
-            print("Player is not online")
+            logger.warning("Player is not online")
             return False
 
         pre_death_skills, current_skills = self.analyze_player_death()
 
         if not pre_death_skills or not current_skills:
-            print("Could not determine skill levels")
+            logger.warning("Could not determine skill levels")
             return False
 
-        print(f"Pre-death skills: {pre_death_skills}")
-        print(f"Current skills: {current_skills}")
+        logger.info(f"Pre-death skills: {pre_death_skills}")
+        logger.info(f"Current skills: {current_skills}")
 
         xp_commands = []
         for skill, pre_level in pre_death_skills.items():
@@ -362,10 +365,10 @@ class LevelRestore:
                     )
 
         if not xp_commands:
-            print("No XP restoration needed")
+            logger.info("No XP restoration needed")
             return True
 
-        print(f"Will execute {len(xp_commands)} addXP commands")
+        logger.info(f"Will execute {len(xp_commands)} addXP commands")
         self.addxp_commands_sent = len(xp_commands)
         self.addxp_commands_confirmed = 0
 
@@ -374,7 +377,7 @@ class LevelRestore:
         )
 
         for cmd in xp_commands:
-            print(f"Sending command: {cmd}")
+            logger.debug(f"Sending command: {cmd}")
             await pz_send_command(SYSTEM_USERS[self.server_name], cmd)
             await asyncio.sleep(0.1)
 

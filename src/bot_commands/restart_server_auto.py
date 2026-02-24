@@ -1,8 +1,12 @@
+import logging
+
 import discord
 from discord import app_commands
 
 from src.config import Config
 from src.features.auto_restart import auto_restart
+
+logger = logging.getLogger(__name__)
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -66,9 +70,9 @@ async def restart_server_auto(
     await interaction.edit_original_response(view=view)
 
     if view.value is None:
-        print("Timed out...")
+        logger.info("Timed out...")
     elif view.value:
-        print("Auto Restart Confirmed...")
+        logger.info("Auto Restart Confirmed...")
 
         init_msg = (
             f"{interaction.user.display_name} has initiated the **{server.name}** auto restart. "
@@ -85,7 +89,7 @@ async def restart_server_auto(
         await auto_restart.auto_restart(announce_chan, server.name, init_msg)
 
     else:
-        print(f"Restart cancelled for {server.name}...")
+        logger.info("Restart cancelled for %s...", server.name)
 
 
 @app_commands.command(name="cancel")

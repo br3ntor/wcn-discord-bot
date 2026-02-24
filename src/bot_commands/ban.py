@@ -1,5 +1,6 @@
 import asyncio
 import io
+import logging
 import re
 
 import discord
@@ -16,6 +17,8 @@ from src.services.game_db import (
 from src.services.pz_server import pz_send_command
 from src.services.server import get_game_version, server_isrunning
 
+logger = logging.getLogger(__name__)
+
 ban_group = app_commands.Group(
     name="ban", description="Ban, unban, and list banned players."
 )
@@ -27,7 +30,7 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 async def wait_for_ban_issue(system_user, player_id, max_attempts=5, delay=0.5):
     for attempt in range(max_attempts):
-        print("Attempt:", attempt)
+        logger.debug("Attempt: %s", attempt)
         banned_player = await get_banned_player(system_user, player_id)
         if banned_player and len(banned_player) > 0 and banned_player[0] == player_id:
             return banned_player
@@ -37,7 +40,7 @@ async def wait_for_ban_issue(system_user, player_id, max_attempts=5, delay=0.5):
 
 async def wait_for_ban_removal(system_user, player_id, max_attempts=5, delay=0.5):
     for attempt in range(max_attempts):
-        print("Attempt:", attempt)
+        logger.debug("Attempt: %s", attempt)
         banned_player = await get_banned_player(system_user, player_id)
         if banned_player and len(banned_player) > 0 and banned_player[0] == player_id:
             await asyncio.sleep(delay)

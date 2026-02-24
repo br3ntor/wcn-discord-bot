@@ -1,6 +1,9 @@
 import aiohttp
 import discord
+import logging
 from discord import app_commands
+
+logger = logging.getLogger(__name__)
 
 from src.config import Config
 
@@ -33,7 +36,7 @@ async def update_gist(
     async with aiohttp.ClientSession() as session:
         url = f"https://api.github.com/gists/{server_gist_id}"
         async with session.patch(url, headers=headers, json=payload) as resp:
-            print(resp.status)
+            logger.debug("Gist update response status: %s", resp.status)
             # print(await resp.text())
 
 

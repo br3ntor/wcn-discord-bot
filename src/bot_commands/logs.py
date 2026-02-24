@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import shlex
 from datetime import datetime
@@ -8,6 +9,8 @@ from discord import app_commands
 
 from src.config import Config
 from src.services.game_db import get_player
+
+logger = logging.getLogger(__name__)
 
 SERVER_DATA = Config.SERVER_DATA
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -69,7 +72,7 @@ async def get_player_logs(
             and os.path.exists(output_file)
             and os.path.getsize(output_file) > 0
         ):
-            print(f"Created playerlogs file: {output_file}")
+            logger.info("Created playerlogs file: %s", output_file)
             await interaction.followup.send(
                 f"Logs for user {playername} on {server.name}:",
                 file=discord.File(output_file),
@@ -134,7 +137,7 @@ async def get_all_logs(
             and os.path.exists(output_file)
             and os.path.getsize(output_file) > 0
         ):
-            print(f"Created zip of log files: {output_file}")
+            logger.info("Created zip of log files: %s", output_file)
             await interaction.followup.send(
                 f"Logs for {server.name}:", file=discord.File(output_file)
             )

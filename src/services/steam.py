@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 
 import a2s
@@ -6,6 +7,8 @@ import aiohttp
 from tabulate import tabulate
 
 from src.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 async def get_workshop_items(workshop_ids: list[str]) -> list:
@@ -30,13 +33,13 @@ async def get_workshop_items(workshop_ids: list[str]) -> list:
 
         items = result["response"]["publishedfiledetails"]
     except asyncio.TimeoutError:
-        print("Bruh, steam network might be taking a shit.")
+        logger.warning("Bruh, steam network might be taking a shit.")
         return []
     except Exception as e:
-        print(f"An error occurred while fetching workshop items: {e}")
+        logger.error("An error occurred while fetching workshop items: %s", e)
         return []
 
-    print(f"Found this many workshop_items: {len(items)}")
+    logger.info("Found this many workshop_items: %s", len(items))
     return items
 
 

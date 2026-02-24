@@ -1,8 +1,11 @@
 import json
+import logging
 
 import discord
 from aiohttp import web
 from discord.ext import commands
+
+logger = logging.getLogger(__name__)
 
 # from bot import MyBot
 from src.config import Config
@@ -48,20 +51,20 @@ class KoFiDonationCog(commands.Cog):
                 "🎉 Thank you anonymous member for your generous donation! 💸❔"
             )
         else:
-            print("Verification token not valid?")
-            print(data)
+            logger.warning("Verification token not valid?")
+            logger.debug("%s", data)
             return web.Response()
 
         # Send thankyou message, and progress to discord
         discord_channel = self.bot.get_channel(ANNOUNCE_CHANNEL)
         if isinstance(discord_channel, discord.TextChannel):
             await discord_channel.send(thanks_msg)
-            print(thanks_msg)
+            logger.info(thanks_msg)
 
             # Add the donation to the database
             added_to_db = await add_donation(donator, email, donation["amount"])
             if not added_to_db:
-                print("ERROR: Donation was not added to the db.")
+                logger.error("ERROR: Donation was not added to the db.")
 
             # Day that the bill hits
             last_6th = get_last_occurrence_of_day(6)
@@ -77,7 +80,7 @@ class KoFiDonationCog(commands.Cog):
 
         else:
             # TODO: Learn how to use the damn built in logging module
-            print(
+            logger.warning(
                 "WARNING: Discord message not sent. discord_channel is not a TextChannel."
             )
 
@@ -86,7 +89,7 @@ class KoFiDonationCog(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         """Starts the Ko-fi webhook HTTP listener on port 5000."""
-        print("Bot is ready, starting Ko-fi webhook listener on port 5000...")
+        logger.info("Bot is ready, starting Ko-fi webhook listener on port 5000...")
 
         app = web.Application()
         app.router.add_post(WEBHOOK_PATH, self._handle_kofi_donation)

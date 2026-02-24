@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import subprocess
 import time
 from typing import Callable, Coroutine
@@ -7,6 +8,8 @@ from src.config import Config
 from src.services.game_db import get_player
 from src.services.pz_server import pz42_heal_player, pz_heal_player, pz_send_command
 from src.services.server import get_game_version
+
+logger = logging.getLogger(__name__)
 
 SERVER_NAMES = Config.SERVER_NAMES
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -44,20 +47,20 @@ class GodMode:
         """Monitor the log for the correct sequence of lines to confirm player
         is online and the commands send to the server execute correctly."""
         if "Players connected" in log_line:
-            print("players command recieved!")
+            logger.info("players command recieved!")
             self.players_command_received = True
             return None
 
         if self.players_command_received:
             if len(log_line) == 0:
-                print("No players or end of list.")
+                logger.info("No players or end of list.")
                 return False
             if log_line[0] == "-":
                 if f"{self.player_name}" in log_line:
-                    print("player found!")
+                    logger.info("player found!")
                     return True
                 return None
-            print("Unexpected log line.")
+            logger.warning("Unexpected log line.")
             return False
 
     async def verify_player_healed(self, log_line: str) -> bool | None:
@@ -72,9 +75,9 @@ class GodMode:
 
         if any(s in log_line for s in off_strings):
             if self.godmode_on:
-                print(f"Godmode was given and taken away for {self.player_name}.")
+                logger.info(f"Godmode was given and taken away for {self.player_name}.")
             else:
-                print("Godmode was taken away but not given? Maybe admin.")
+                logger.warning("Godmode was taken away but not given? Maybe admin.")
 
             self.godmode_on = False
             return True
@@ -95,41 +98,41 @@ class GodMode:
             )
 
             if process.stdout is None:
-                print("Failed to access log")
+                logger.error("Failed to access log")
                 return False
 
-            print(f"Tailing log file: {self.log_file_path}")
+            logger.info(f"Tailing log file: {self.log_file_path}")
             start_time = time.time()
             async for line in process.stdout:
                 decoded_line = line.decode("utf-8").strip()
-                print(decoded_line)
+                logger.debug(decoded_line)
                 result = await log_handler(decoded_line)
                 if result is None:
                     elapsed_time = time.time() - start_time
-                    print(f"Elapsed Watch Time: {elapsed_time}")
+                    logger.info(f"Elapsed Watch Time: {elapsed_time}")
                     if elapsed_time > 5:
-                        print("Watcher timed out, you are really dumb.")
+                        logger.warning("Watcher timed out, you are really dumb.")
                         return False
                     continue
                 if result:
                     return True
 
-                print("Log handler failed")
+                logger.error("Log handler failed")
                 return False
 
             return False
         except asyncio.CancelledError:
-            print(f"TL:Task cancelled for: {self.log_file_path}")
+            logger.info(f"TL:Task cancelled for: {self.log_file_path}")
             return False
         finally:
             if process:
                 try:
-                    print(process)
+                    logger.debug(process)
                     process.terminate()
                     await process.wait()
-                    print("Terminated old process.")
+                    logger.info("Terminated old process.")
                 except ProcessLookupError:
-                    print("ProcessLookupError occurred, process already stopped?")
+                    logger.warning("ProcessLookupError occurred, process already stopped?")
 
     async def gogo_godmode(self) -> bool:
         """Guaranteed to work godmode by verifying state transitions via logs."""
@@ -138,18 +141,18 @@ class GodMode:
         config = VERSION_CONFIG.get(version)
 
         if not config:
-            print(f"Error: Unsupported game version '{version}'")
+            logger.error(f"Error: Unsupported game version '{version}'")
             return False
 
         player_row = await get_player(SYSTEM_USERS[self.server_name], self.player_name)
 
         if not player_row:
-            print(f"Player {self.player_name} not found in database.")
+            logger.warning(f"Player {self.player_name} not found in database.")
             return False
 
         raw_access = player_row[config["access_idx"]]
         if not config["is_normal_player"](raw_access):
-            print(
+            logger.warning(
                 f"Accesslevel '{raw_access}' detected. No reason to use this on immortals."
             )
             return False
@@ -160,7 +163,7 @@ class GodMode:
         await pz_send_command(SYSTEM_USERS[self.server_name], "players")
 
         if not await check_online_task:
-            print(f"Abort: {self.player_name} is not currently online.")
+            logger.warning(f"Abort: {self.player_name} is not currently online.")
             return False
 
         check_healed_task = asyncio.create_task(
@@ -172,8 +175,8 @@ class GodMode:
         is_healed = await check_healed_task
 
         if is_healed:
-            print(f"Successfully verified healing sequence for {self.player_name}.")
+            logger.info(f"Successfully verified healing sequence for {self.player_name}.")
             return True
 
-        print(f"Failed to verify healing sequence for {self.player_name}.")
+            logger.error(f"Failed to verify healing sequence for {self.player_name}.")
         return False

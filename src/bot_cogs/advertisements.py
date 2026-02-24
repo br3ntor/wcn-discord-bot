@@ -1,9 +1,12 @@
 import datetime
+import logging
 
 import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
+
+logger = logging.getLogger(__name__)
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 
@@ -26,7 +29,7 @@ class AdvertisementCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Starting advertisement tasks...")
+        logger.info("Starting advertisement tasks...")
         self.send_advertisement.start()
 
     @tasks.loop(time=times)
@@ -42,11 +45,11 @@ class AdvertisementCog(commands.Cog):
         chan = self.bot.get_channel(948548630439165956)
 
         if not chan:
-            print("Unable to get discord channel.")
+            logger.warning("Unable to get discord channel.")
             return
         if not isinstance(chan, discord.TextChannel):
-            print("Chan is not TextChannel?")
+            logger.warning("Chan is not TextChannel?")
             return
 
         await chan.send(ad_msg + goal_url)
-        print("My ad is running!")
+        logger.info("My ad is running!")

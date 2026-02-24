@@ -8,8 +8,6 @@ import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
-
-logger = logging.getLogger(__name__)
 from src.services.bot_db import (
     add_ticket_notification,
     clear_ticket_notifications_for_server,
@@ -19,6 +17,8 @@ from src.services.bot_db import (
     is_ticket_processed,
     update_ticket_state,
 )
+
+logger = logging.getLogger(__name__)
 
 MOD_CHANNEL = Config.MOD_CHANNEL
 
@@ -87,9 +87,7 @@ class TicketWatcherCog(commands.Cog):
                         all_tickets = await cursor.fetchall()
                         ticket_count = sum(1 for _ in all_tickets) if all_tickets else 0
 
-                logger.info(
-                    f"Found {ticket_count} tickets in {server_name} database"
-                )
+                logger.info(f"Found {ticket_count} tickets in {server_name} database")
 
                 tickets_added = 0
                 tickets_skipped = 0
@@ -166,9 +164,7 @@ class TicketWatcherCog(commands.Cog):
                         f"{server_name} database locked during sync, will retry on next monitor cycle"
                     )
                 else:
-                    logger.error(
-                        f"{server_name} database error during sync: {e}"
-                    )
+                    logger.error(f"{server_name} database error during sync: {e}")
             except Exception as e:
                 logger.error(f"Error during {server_name} database sync: {e}")
 
@@ -271,16 +267,16 @@ class TicketWatcherCog(commands.Cog):
 
     async def _process_new_tickets(self, server_name: str, pz_db, thread):
         """Process and post new unanswered tickets."""
-        # Check for game world reset
-        async with pz_db.execute("SELECT MAX(id) FROM tickets") as cursor:
+        # Check for game world reset by seeing if tickets table is empty
+        async with pz_db.execute("SELECT COUNT(*) FROM tickets") as cursor:
             result = await cursor.fetchone()
-            game_max_id = result[0] if result and result[0] is not None else 0
+            ticket_count = result[0] if result else 0
 
         last_tracked_id = await get_last_processed_ticket_id(server_name)
 
-        if game_max_id < last_tracked_id:
+        if ticket_count == 0 and last_tracked_id > 0:
             logger.warning(
-                f"Detected reset for {server_name} (last tracked: {last_tracked_id}, current max: {game_max_id}), resyncing..."
+                f"Detected reset for {server_name} (table empty, last tracked: {last_tracked_id}), resyncing..."
             )
             await clear_ticket_notifications_for_server(server_name)
             await self.sync_with_game_database()
@@ -375,7 +371,7 @@ class TicketWatcherCog(commands.Cog):
 
             try:
                 current_state = await self._determine_ticket_state(pz_db, ticket_id)
-                # Skip deleted tickets (current_state is None) - we'll handle them in _update_ticket_embed
+                # Skip deleted tickets (current_state is None) - leave them in bot_db
                 if current_state is not None and current_state != last_state:
                     tickets_needing_updates.append(
                         (
@@ -387,17 +383,13 @@ class TicketWatcherCog(commands.Cog):
                         )
                     )
             except Exception as e:
-                logger.error(
-                    f"Error checking {server_name} ticket #{ticket_id}: {e}"
-                )
+                logger.error(f"Error checking {server_name} ticket #{ticket_id}: {e}")
 
         total_updates = len(tickets_needing_updates)
 
         # Show progress for large batches
         if total_updates > 5:
-            logger.info(
-                f"Processing {total_updates} {server_name} ticket updates..."
-            )
+            logger.info(f"Processing {total_updates} {server_name} ticket updates...")
 
         # Process the updates
         for i, (
@@ -434,15 +426,11 @@ class TicketWatcherCog(commands.Cog):
                     f"Message {discord_message_id} for {server_name} ticket #{ticket_id} not found"
                 )
             except Exception as e:
-                logger.error(
-                    f"Error updating {server_name} ticket #{ticket_id}: {e}"
-                )
+                logger.error(f"Error updating {server_name} ticket #{ticket_id}: {e}")
 
         # Final progress update for large batches
         if total_updates > 5:
-            logger.info(
-                f"Completed {total_updates} {server_name} ticket updates"
-            )
+            logger.info(f"Completed {total_updates} {server_name} ticket updates")
 
     async def _determine_ticket_state(self, pz_db, ticket_id):
         """Determine the current state of a ticket (simplified 2-state system)."""
@@ -468,32 +456,6 @@ class TicketWatcherCog(commands.Cog):
         self, server_name: str, thread, discord_message_id, ticket_id, state, pz_db
     ):
         """Update the Discord embed with new ticket status."""
-        # Skip updates for deleted tickets (state is None)
-        if state is None:
-            logger.info(
-                f"{server_name} ticket #{ticket_id} deleted, stopping tracking"
-            )
-            # Remove from local tracking database
-            try:
-                import aiosqlite
-
-                from src.services.bot_db import db_path
-
-                async with aiosqlite.connect(db_path) as db:
-                    await db.execute(
-                        "DELETE FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?",
-                        (
-                            server_name,
-                            ticket_id,
-                        ),
-                    )
-                    await db.commit()
-            except Exception as e:
-                logger.error(
-                    f"Error removing deleted {server_name} ticket #{ticket_id} from tracking: {e}"
-                )
-            return
-
         # Get ticket details for embed update
         async with pz_db.execute(
             "SELECT message, author, answeredID FROM tickets WHERE id = ?", (ticket_id,)
@@ -501,7 +463,7 @@ class TicketWatcherCog(commands.Cog):
             result = await cursor.fetchone()
 
         if not result:
-            return  # Ticket was deleted, handled above
+            return
 
         message, author, answered_id = result
 

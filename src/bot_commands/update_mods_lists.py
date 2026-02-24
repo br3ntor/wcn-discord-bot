@@ -1,3 +1,5 @@
+import logging
+
 import aiohttp
 import discord
 from discord import app_commands
@@ -5,6 +7,8 @@ from discord import app_commands
 from src.config import Config
 from src.services.server import get_servers_workshop_ids, server_setting_paths
 from src.services.steam import get_servers_workshop_items
+
+logger = logging.getLogger(__name__)
 
 GITHUB_PAT = Config.GITHUB_PAT
 SERVER_DATA = Config.SERVER_DATA
@@ -19,7 +23,7 @@ def parse_workshop_data(workshop_items: list) -> str:
                 f"[{item['title']}](https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']})\n\n"
             )
         else:
-            print(f"title is not in item:\n{item}")
+            logger.warning("title is not in item: %s", item)
 
     mods.insert(0, f"**Mod Count: {len(mods)}**\n\n")
 
@@ -45,7 +49,7 @@ async def update_gist(server_name: str, sorted_mods: str, server_gist_id: str) -
     # Using aiohttp instead of requests for async HTTP requests
     async with aiohttp.ClientSession() as session:
         async with session.patch(url, headers=headers, json=payload) as response:
-            print(response.status)
+            logger.info("Gist update response status: %s", response.status)
 
 
 async def update_all_gists():

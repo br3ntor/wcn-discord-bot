@@ -1,5 +1,8 @@
 import asyncio
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 
 async def pz_send_command(system_user: str, server_command: str):
@@ -23,14 +26,14 @@ async def pz_send_command(system_user: str, server_command: str):
         output, error = await process.communicate()
 
         if process.returncode != 0:
-            print(f"Error: {error.decode().strip()}")
+            logger.error("Error: %s", error.decode().strip())
             return False
         else:
-            print(f"Output: {output.decode().strip()}")
+            logger.debug("Output: %s", output.decode().strip())
             return True
 
     except Exception as e:
-        print(f"Subprocess error occurred: {e}")
+        logger.error("Subprocess error occurred: %s", e)
         return False
 
 

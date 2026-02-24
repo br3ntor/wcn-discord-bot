@@ -1,9 +1,12 @@
 import datetime
+import logging
 
 import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
+
+logger = logging.getLogger(__name__)
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 
@@ -26,7 +29,7 @@ class ScoreboardCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print("Starting scoreboard tasks...")
+        logger.info("Starting scoreboard tasks...")
         self.send_scoreboard.start()
 
     @tasks.loop(time=times)
@@ -34,10 +37,10 @@ class ScoreboardCog(commands.Cog):
         """Sends the scoreboard URL message to Discord."""
         chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
         if not chan:
-            print("Unable to get discord channel.")
+            logger.warning("Unable to get discord channel.")
             return
         if not isinstance(chan, discord.TextChannel):
-            print("Chan is not TextChannel?")
+            logger.warning("Chan is not TextChannel?")
             return
 
         await chan.send("https://westcoastnoobs.com")

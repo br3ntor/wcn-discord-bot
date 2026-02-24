@@ -1,7 +1,11 @@
+import logging
+
 import discord
 from discord import app_commands
 
 from src.config import Config
+
+logger = logging.getLogger(__name__)
 
 SERVER_DATA = Config.SERVER_DATA
 SERVER_NAMES = Config.SERVER_NAMES
@@ -31,7 +35,7 @@ async def get_playerlist(
     )
 
     if srv_info is None:
-        print(f"[Playerlist] No config found for server: {server_name}")
+        logger.warning("No config found for server: %s", server_name)
         await interaction.followup.send(
             "Couldn't find the player list for that server right now.", ephemeral=True
         )
@@ -43,7 +47,7 @@ async def get_playerlist(
     message_id = discord_playerlist.get("message_id")
 
     if not thread_id or not message_id:
-        print(f"[Playerlist] Missing thread_id or message_id for server: {server_name}")
+        logger.warning("Missing thread_id or message_id for server: %s", server_name)
         await interaction.followup.send(
             "The player list isn't set up for that server yet.", ephemeral=True
         )
@@ -51,7 +55,7 @@ async def get_playerlist(
 
     guild = interaction.guild
     if not isinstance(guild, discord.Guild):
-        print("[Playerlist] Command used outside a guild")
+        logger.error("Command used outside a guild")
         await interaction.followup.send(
             "This command only works in a server.", ephemeral=True
         )
@@ -60,9 +64,7 @@ async def get_playerlist(
     # Get thread from cache
     thread = guild.get_thread(thread_id)
     if not thread or not isinstance(thread, discord.Thread):
-        print(
-            f"[Playerlist] Could not find thread {thread_id} for server: {server_name}"
-        )
+        logger.error("Could not find thread %s for server: %s", thread_id, server_name)
         await interaction.followup.send(
             "Couldn't locate the player list thread right now.", ephemeral=True
         )
@@ -72,23 +74,21 @@ async def get_playerlist(
     try:
         message = await thread.fetch_message(message_id)
     except discord.NotFound:
-        print(
-            f"[Playerlist] Message {message_id} not found in thread {thread_id} (server: {server_name})"
+        logger.error(
+            "Message %s not found in thread %s (server: %s)", message_id, thread_id, server_name
         )
         await interaction.followup.send(
             "The player list message seems to have been deleted.", ephemeral=True
         )
         return
     except discord.Forbidden:
-        print(
-            f"[Playerlist] No permission to read message {message_id} in thread {thread_id}"
-        )
+        logger.error("No permission to read message %s in thread %s", message_id, thread_id)
         await interaction.followup.send(
             "I don't have permission to view the player list.", ephemeral=True
         )
         return
     except Exception as e:
-        print(f"[Playerlist] Unexpected error fetching message {message_id}: {e}")
+        logger.error("Unexpected error fetching message %s: %s", message_id, e)
         await interaction.followup.send(
             "Something went wrong while fetching the player list.", ephemeral=True
         )
