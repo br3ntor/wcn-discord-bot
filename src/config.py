@@ -21,6 +21,9 @@ class ServerConfig(TypedDict):
     system_user: str
     server_name: str
     port: int
+    rcon_host: str
+    rcon_port: int
+    rcon_password: str
     gists: Optional[Dict[str, str]]
     discord_playerlist: Optional[Dict[str, int]]
 
@@ -80,6 +83,20 @@ class Config:
 
     # Map system user to server name.
     SERVER_NAMES = {srv["system_user"]: srv["server_name"] for srv in SERVER_DATA}
+
+    @staticmethod
+    def get_rcon_config(server_name: str) -> Optional[ServerConfig]:
+        for server in Config.SERVER_DATA:
+            if server["server_name"] == server_name:
+                return server
+        return None
+
+    @staticmethod
+    def get_rcon_config_by_user(system_user: str) -> Optional[ServerConfig]:
+        for server in Config.SERVER_DATA:
+            if server["system_user"] == system_user:
+                return server
+        return None
 
     COGS_CONFIG: Dict[str, CogConfig] = load_cogs_config(str(CONFIG_DIR / "cogs.json"))
 

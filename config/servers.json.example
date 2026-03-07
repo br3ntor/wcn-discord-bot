@@ -3,6 +3,9 @@
     "system_user": "INSERT_SYSTEM_USER_NAME",
     "server_name": "Default_Server",
     "port": 16261,
+    "rcon_host": "127.0.0.1",
+    "rcon_port": 27016,
+    "rcon_password": "YOUR_RCON_PASSWORD",
     "gists": {
       "modlist": "YOUR_GIST_ID or BLANK",
       "sandbox": "YOUR_GIST_ID or BLANK"

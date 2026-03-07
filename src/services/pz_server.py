@@ -2,40 +2,53 @@ import asyncio
 import logging
 import re
 
-from src.services.server import get_game_version
+from rcon.source import rcon
+
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 
 
 async def pz_send_command(system_user: str, server_command: str):
-    """Sends a command to the game-server console."""
-    cmd = [
-        "sudo",
-        "-u",
-        system_user,
-        f"/home/{system_user}/pzserver",
-        "send",
-        f"{server_command}",
-    ]
+    """Sends a command to the game-server via RCON."""
+    server_config = Config.get_rcon_config_by_user(system_user)
+    if not server_config:
+        logger.error(f"No server config found for user: {system_user}")
+        return False
+
+    rcon_config = server_config.get("rcon_password")
+    if not rcon_config:
+        logger.error(f"RCON password not configured for server: {system_user}")
+        return False
+
+    rcon_host = server_config.get("rcon_host", "127.0.0.1")
+    rcon_port = server_config.get("rcon_port", 27016)
+    rcon_password = server_config.get("rcon_password", "")
 
     try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stderr=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
+        response = await asyncio.wait_for(
+            rcon(
+                server_command,
+                host=rcon_host,
+                port=rcon_port,
+                passwd=rcon_password,
+            ),
+            timeout=10.0,
         )
-
-        output, error = await process.communicate()
-
-        if process.returncode != 0:
-            logger.error("Error: %s", error.decode().strip())
-            return False
-        else:
-            logger.debug("Output: %s", output.decode().strip())
-            return True
-
+        logger.debug("Response: %s", response)
+        return True
+    except asyncio.TimeoutError:
+        logger.error(
+            f"RCON timeout connecting to {system_user} at {rcon_host}:{rcon_port}"
+        )
+        return False
+    except ConnectionRefusedError:
+        logger.error(
+            f"RCON connection refused - is server running and RCON enabled for {system_user}?"
+        )
+        return False
     except Exception as e:
-        logger.error("Subprocess error occurred: %s", e)
+        logger.error(f"RCON error for {system_user}: {e}")
         return False
 
 
@@ -51,7 +64,6 @@ async def pz_heal_player(server: str, player: str) -> bool:
     blessing = f'godmode "{player}"'
     if not await pz_send_command(server, blessing):
         return False
-    await asyncio.sleep(1)
     return await pz_send_command(server, blessing)
 
 
@@ -61,7 +73,6 @@ async def pz42_heal_player(server: str, player: str) -> bool:
     god_off = f'godmodeplayer "{player}" -false'
     if not await pz_send_command(server, god_on):
         return False
-    await asyncio.sleep(1)
     return await pz_send_command(server, god_off)
 
 
@@ -73,6 +84,8 @@ async def pz_setpassword(server: str, player: str, new_password: str) -> bool:
 
 async def pz_teleport_player(server: str, player1: str, player2: str) -> bool:
     """Teleport player1 to player2. Command varies by game version."""
+    from src.services.server import get_game_version
+
     version = get_game_version(server)
 
     if version == "B42":
