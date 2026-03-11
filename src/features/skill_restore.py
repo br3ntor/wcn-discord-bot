@@ -3,14 +3,11 @@ import glob
 import logging
 import os
 import re
-import subprocess
-import time
 from datetime import datetime
-from typing import Callable, Coroutine, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from src.config import Config
-from src.services.game_db import get_player
-from src.services.pz_server import pz_send_command
+from src.services.pz_server import pz_add_xp
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +40,6 @@ class LevelRestore:
     def __init__(self, server_name: str, player_name: str) -> None:
         self.server_name = server_name
         self.player_name = player_name
-        self.players_command_received = False
-        self.addxp_commands_sent = 0
-        self.addxp_commands_confirmed = 0
-        self.log_file_path = (
-            f"/home/{SYSTEM_USERS[server_name]}/log/console/pzserver-console.log"
-        )
         self.perk_log_path = f"/home/{SYSTEM_USERS[server_name]}/Zomboid/Logs"
 
     def get_latest_perk_log(self) -> Optional[str]:
@@ -247,102 +238,8 @@ class LevelRestore:
 
         return pre_death_skills, current_skills
 
-    async def verify_player_online(self, log_line: str) -> bool | None:
-        """Monitor the log to verify player is online."""
-        if "Players connected" in log_line:
-            logger.info("Players command received!")
-            self.players_command_received = True
-            return None
-
-        if self.players_command_received:
-            if len(log_line) == 0:
-                logger.info("No players or end of list.")
-                return False
-            if log_line.startswith("-"):
-                if f"{self.player_name}" in log_line:
-                    logger.info("Player found online!")
-                    return True
-                return None
-            logger.warning("Unexpected log line.")
-            return False
-
-    async def verify_addxp_commands(self, log_line: str) -> bool | None:
-        """Verify addxp commands were executed successfully."""
-        if "Added" in log_line and f"xp's to {self.player_name}" in log_line:
-            self.addxp_commands_confirmed += 1
-            logger.info(
-                f"AddXP command confirmed ({self.addxp_commands_confirmed}/{self.addxp_commands_sent})"
-            )
-
-            if self.addxp_commands_confirmed >= self.addxp_commands_sent:
-                logger.info("All addXP commands confirmed!")
-                return True
-
-        return None
-
-    async def log_watcher(
-        self,
-        log_handler: Callable[[str], Coroutine[None, None, bool | None]],
-        timeout: int = 10,
-    ):
-        """Watches log lines with tail and runs a callback on each line."""
-        process = None
-        try:
-            process = await asyncio.create_subprocess_exec(
-                "tail",
-                "-fn 1",
-                self.log_file_path,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-
-            if process.stdout is None:
-                logger.error("Failed to access log")
-                return False
-
-            logger.info(f"Tailing log file: {self.log_file_path}")
-            start_time = time.time()
-            async for line in process.stdout:
-                decoded_line = line.decode("utf-8").strip()
-                logger.debug(decoded_line)
-                result = await log_handler(decoded_line)
-                if result is None:
-                    elapsed_time = time.time() - start_time
-                    if elapsed_time > timeout:
-                        logger.warning(f"Watcher timed out after {timeout} seconds")
-                        return False
-                    continue
-                if result:
-                    return True
-
-                logger.error("Log handler failed")
-                return False
-
-            return False
-        except asyncio.CancelledError:
-            logger.info(f"Task cancelled for: {self.log_file_path}")
-            return False
-        finally:
-            if process:
-                try:
-                    process.terminate()
-                    await process.wait()
-                    logger.info("Terminated log watcher process.")
-                except ProcessLookupError:
-                    logger.warning("ProcessLookupError occurred, process already stopped?")
-
     async def restore_levels(self) -> bool:
         """Main method to restore player levels."""
-        check_if_online = asyncio.create_task(
-            self.log_watcher(self.verify_player_online, timeout=10)
-        )
-        await pz_send_command(SYSTEM_USERS[self.server_name], "players")
-
-        is_online = await check_if_online
-        if not is_online:
-            logger.warning("Player is not online")
-            return False
-
         pre_death_skills, current_skills = self.analyze_player_death()
 
         if not pre_death_skills or not current_skills:
@@ -352,7 +249,7 @@ class LevelRestore:
         logger.info(f"Pre-death skills: {pre_death_skills}")
         logger.info(f"Current skills: {current_skills}")
 
-        xp_commands = []
+        xp_commands: list[tuple[str, int]] = []
         for skill, pre_level in pre_death_skills.items():
             current_level = current_skills.get(skill, 0)
             if pre_level > current_level:
@@ -360,27 +257,32 @@ class LevelRestore:
                 target_xp = self.get_xp_for_level(skill, pre_level)
                 xp_needed = target_xp - current_xp
                 if xp_needed > 0:
-                    xp_commands.append(
-                        f'addxp "{self.player_name}" {skill}={xp_needed}'
-                    )
+                    xp_commands.append((skill, xp_needed))
 
         if not xp_commands:
             logger.info("No XP restoration needed")
             return True
 
         logger.info(f"Will execute {len(xp_commands)} addXP commands")
-        self.addxp_commands_sent = len(xp_commands)
-        self.addxp_commands_confirmed = 0
 
-        check_commands = asyncio.create_task(
-            self.log_watcher(self.verify_addxp_commands, timeout=60)
-        )
-
-        for cmd in xp_commands:
-            logger.debug(f"Sending command: {cmd}")
-            await pz_send_command(SYSTEM_USERS[self.server_name], cmd)
+        for skill, xp_needed in xp_commands:
+            logger.debug(
+                'Sending command: addxp "%s" %s=%s',
+                self.player_name,
+                skill,
+                xp_needed,
+            )
+            success, response = await pz_add_xp(
+                SYSTEM_USERS[self.server_name], self.player_name, skill, xp_needed
+            )
             await asyncio.sleep(0.1)
+            if not success:
+                logger.warning(
+                    "Failed to restore %s XP for %s: %s",
+                    skill,
+                    self.player_name,
+                    response,
+                )
+                return False
 
-        commands_successful = await check_commands
-
-        return commands_successful
+        return True

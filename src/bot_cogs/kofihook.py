@@ -5,12 +5,12 @@ import discord
 from aiohttp import web
 from discord.ext import commands
 
-logger = logging.getLogger(__name__)
-
 # from bot import MyBot
 from src.config import Config
 from src.services.bot_db import add_donation, get_total_donations_since
 from src.utils.helpers import get_last_occurrence_of_day, show_donation_progress
+
+logger = logging.getLogger(__name__)
 
 ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 WEBHOOK_SECRET = Config.WEBHOOK_SECRET
@@ -19,7 +19,7 @@ WEBHOOK_PATH = "/hook"
 
 class KoFiDonationCog(commands.Cog):
     """Cog for handling Ko-fi donation webhooks and posting them to Discord."""
-    
+
     def __init__(self, bot):
         self.bot = bot
 
@@ -75,7 +75,7 @@ class KoFiDonationCog(commands.Cog):
 
             current_amount = donos_since_last_bill + starting_amount
 
-            donation_progress = show_donation_progress(current_amount, 40)
+            donation_progress = show_donation_progress(current_amount, 80)
             await discord_channel.send(donation_progress)
 
         else:

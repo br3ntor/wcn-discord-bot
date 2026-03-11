@@ -2,9 +2,9 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.game_db import PasswordResetStatus, is_db_locked, reset_player_password
-from src.services.pz_server import pz_setpassword
-from src.services.server import get_game_version
+from src.services.game_db import get_player
+from src.services.pz_server import pz_reset_password_b41, pz_setpassword_b42
+from src.services.server import get_game_version, server_isrunning
 from src.utils.helpers import generate_pz_password
 
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -35,33 +35,42 @@ async def reset_password(
         )
         return
 
+    player_row = await get_player(system_user, playername)
+    if isinstance(player_row, str):
+        await interaction.response.send_message(player_row, ephemeral=True)
+        return
+
+    if not player_row:
+        await interaction.response.send_message(
+            f"**{playername}** not found on the **{server.name}** server.",
+            ephemeral=True,
+        )
+        return
+
+    if not await server_isrunning(system_user):
+        await interaction.response.send_message(
+            f"{server.name} is **NOT** running!", ephemeral=True
+        )
+        return
+
     if game_version == "B42":
-        # B42: Use the game's built-in setpassword command
         new_pass = generate_pz_password(12)
-        success = await pz_setpassword(system_user, playername, new_pass)
+        success, response = await pz_setpassword_b42(system_user, playername, new_pass)
         if success:
             await interaction.response.send_message(
                 f"The password for {playername} has been reset to: {new_pass}",
                 ephemeral=True,
             )
         else:
-            await interaction.response.send_message("There's nothing we can do")
+            await interaction.response.send_message(response, ephemeral=True)
         return
 
-    # B41: Use the old database method
-    reset_response = await reset_player_password(system_user, playername)
-    match reset_response:
-        case PasswordResetStatus.USER_NOT_FOUND:
-            response_msg = (
-                f"**{playername}** not found on the **{server.name}** server."
-            )
-        case PasswordResetStatus.DB_FILE_NOT_FOUND:
-            response_msg = f"db file not found on the **{server.name}** server."
-        case PasswordResetStatus.DATABASE_ACCESS_ERROR:
-            response_msg = f"Error accessing database on the **{server.name}** server."
-        case PasswordResetStatus.UNKNOWN_ERROR:
-            response_msg = "An unknown error has occurred, spooky!"
-        case PasswordResetStatus.SUCCESS:
-            response_msg = f"**{playername}**'s password has been reset on the **{server.name}** server. They may login with any new password."
-
-    await interaction.response.send_message(response_msg, ephemeral=True)
+    new_pass = generate_pz_password(12)
+    success, response = await pz_reset_password_b41(system_user, playername, new_pass)
+    if success:
+        await interaction.response.send_message(
+            f"The password for {playername} has been reset to: {new_pass}",
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(response, ephemeral=True)

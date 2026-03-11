@@ -1,4 +1,3 @@
-import asyncio
 import io
 import logging
 import re
@@ -10,11 +9,10 @@ from tabulate import tabulate
 from src.config import Config
 from src.services.game_db import (
     get_all_banned_players,
-    get_banned_player,
     get_player,
     get_player_by_steamid,
 )
-from src.services.pz_server import pz_send_command
+from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import get_game_version, server_isrunning
 
 logger = logging.getLogger(__name__)
@@ -26,26 +24,8 @@ ban_group = app_commands.Group(
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
-
-
-async def wait_for_ban_issue(system_user, player_id, max_attempts=5, delay=0.5):
-    for attempt in range(max_attempts):
-        logger.debug("Attempt: %s", attempt)
-        banned_player = await get_banned_player(system_user, player_id)
-        if banned_player and len(banned_player) > 0 and banned_player[0] == player_id:
-            return banned_player
-        await asyncio.sleep(delay)
-    return None
-
-
-async def wait_for_ban_removal(system_user, player_id, max_attempts=5, delay=0.5):
-    for attempt in range(max_attempts):
-        logger.debug("Attempt: %s", attempt)
-        banned_player = await get_banned_player(system_user, player_id)
-        if banned_player and len(banned_player) > 0 and banned_player[0] == player_id:
-            await asyncio.sleep(delay)
-            continue
-        return None
+def is_valid_steam_id(steam_id: str) -> bool:
+    return steam_id.isdigit() and len(steam_id) == 17
 
 
 @ban_group.command()
@@ -75,10 +55,14 @@ async def issue(
     await interaction.response.defer()
     system_user = SYSTEM_USERS[server.name]
     game_version = get_game_version(system_user)
+    steam_id = ""
 
     # Determine if input is a SteamID
     if player_input.isdigit():
         steam_id = player_input
+        if not is_valid_steam_id(steam_id):
+            await interaction.followup.send("SteamID must be exactly 17 digits.")
+            return
         row = await get_player_by_steamid(system_user, steam_id)
         player_name = row[2] if row else None
     else:
@@ -109,28 +93,16 @@ async def issue(
         await interaction.followup.send(f"**{server.name}** is **NOT** running!")
         return
 
-    # Issue the ban command
-    server_cmd = f"banid {steam_id}"
-    await pz_send_command(system_user, server_cmd)
+    success, response = await pz_ban_player(system_user, steam_id)
 
-    banned_player = await wait_for_ban_issue(system_user, steam_id)
-
-    # Construct response
-    if banned_player is None:
-        msg = (
-            f"Ban command sent, but SteamID **{steam_id}** not found in banned list.\n"
-            f"Player input was: **{player_input}**"
-        )
-    elif isinstance(banned_player, str):
-        msg = banned_player
-    elif len(banned_player) > 0 and banned_player[0] == steam_id:
+    if success:
         msg = (
             f"Player has been **banned** from the **{server.name}** server.\n"
             f"Username: **{player_name or '(unknown)'}**\n"
             f"SteamID: **{steam_id}**"
         )
     else:
-        msg = "An unexpected result occurred when checking the ban status."
+        msg = f"Ban failed for SteamID **{steam_id}**: {response}"
 
     await interaction.followup.send(msg)
 
@@ -162,10 +134,14 @@ async def revoke(
     await interaction.response.defer()
     system_user = SYSTEM_USERS[server.name]
     game_version = get_game_version(system_user)
+    steam_id = ""
 
     # Determine if input is a SteamID
     if player_input.isdigit():
         steam_id = player_input
+        if not is_valid_steam_id(steam_id):
+            await interaction.followup.send("SteamID must be exactly 17 digits.")
+            return
         row = await get_player_by_steamid(system_user, steam_id)
         player_name = row[2] if row else None
     else:
@@ -187,23 +163,16 @@ async def revoke(
 
         player_name = player_input
 
-    # Send unban command
-    server_cmd = f"unbanid {steam_id}"
-    await pz_send_command(system_user, server_cmd)
+    success, response = await pz_unban_player(system_user, steam_id)
 
-    banned_player = await wait_for_ban_removal(system_user, steam_id)
-
-    if banned_player is None:
+    if success:
         msg = (
             f"Player has been **unbanned** from the **{server.name}** server.\n"
             f"Username: **{player_name or '(unknown)'}**\n"
             f"SteamID: **{steam_id}**"
         )
     else:
-        msg = (
-            f"Unban command sent, but SteamID **{steam_id}** still appears in the ban list.\n"
-            f"Player input was: **{player_input}**"
-        )
+        msg = f"Unban failed for SteamID **{steam_id}**: {response}"
 
     await interaction.followup.send(msg)
 

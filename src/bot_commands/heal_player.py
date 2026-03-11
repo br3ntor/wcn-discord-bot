@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.features.godmode import GodMode
+from src.services.pz_server import pz_heal_player
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
@@ -23,13 +23,10 @@ async def heal_player(
 ):
     """Heals a player by toggling godmode on and off."""
     await interaction.response.defer()
-    gm = GodMode(server.name, player)
-    result = await gm.gogo_godmode()
+    result, message = await pz_heal_player(SYSTEM_USERS[server.name], player)
     if result:
         await interaction.followup.send(
             f"I have healed 💖 **{player}** on the **{server.name}** server!"
         )
     else:
-        await interaction.followup.send(
-            f"Heal failed, **{player}** must be on the **{server.name}** server and must not be admin, gm, etc. See logs."
-        )
+        await interaction.followup.send(f"Heal failed for **{player}**: {message}")

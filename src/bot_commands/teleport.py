@@ -2,7 +2,9 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.features.teleport import Teleport
+from src.services.pz_server import pz_teleport_player
+
+SYSTEM_USERS = Config.SYSTEM_USERS
 
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
@@ -29,13 +31,12 @@ async def teleport(
 ):
     """Teleport a player to another player."""
     await interaction.response.defer()
-    tp = Teleport(server.name, player1, player2)
-    result = await tp.execute_teleport()
+    result, message = await pz_teleport_player(
+        SYSTEM_USERS[server.name], player1, player2
+    )
     if result:
         await interaction.followup.send(
             f"Successfully teleported **{player1}** to **{player2}** on the **{server.name}** server!"
         )
     else:
-        await interaction.followup.send(
-            f"Teleport failed. Make sure both **{player1}** and **{player2}** are online on the **{server.name}** server. See logs."
-        )
+        await interaction.followup.send(f"Teleport failed: {message}")

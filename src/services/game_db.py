@@ -1,6 +1,5 @@
 import logging
 import os
-from enum import Enum
 from typing import Optional
 
 import aiosqlite
@@ -8,16 +7,6 @@ import aiosqlite
 from src.services.server import get_game_version
 
 logger = logging.getLogger(__name__)
-
-
-class PasswordResetStatus(Enum):
-    SUCCESS = 0
-    DB_FILE_NOT_FOUND = 1
-    USER_NOT_FOUND = 2
-    DATABASE_ACCESS_ERROR = 3
-    UNKNOWN_ERROR = 4
-
-
 def check_db_file(server: str) -> tuple[bool, str]:
     path = f"/home/{server}/Zomboid/db/pzserver.db"
     if not os.path.exists(path):
@@ -116,60 +105,3 @@ async def get_admins(server: str) -> str:
     except aiosqlite.Error as e:
         logger.error(f"Database error occurred: {e}")
         return f"Error accessing database for {server} server"
-
-
-async def reset_player_password(server: str, player: str) -> PasswordResetStatus:
-    file_exists, _ = check_db_file(server)
-    if not file_exists:
-        return PasswordResetStatus.DB_FILE_NOT_FOUND
-
-    try:
-        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
-            async with db.execute(
-                "SELECT * FROM whitelist WHERE username=?", [player]
-            ) as cursor:
-                user_row = await cursor.fetchone()
-                if user_row is None:
-                    await db.close()
-                    logger.warning("No user found")
-                    return PasswordResetStatus.USER_NOT_FOUND
-
-                logger.info(f"User {player} has been found")
-                await cursor.execute(
-                    "UPDATE whitelist SET password=? WHERE _rowid_=?",
-                    (None, user_row[0]),
-                )
-                await db.commit()
-                fresh_row = await cursor.execute(
-                    "SELECT password FROM whitelist WHERE username=?", [player]
-                )
-                pwd = await fresh_row.fetchone()
-                if pwd is not None and pwd[0] is None:
-                    logger.info(f"reset {player} pwd")
-                    return PasswordResetStatus.SUCCESS
-                else:
-                    logger.warning("Something went wrong")
-                    return PasswordResetStatus.UNKNOWN_ERROR
-    except aiosqlite.Error as e:
-        logger.error(f"Database error occurred: {e}")
-        return PasswordResetStatus.DATABASE_ACCESS_ERROR
-
-
-async def is_db_locked(db_path):
-    """
-    Returns True if the database is locked.
-    Uses a tiny timeout to check availability without hanging the bot.
-    """
-    if not os.path.exists(db_path):
-        return False
-
-    try:
-        async with aiosqlite.connect(db_path, timeout=0.1) as db:
-            await db.execute("BEGIN IMMEDIATE")
-            await db.rollback()
-            return False
-    except Exception as e:
-        if "locked" in str(e).lower():
-            return True
-            logger.error(f"Database error: {e}")
-        return True

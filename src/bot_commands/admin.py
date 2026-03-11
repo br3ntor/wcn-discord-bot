@@ -5,7 +5,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.services.game_db import get_admins, get_player
-from src.services.pz_server import pz_send_command
+from src.services.pz_server import pz_set_access_level
 from src.services.server import get_game_version, server_isrunning
 
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -75,15 +75,15 @@ async def toggle(
     if game_version == "B41" and accesslevel.value != 1:
         access_level = "none"
 
-    server_msg = f'setaccesslevel "{player}" {access_level}'
-    result = await pz_send_command(system_user, server_msg)
+    success, response = await pz_set_access_level(system_user, player, access_level)
 
-    status = (
-        f"**{player}** accesslevel has been set to **{access_level}** "
-        f"on the **{server.name}** server"
-        if result
-        else "Something wrong maybe, see logs"
-    )
+    if success:
+        status = (
+            f"**{player}** accesslevel has been set to **{access_level}** "
+            f"on the **{server.name}** server"
+        )
+    else:
+        status = f"Failed to update **{player}** on **{server.name}**: {response}"
 
     await interaction.followup.send(status)
 

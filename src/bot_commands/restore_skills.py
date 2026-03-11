@@ -36,6 +36,5 @@ async def restore_levels(
     else:
         await interaction.followup.send(
             f"Level restore failed for **{player}** on the **{server.name}** server. "
-            f"Player must be online, not have admin privileges, have a death record in the logs, "
-            f"and be findable in the database/logs. See console logs for details."
+            f"Make sure the player has a valid death record in the perk logs and can be targeted by RCON addxp. See console logs for details."
         )
