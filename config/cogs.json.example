@@ -35,6 +35,12 @@
       "class_name": "TicketWatcherCog",
       "description": "Monitors PZ server database for new support tickets",
       "requires_database": true
+    },
+    "chat_link": {
+      "enabled": false,
+      "class_name": "ChatLinkCog",
+      "description": "Links Project Zomboid in-game chat to Discord channels",
+      "requires_database": false
     }
   }
 }
