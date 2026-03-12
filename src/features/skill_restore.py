@@ -42,15 +42,30 @@ class LevelRestore:
         self.player_name = player_name
         self.perk_log_path = f"/home/{SYSTEM_USERS[server_name]}/Zomboid/Logs"
 
-    def get_latest_perk_log(self) -> Optional[str]:
-        """Find the most recent PerkLog file."""
-        pattern = f"{self.perk_log_path}/*PerkLog.txt"
-        perk_files = glob.glob(pattern)
-        if not perk_files:
-            return None
-        return max(
-            perk_files, key=lambda x: datetime.fromtimestamp(os.path.getmtime(x))
-        )
+    def get_perk_logs(self, days_back: int = 3) -> list[str]:
+        """Find all PerkLog files within the specified number of days, including archived folders."""
+        cutoff_time = datetime.now().timestamp() - (days_back * 24 * 3600)
+        
+        perk_files = []
+        
+        root_pattern = f"{self.perk_log_path}/*PerkLog.txt"
+        perk_files.extend(glob.glob(root_pattern))
+        
+        folder_pattern = f"{self.perk_log_path}/logs_*/*PerkLog.txt"
+        perk_files.extend(glob.glob(folder_pattern))
+        
+        valid_files = [
+            f for f in perk_files 
+            if os.path.getmtime(f) >= cutoff_time
+        ]
+        
+        valid_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        
+        logger.debug(f"Found {len(valid_files)} PerkLog files within {days_back} days")
+        for f in valid_files:
+            logger.debug(f"  - {f} (mtime: {datetime.fromtimestamp(os.path.getmtime(f))})")
+        
+        return valid_files
 
     def extract_timestamp(self, line: str) -> Optional[float]:
         """Extract timestamp from a log line and return as float seconds."""
@@ -157,50 +172,38 @@ class LevelRestore:
         else:
             return sum(REGULAR_SKILL_XP[1 : level + 1]) if level > 0 else 0
 
-    def analyze_player_death(
-        self,
-    ) -> Tuple[Optional[Dict[str, int]], Optional[Dict[str, int]]]:
-        """
-        Analyze player's most significant death and return pre-death and current skill levels.
-        Uses time proximity matching for both B41 and B42 log patterns.
-        Returns (pre_death_skills, current_skills) or (None, None) if no death found.
-        """
-        perk_log_file = self.get_latest_perk_log()
-        if not perk_log_file:
-            logger.warning("No PerkLog file found")
-            return None, None
-
+    def extract_player_data_from_file(self, file_path: str) -> Optional[list[str]]:
+        """Extract all log lines for the player from a single PerkLog file."""
         try:
-            with open(perk_log_file, "r") as f:
+            with open(file_path, "r") as f:
                 lines = f.readlines()
         except Exception as e:
-            logger.error(f"Error reading PerkLog file: {e}")
-            return None, None
-
+            logger.error(f"Error reading PerkLog file {file_path}: {e}")
+            return None
+        
         player_lines = [
             line.strip() for line in lines if f"][{self.player_name}][" in line
         ]
-
+        
         if not player_lines:
-            logger.warning(f"No log entries found for player {self.player_name}")
-            return None, None
+            return None
+            
+        return player_lines
 
+    def find_deaths_in_file(self, player_lines: list[str]) -> list[tuple[int, int]]:
+        """Find all deaths in player lines, returns list of (line_index, hours_survived)."""
         deaths = []
         for i, line in enumerate(player_lines):
             if "[Died][Hours Survived:" in line:
                 match = re.search(r"\[Died\]\[Hours Survived: (\d+)\]", line)
                 if match:
                     deaths.append((i, int(match.group(1))))
+        return deaths
 
-        if not deaths:
-            logger.warning("No death records found")
-            return None, None
-
-        most_significant_death = max(deaths, key=lambda x: x[1])
-        death_line_index, death_hours = most_significant_death
-
-        logger.info(f"Most significant death at {death_hours} hours survived")
-
+    def find_most_significant_death_and_skills(
+        self, player_lines: list[str], death_line_index: int
+    ) -> Tuple[Dict[str, int], Dict[str, int]]:
+        """Find pre-death and current skills for a given death index."""
         login_line_index = None
         for i in range(death_line_index - 1, -1, -1):
             if "[Login][Hours Survived:" in player_lines[i]:
@@ -209,7 +212,7 @@ class LevelRestore:
 
         if login_line_index is None:
             logger.warning("No login found before death")
-            return None, None
+            return {}, {}
 
         pre_death_skills = self.find_skills_by_proximity(player_lines, login_line_index)
 
@@ -227,14 +230,65 @@ class LevelRestore:
         for i in range(death_line_index + 1, len(player_lines)):
             line = player_lines[i]
             if "[Login][Hours Survived:" in line or "[Created Player" in line:
-                logger.debug(
-                    f"Found {'Login' if '[Login' in line else 'Created Player'} at index {i}"
-                )
                 skills = self.find_skills_by_proximity(player_lines, i)
                 if skills:
                     current_skills = skills
-                    logger.debug(f"Successfully found {len(skills)} current skills")
                     break
+
+        return pre_death_skills, current_skills
+
+    def analyze_player_death(
+        self,
+    ) -> Tuple[Optional[Dict[str, int]], Optional[Dict[str, int]]]:
+        """
+        Analyze player's most significant death across multiple PerkLog files.
+        Searches through all PerkLog files within the last 3 days (including archived folders).
+        Returns pre-death and current skill levels from the death with longest survival time.
+        """
+        perk_log_files = self.get_perk_logs(days_back=3)
+        
+        if not perk_log_files:
+            logger.warning("No PerkLog files found within search range")
+            return None, None
+
+        logger.info(f"Searching through {len(perk_log_files)} PerkLog files")
+
+        best_death = None
+        best_death_hours = -1
+        best_file_path = None
+        best_player_lines = None
+        best_death_line_index = None
+
+        for file_path in perk_log_files:
+            player_lines = self.extract_player_data_from_file(file_path)
+            if not player_lines:
+                continue
+                
+            deaths = self.find_deaths_in_file(player_lines)
+            if not deaths:
+                continue
+                
+            most_sig_death = max(deaths, key=lambda x: x[1])
+            death_idx, death_hours = most_sig_death
+            
+            logger.debug(f"File {os.path.basename(file_path)}: found death at {death_hours} hours")
+            
+            if death_hours > best_death_hours:
+                best_death_hours = death_hours
+                best_death = most_sig_death
+                best_file_path = file_path
+                best_player_lines = player_lines
+                best_death_line_index = death_idx
+
+        if best_death is None or best_player_lines is None or best_file_path is None or best_death_line_index is None:
+            logger.warning("No death records found for player in any PerkLog file")
+            return None, None
+
+        logger.info(f"Most significant death found: {best_death_hours} hours survived in {os.path.basename(best_file_path)}")
+
+        pre_death_skills, current_skills = self.find_most_significant_death_and_skills(
+            best_player_lines, best_death_line_index
+        )
 
         return pre_death_skills, current_skills
 
