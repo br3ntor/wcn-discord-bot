@@ -22,6 +22,8 @@ class KoFiDonationCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        if not Config.WEBHOOK_SECRET:
+            raise ValueError("WEBHOOK_SECRET env var is required for KoFiDonationCog")
 
     # Experimenting with using the underscore for private methods
     async def _handle_kofi_donation(self, request):
@@ -67,15 +69,15 @@ class KoFiDonationCog(commands.Cog):
                 logger.error("ERROR: Donation was not added to the db.")
 
             # Day that the bill hits
-            last_6th = get_last_occurrence_of_day(6)
+            last_6th = get_last_occurrence_of_day(Config.KOFI_BILL_DAY)
             donos_since_last_bill = await get_total_donations_since(last_6th)
 
             # Amount from patrons
-            starting_amount = 5
+            starting_amount = Config.KOFI_STARTING_AMOUNT
 
             current_amount = donos_since_last_bill + starting_amount
 
-            donation_progress = show_donation_progress(current_amount, 80)
+            donation_progress = show_donation_progress(current_amount, Config.KOFI_DONATION_GOAL)
             await discord_channel.send(donation_progress)
 
         else:

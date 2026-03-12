@@ -86,6 +86,10 @@ class Config:
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
     SETTINGS_PATH = os.getenv("SETTINGS_PATH")
 
+    KOFI_BILL_DAY = int(os.getenv("KOFI_BILL_DAY", 6))
+    KOFI_STARTING_AMOUNT = float(os.getenv("KOFI_STARTING_AMOUNT", 5))
+    KOFI_DONATION_GOAL = float(os.getenv("KOFI_DONATION_GOAL", 80))
+
     SERVER_DATA: List[ServerConfig] = load_server_data(str(CONFIG_DIR / "servers.json"))
 
     # Map server name to system user.
