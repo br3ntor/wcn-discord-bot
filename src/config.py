@@ -17,15 +17,25 @@ DATA_DIR.mkdir(exist_ok=True)
 # on the same machine with a single IP. Each game instance is run under
 # its own user on a seperate port and managed as a systemd service.
 # TODO: Switch to using RCON for issuing server commands maybe
+class RconConfig(TypedDict):
+    host: str
+    port: int
+    password: str
+
+
+class LoggingConfig(TypedDict):
+    chat: bool
+    channel_id: Optional[int]
+
+
 class ServerConfig(TypedDict):
     system_user: str
     server_name: str
     port: int
-    rcon_host: str
-    rcon_port: int
-    rcon_password: str
+    rcon: RconConfig
     gists: Optional[Dict[str, str]]
     discord_playerlist: Optional[Dict[str, int]]
+    logging: LoggingConfig
 
 
 class CogConfig(TypedDict):

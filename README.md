@@ -1,5 +1,6 @@
 ## WCN Project Zomboid Discord Bot
 
-This bot can control one or more Project Zomboid servers running on a single machine that were installed with LinuxGSM.
+This is a bot to control one more more Project Zomboid servers on a single machine that have been installed with LinuxGSM.
 
-Currently it is required to add some privelaged commands in sudoers to control multiple servers under different users.
+The server commands are issued with RCON and restarts use systemD.
+

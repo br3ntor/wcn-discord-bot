@@ -17,14 +17,14 @@ async def pz_send_command(system_user: str, server_command: str) -> str | None:
         logger.error(f"No server config found for user: {system_user}")
         return None
 
-    rcon_config = server_config.get("rcon_password")
-    if not rcon_config:
+    rcon_config = server_config.get("rcon", {})
+    if not rcon_config.get("password"):
         logger.error(f"RCON password not configured for server: {system_user}")
         return None
 
-    rcon_host = server_config.get("rcon_host", "127.0.0.1")
-    rcon_port = server_config.get("rcon_port", 27016)
-    rcon_password = server_config.get("rcon_password", "")
+    rcon_host = rcon_config.get("host", "127.0.0.1")
+    rcon_port = rcon_config.get("port", 27016)
+    rcon_password = rcon_config.get("password", "")
 
     try:
         response = await asyncio.wait_for(
