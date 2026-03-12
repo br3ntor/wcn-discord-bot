@@ -148,6 +148,7 @@ async def pz_heal_player(server: str, player: str) -> tuple[bool, str]:
         logger.error("Unexpected godmode enable response: %s", god_on_response)
         return False, f"Unexpected server response: {god_on_response}"
 
+    await asyncio.sleep(0.2)
     god_off_response = await pz_send_command(server, god_off)
     if god_off_response is None:
         return False, "Could not reach the server via RCON."
@@ -188,7 +189,9 @@ async def pz_unban_player(server: str, steam_id: str) -> tuple[bool, str]:
     return True, response
 
 
-async def pz_add_xp(server: str, player: str, skill: str, amount: int) -> tuple[bool, str]:
+async def pz_add_xp(
+    server: str, player: str, skill: str, amount: int
+) -> tuple[bool, str]:
     """Adds XP to a player via RCON."""
     response = await pz_send_command(server, f'addxp "{player}" {skill}={amount}')
     if response is None:
@@ -240,7 +243,9 @@ async def pz_reset_password_b41(
     server: str, player: str, new_password: str
 ) -> tuple[bool, str]:
     """Resets a B41 player's password by recreating the whitelist entry via RCON."""
-    remove_response = await pz_send_command(server, f'removeuserfromwhitelist "{player}"')
+    remove_response = await pz_send_command(
+        server, f'removeuserfromwhitelist "{player}"'
+    )
     if remove_response is None:
         return False, "Could not reach the server via RCON."
 
@@ -248,6 +253,7 @@ async def pz_reset_password_b41(
         logger.error("Unexpected removeuserfromwhitelist response: %s", remove_response)
         return False, f"Unexpected server response: {remove_response}"
 
+    await asyncio.sleep(0.2)
     add_response = await pz_send_command(server, f'adduser "{player}" "{new_password}"')
     if add_response is None:
         return False, "Could not reach the server via RCON."
@@ -259,7 +265,9 @@ async def pz_reset_password_b41(
     return True, add_response
 
 
-async def pz_teleport_player(server: str, player1: str, player2: str) -> tuple[bool, str]:
+async def pz_teleport_player(
+    server: str, player1: str, player2: str
+) -> tuple[bool, str]:
     """Teleport player1 to player2. Command varies by game version."""
     version = get_game_version(server)
 

@@ -275,7 +275,7 @@ class LevelRestore:
             success, response = await pz_add_xp(
                 SYSTEM_USERS[self.server_name], self.player_name, skill, xp_needed
             )
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.2)
             if not success:
                 logger.warning(
                     "Failed to restore %s XP for %s: %s",
