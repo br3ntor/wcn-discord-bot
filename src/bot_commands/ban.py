@@ -12,6 +12,7 @@ from src.services.game_db import (
     get_player,
     get_player_by_steamid,
 )
+from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import get_game_version, server_isrunning
 
@@ -96,10 +97,25 @@ async def issue(
     success, response = await pz_ban_player(system_user, steam_id)
 
     if success:
+        pb_banned = False
+        if Config.pocketbase_configured:
+            pb_result = await pb_client.create_ban(
+                steamid=steam_id,
+                name=player_name or "Unknown",
+                reason="Banned via Discord command",
+                server_origin=server.name,
+            )
+            if pb_result:
+                pb_banned = True
+                for sys_user in SYSTEM_USERS.values():
+                    if sys_user != system_user:
+                        await pz_ban_player(sys_user, steam_id)
+
         msg = (
             f"Player has been **banned** from the **{server.name}** server.\n"
             f"Username: **{player_name or '(unknown)'}**\n"
             f"SteamID: **{steam_id}**"
+            + (f"\n✅ Synced to PocketBase and all servers" if pb_banned else "")
         )
     else:
         msg = f"Ban failed for SteamID **{steam_id}**: {response}"
@@ -166,10 +182,25 @@ async def revoke(
     success, response = await pz_unban_player(system_user, steam_id)
 
     if success:
+        pb_unbanned = False
+        if Config.pocketbase_configured:
+            bans = await pb_client.get_bans(is_active=True)
+            for ban in bans:
+                if ban.get("steamid") == steam_id:
+                    ban_id = ban.get("id")
+                    if ban_id:
+                        await pb_client.deactivate_ban(ban_id)
+                        pb_unbanned = True
+                        for sys_user in SYSTEM_USERS.values():
+                            if sys_user != system_user:
+                                await pz_unban_player(sys_user, steam_id)
+                    break
+
         msg = (
             f"Player has been **unbanned** from the **{server.name}** server.\n"
             f"Username: **{player_name or '(unknown)'}**\n"
             f"SteamID: **{steam_id}**"
+            + (f"\n✅ Synced to PocketBase and all servers" if pb_unbanned else "")
         )
     else:
         msg = f"Unban failed for SteamID **{steam_id}**: {response}"
@@ -238,3 +269,81 @@ async def list(interaction: discord.Interaction, server: app_commands.Choice[int
     content = note + msg
     file = discord.File(io.BytesIO(content.encode()), filename=f"banned_{category}.txt")
     await interaction.followup.send(f"Banned list for {category}:", file=file)
+
+
+@ban_group.command()
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
+async def sync(interaction: discord.Interaction):
+    """Force sync bans from PocketBase to all servers."""
+    await interaction.response.defer()
+
+    if not Config.pocketbase_configured:
+        await interaction.followup.send("PocketBase is not configured.")
+        return
+
+    bans = await pb_client.get_bans(is_active=True)
+
+    if not bans:
+        await interaction.followup.send("No active bans in PocketBase.")
+        return
+
+    synced_count = 0
+    failed_servers = []
+
+    for ban in bans:
+        steamid = ban.get("steamid")
+        if not steamid:
+            continue
+
+        for system_user in SYSTEM_USERS.values():
+            if await server_isrunning(system_user):
+                success, _ = await pz_ban_player(system_user, steamid)
+                if success:
+                    synced_count += 1
+            else:
+                if system_user not in failed_servers:
+                    failed_servers.append(system_user)
+
+    msg = f"Synced **{len(bans)}** bans from PocketBase."
+    if failed_servers:
+        msg += f"\n⚠️ Offline servers: {', '.join(failed_servers)}"
+
+    await interaction.followup.send(msg)
+
+
+@ban_group.command()
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
+async def list_global(interaction: discord.Interaction):
+    """List all bans from PocketBase."""
+    await interaction.response.defer()
+
+    if not Config.pocketbase_configured:
+        await interaction.followup.send("PocketBase is not configured.")
+        return
+
+    bans = await pb_client.get_all_bans()
+
+    if not bans:
+        await interaction.followup.send("No bans in PocketBase.")
+        return
+
+    active_bans = [b for b in bans if b.get("is_active", False)]
+    inactive_bans = [b for b in bans if not b.get("is_active", False)]
+
+    lines = []
+    if active_bans:
+        lines.append("**Active Bans:**")
+        for ban in active_bans:
+            lines.append(
+                f"- {ban.get('name', 'Unknown')} ({ban.get('steamid')}): {ban.get('reason', 'No reason')} [{ban.get('server_origin', 'N/A')}]"
+            )
+
+    if inactive_bans:
+        lines.append("\n**Inactive Bans (Unbanned):**")
+        for ban in inactive_bans:
+            lines.append(
+                f"- {ban.get('name', 'Unknown')} ({ban.get('steamid')}): {ban.get('reason', 'No reason')}"
+            )
+
+    content = "\n".join(lines)
+    await interaction.followup.send(content[:2000])

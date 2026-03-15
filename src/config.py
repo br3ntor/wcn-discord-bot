@@ -90,6 +90,14 @@ class Config:
     KOFI_STARTING_AMOUNT = float(os.getenv("KOFI_STARTING_AMOUNT", 5))
     KOFI_DONATION_GOAL = float(os.getenv("KOFI_DONATION_GOAL", 80))
 
+    POCKETBASE_URL = os.getenv("POCKETBASE_URL")
+    POCKETBASE_EMAIL = os.getenv("POCKETBASE_EMAIL")
+    POCKETBASE_PASSWORD = os.getenv("POCKETBASE_PASSWORD")
+
+    @property
+    def pocketbase_configured(self) -> bool:
+        return all([self.POCKETBASE_URL, self.POCKETBASE_EMAIL, self.POCKETBASE_PASSWORD])
+
     SERVER_DATA: List[ServerConfig] = load_server_data(str(CONFIG_DIR / "servers.json"))
 
     # Map server name to system user.
