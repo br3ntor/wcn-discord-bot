@@ -313,6 +313,119 @@ async def sync(interaction: discord.Interaction):
 
 @ban_group.command()
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
+async def backfill(interaction: discord.Interaction):
+    """Backfill local server bans into PocketBase."""
+    await interaction.response.defer()
+
+    if not Config.pocketbase_configured:
+        await interaction.followup.send("PocketBase is not configured.")
+        return
+
+    pb_bans = await pb_client.get_all_bans()
+    pb_bans_by_steamid = {
+        ban.get("steamid"): ban for ban in pb_bans if ban.get("steamid")
+    }
+
+    local_bans = {}
+    scanned_rows = 0
+    failed_servers = []
+
+    for server_name, system_user in SYSTEM_USERS.items():
+        server_bans = await get_all_banned_players(system_user)
+
+        if isinstance(server_bans, str):
+            failed_servers.append(server_name)
+            logger.warning(
+                f"Skipping local ban backfill for {server_name}: {server_bans}"
+            )
+            continue
+
+        for ban_row in server_bans:
+            scanned_rows += 1
+            steamid = ban_row[0]
+            if not steamid or steamid in local_bans:
+                continue
+
+            player_row = await get_player_by_steamid(system_user, steamid)
+            if isinstance(player_row, str) or not player_row:
+                player_name = "Unknown"
+            else:
+                player_name = player_row[2] or "Unknown"
+
+            local_bans[steamid] = {
+                "name": player_name,
+                "server_origin": server_name,
+            }
+
+    created_count = 0
+    reactivated_count = 0
+    skipped_count = 0
+    failed_steamids = []
+
+    for steamid, local_ban in local_bans.items():
+        existing_ban = pb_bans_by_steamid.get(steamid)
+
+        if existing_ban:
+            if existing_ban.get("is_active", False):
+                skipped_count += 1
+                continue
+
+            ban_id = existing_ban.get("id")
+            if not ban_id:
+                failed_steamids.append(steamid)
+                logger.warning(f"Cannot reactivate PocketBase ban without id: {steamid}")
+                continue
+
+            result = await pb_client.update_ban(
+                ban_id,
+                {
+                    "is_active": True,
+                    "name": local_ban["name"],
+                    "reason": "Backfilled from local server ban list",
+                    "server_origin": local_ban["server_origin"],
+                },
+            )
+            if result:
+                reactivated_count += 1
+            else:
+                failed_steamids.append(steamid)
+            continue
+
+        result = await pb_client.create_ban(
+            steamid=steamid,
+            name=local_ban["name"],
+            reason="Backfilled from local server ban list",
+            server_origin=local_ban["server_origin"],
+        )
+        if result:
+            created_count += 1
+        else:
+            failed_steamids.append(steamid)
+
+    msg_lines = [
+        "Local ban backfill complete.",
+        f"Scanned **{len(SYSTEM_USERS)}** servers.",
+        f"Found **{scanned_rows}** local ban rows.",
+        f"Found **{len(local_bans)}** unique SteamIDs.",
+        f"Created **{created_count}** PocketBase bans.",
+        f"Reactivated **{reactivated_count}** PocketBase bans.",
+        f"Skipped **{skipped_count}** already-active PocketBase bans.",
+        f"Failed **{len(failed_steamids)}** PocketBase writes.",
+    ]
+
+    if failed_servers:
+        msg_lines.append(f"Warnings: failed to read {', '.join(failed_servers)}")
+
+    if failed_steamids:
+        preview = ", ".join(failed_steamids[:10])
+        suffix = "..." if len(failed_steamids) > 10 else ""
+        msg_lines.append(f"Failed SteamIDs: {preview}{suffix}")
+
+    await interaction.followup.send("\n".join(msg_lines))
+
+
+@ban_group.command()
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def list_global(interaction: discord.Interaction):
     """List all bans from PocketBase."""
     await interaction.response.defer()
