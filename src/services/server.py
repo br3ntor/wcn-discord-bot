@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 SERVER_DATA = Config.SERVER_DATA
 SERVER_NAMES = Config.SERVER_NAMES
 
+_max_players_cache: dict[str, int | None] | None = None
+
 
 async def server_isrunning(server: str) -> bool:
     """Check if the given zomboid server name is running"""
@@ -207,3 +209,50 @@ def get_game_version(servername: str):
         logger.error(f"Error reading release file for {servername}: {e}")
 
     return "UNKNOWN"
+
+
+async def get_servers_max_players(file_paths: list[str]) -> dict[str, int | None]:
+    """
+    Returns dict mapping server names (usernames) to their MaxPlayers setting.
+    Returns None if not found or on error.
+
+    Cached until bot restarts.
+    """
+    global _max_players_cache
+
+    if _max_players_cache is not None:
+        return _max_players_cache
+
+    servers_max_players: dict[str, int | None] = {}
+
+    for path in file_paths:
+        server_name = ""
+        try:
+            parts = path.split(os.sep)
+            if len(parts) > 2 and parts[1] == "home":
+                server_name = parts[2]
+            else:
+                logger.warning(
+                    f"Could not determine username from path: {path}. Skipping."
+                )
+                continue
+
+            config = configparser.ConfigParser()
+            with open(path, "r") as stream:
+                config.read_string("[default]\n" + stream.read())
+
+            if "default" in config:
+                max_players = config["default"].getint("MaxPlayers", None)
+                servers_max_players[server_name] = max_players
+            else:
+                servers_max_players[server_name] = None
+
+        except FileNotFoundError:
+            logger.error(f"File not found at '{path}'. MaxPlayers will be unknown.")
+            servers_max_players[server_name] = None
+        except Exception as e:
+            logger.error(f"Error reading MaxPlayers from '{path}': {e}. MaxPlayers will be unknown.")
+            servers_max_players[server_name] = None
+
+    _max_players_cache = servers_max_players
+    return servers_max_players

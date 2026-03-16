@@ -8,6 +8,7 @@ from discord.ext import commands, tasks
 from tabulate import tabulate
 
 from src.config import Config
+from src.services.server import get_servers_max_players, server_setting_paths
 from src.services.steam import get_steam_playerlist
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,9 @@ class PlayerlistCog(commands.Cog):
         if not isinstance(ip, str):
             logger.warning("SERVER_PUB_IP is not a string. Skipping loop.")
             return
+
+        paths = await server_setting_paths()
+        max_players = await get_servers_max_players(paths)
 
         for srv_info in Config.SERVER_DATA:
             if not srv_info["discord_playerlist"]:
@@ -47,6 +51,8 @@ class PlayerlistCog(commands.Cog):
                 await thread.send("Initial msg copy this id")
                 return
 
+            server_max = max_players.get(srv_info["system_user"], 64)
+
             try:
                 data = await get_steam_playerlist(
                     ip, int(srv_info["port"]), srv_info["server_name"]
@@ -54,8 +60,12 @@ class PlayerlistCog(commands.Cog):
 
                 msg = await thread.fetch_message(msg_id)
 
+                title = f"{data['server_name']} - {data['player_count']} Players"
+                if server_max is not None:
+                    title = f"{data['server_name']} - {data['player_count']}/{server_max} Players"
+
                 embed = discord.Embed(
-                    title=f"{data['server_name']} - {data['player_count']}/64 Players",
+                    title=title,
                     color=(
                         discord.Color.green()
                         if data["player_count"] > 0
