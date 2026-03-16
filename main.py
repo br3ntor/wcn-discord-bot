@@ -1,12 +1,12 @@
 import logging
-import discord
 
+import discord
 from dotenv import load_dotenv
 
 if __name__ == "__main__":
-    formatter = logging.Formatter('[%(levelname)-8s] %(name)s: %(message)s')
+    formatter = logging.Formatter("[%(levelname)-8s] %(name)s: %(message)s")
     discord.utils.setup_logging(formatter=formatter, level=logging.INFO, root=True)
-    
+
     logger = logging.getLogger(__name__)
     logger.info("Loading env...")
     load_dotenv()

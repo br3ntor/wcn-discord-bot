@@ -1,17 +1,21 @@
 import logging
 import time
+import traceback
+from datetime import datetime, timezone
 
 import discord
 from discord.ext import commands, tasks
+from tabulate import tabulate
 
 from src.config import Config
-from src.services.steam import get_player_list_string
+from src.services.steam import get_steam_playerlist
 
 logger = logging.getLogger(__name__)
 
 
 class PlayerlistCog(commands.Cog):
     """Cog for periodically updating the playerlist message in Discord threads."""
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -44,16 +48,48 @@ class PlayerlistCog(commands.Cog):
                 return
 
             try:
-                content = await get_player_list_string(
+                data = await get_steam_playerlist(
                     ip, int(srv_info["port"]), srv_info["server_name"]
                 )
 
                 msg = await thread.fetch_message(msg_id)
 
-                # Dynamic Discord timestamp (e.g., "5 minutes ago")
-                timestamp = f"\n*Last updated: <t:{int(time.time())}:R>*"
+                embed = discord.Embed(
+                    title=f"{data['server_name']} - {data['player_count']}/64 Players",
+                    color=(
+                        discord.Color.green()
+                        if data["player_count"] > 0
+                        else discord.Color.red()
+                    ),
+                )
 
-                await msg.edit(content=f"{content}{timestamp}")
+                if data["error"]:
+                    embed.description = f"⚠️ {data['error']}"
+                elif data["player_count"] == 0:
+                    embed.description = "No players online"
+                else:
+                    player_table = tabulate(
+                        data["players"], headers=["Name", "Duration"]
+                    )
+                    content = f"```\n{player_table}\n```"
+
+                    if len(content) > 4096:
+                        truncated_players = data["players"][:40]
+                        player_table = tabulate(
+                            truncated_players, headers=["Name", "Duration"]
+                        )
+                        content = f"```\n{player_table}\n```\n*...and {data['player_count'] - 40} more players*"
+
+                    embed.description = content
+
+                embed.timestamp = datetime.now(timezone.utc)
+
+                await msg.edit(
+                    content=f"Last updated: <t:{int(time.time())}:R>", embed=embed
+                )
+                logger.info(
+                    f"Successfully updated player list for {srv_info['server_name']}"
+                )
 
             except discord.NotFound:
                 logger.warning(
@@ -61,7 +97,7 @@ class PlayerlistCog(commands.Cog):
                 )
             except Exception as e:
                 logger.error(
-                    f"Error updating {srv_info['server_name']}: {e}"
+                    f"Error updating {srv_info['server_name']}: {e}\n{traceback.format_exc()}"
                 )
 
     @update_loop.before_loop

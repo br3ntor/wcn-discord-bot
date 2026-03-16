@@ -58,26 +58,47 @@ def format_time(seconds: float) -> str:
     return time.strftime("%Hhr %Mmin", time.gmtime(seconds))
 
 
-async def get_player_list_string(server_ip: str, port: int, server_name: str) -> str:
+async def get_steam_playerlist(server_ip: str, port: int, server_name: str) -> dict:
     """
-    Queries a steam server and returns a formatted string table of players.
+    Queries a steam server and returns structured player data.
+    Returns a dict with keys: 'server_name', 'player_count', 'players', 'error'
     """
     try:
         players = await a2s.aplayers((server_ip, port))
+        # print("[PLAYERLIST_RAW_DATA]:")
+        # print(players)
 
         valid_players = [p for p in players if p.name]
         valid_players.sort(key=lambda x: x.duration, reverse=True)
 
         if not valid_players:
-            return f"I can see **0** players on the **{server_name}** server."
+            return {
+                "server_name": server_name,
+                "player_count": 0,
+                "players": [],
+                "error": None,
+            }
 
-        player_table = [[p.name, format_time(p.duration)] for p in valid_players]
+        player_data = [(p.name[:50], format_time(p.duration)) for p in valid_players]
 
-        msg = f"I can see **{len(player_table)}** players on the **{server_name}** server.\n"
-        msg += f"```\n{tabulate(player_table, headers=['Name', 'Duration'])}\n```"
-        return msg
+        return {
+            "server_name": server_name,
+            "player_count": len(player_data),
+            "players": player_data,
+            "error": None,
+        }
 
     except asyncio.TimeoutError:
-        return f"**{server_name}**: Connection timed out (Steam Network)."
+        return {
+            "server_name": server_name,
+            "player_count": 0,
+            "players": [],
+            "error": "Connection timed out (Steam Network)",
+        }
     except Exception as e:
-        return f"**{server_name}**: Error - {str(e)}"
+        return {
+            "server_name": server_name,
+            "player_count": 0,
+            "players": [],
+            "error": str(e),
+        }
