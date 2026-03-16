@@ -97,9 +97,9 @@ class PlayerlistCog(commands.Cog):
                 await msg.edit(
                     content=f"Last updated: <t:{int(time.time())}:R>", embed=embed
                 )
-                logger.info(
-                    f"Successfully updated player list for {srv_info['server_name']}"
-                )
+                # logger.info(
+                #     f"Successfully updated player list for {srv_info['server_name']}"
+                # )
 
             except discord.NotFound:
                 logger.warning(

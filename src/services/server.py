@@ -39,7 +39,7 @@ async def server_isrunning(server: str) -> bool:
 
     for line in out.splitlines():
         if "ProjectZomboid64" in line:
-            logger.info(f"{server} is running:\n{line}")
+            # logger.info(f"{server} is running:\n{line}")
             return True
 
     return False
@@ -251,7 +251,9 @@ async def get_servers_max_players(file_paths: list[str]) -> dict[str, int | None
             logger.error(f"File not found at '{path}'. MaxPlayers will be unknown.")
             servers_max_players[server_name] = None
         except Exception as e:
-            logger.error(f"Error reading MaxPlayers from '{path}': {e}. MaxPlayers will be unknown.")
+            logger.error(
+                f"Error reading MaxPlayers from '{path}': {e}. MaxPlayers will be unknown."
+            )
             servers_max_players[server_name] = None
 
     _max_players_cache = servers_max_players
