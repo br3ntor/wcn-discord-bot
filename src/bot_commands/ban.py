@@ -94,31 +94,64 @@ async def issue(
         await interaction.followup.send(f"**{server.name}** is **NOT** running!")
         return
 
-    success, response = await pz_ban_player(system_user, steam_id)
+    # Try PocketBase first (only if listener is enabled)
+    pb_result = None
+    ban_status = "banned"
+    listener_enabled = Config.COGS_CONFIG.get("ban_listener", {}).get("enabled", False)
+    use_pocketbase = Config.pocketbase_configured and listener_enabled
 
-    if success:
-        pb_banned = False
-        if Config.pocketbase_configured:
+    if use_pocketbase:
+        existing_ban = await pb_client.get_ban_by_steamid(steam_id)
+        if existing_ban:
+            ban_id = existing_ban.get("id")
+            if ban_id:
+                was_active = existing_ban.get("is_active", False)
+                pb_result = await pb_client.update_ban(
+                    ban_id,
+                    {
+                        "is_active": True,
+                        "name": player_name or "Unknown",
+                        "reason": "Banned via Discord command",
+                        "server_origin": server.name,
+                    },
+                )
+                if pb_result:
+                    ban_status = "already banned" if was_active else "banned"
+        else:
             pb_result = await pb_client.create_ban(
                 steamid=steam_id,
                 name=player_name or "Unknown",
                 reason="Banned via Discord command",
                 server_origin=server.name,
             )
-            if pb_result:
-                pb_banned = True
-                for sys_user in SYSTEM_USERS.values():
-                    if sys_user != system_user:
-                        await pz_ban_player(sys_user, steam_id)
 
-        msg = (
-            f"Player has been **banned** from the **{server.name}** server.\n"
-            f"Username: **{player_name or '(unknown)'}**\n"
-            f"SteamID: **{steam_id}**"
-            + (f"\n✅ Synced to PocketBase and all servers" if pb_banned else "")
-        )
+    # Fallback to local RCON if PocketBase failed or not configured or listener disabled
+    if not pb_result:
+        success, response = await pz_ban_player(system_user, steam_id)
+        if success:
+            if not use_pocketbase:
+                if not Config.pocketbase_configured:
+                    fallback_reason = "PocketBase not configured"
+                else:
+                    fallback_reason = "Ban listener disabled"
+            else:
+                fallback_reason = "PocketBase unavailable"
+
+            msg = (
+                f"Player has been **banned** from the **{server.name}** server.\n"
+                f"Username: **{player_name or '(unknown)'}**\n"
+                f"SteamID: **{steam_id}**\n"
+                f"⚠️ Banned locally - {fallback_reason}"
+            )
+        else:
+            msg = f"Ban failed for SteamID **{steam_id}**: {response}"
     else:
-        msg = f"Ban failed for SteamID **{steam_id}**: {response}"
+        msg = (
+            f"Player has been **{ban_status}**.\n"
+            f"Username: **{player_name or '(unknown)'}**\n"
+            f"SteamID: **{steam_id}**\n"
+            f"✅ Synced to PocketBase - ban will be applied to all servers"
+        )
 
     await interaction.followup.send(msg)
 
@@ -179,31 +212,47 @@ async def revoke(
 
         player_name = player_input
 
-    success, response = await pz_unban_player(system_user, steam_id)
+    # Try PocketBase first (only if listener is enabled)
+    pb_unbanned = False
+    listener_enabled = Config.COGS_CONFIG.get("ban_listener", {}).get("enabled", False)
+    use_pocketbase = Config.pocketbase_configured and listener_enabled
 
-    if success:
-        pb_unbanned = False
-        if Config.pocketbase_configured:
-            bans = await pb_client.get_bans(is_active=True)
-            for ban in bans:
-                if ban.get("steamid") == steam_id:
-                    ban_id = ban.get("id")
-                    if ban_id:
-                        await pb_client.deactivate_ban(ban_id)
-                        pb_unbanned = True
-                        for sys_user in SYSTEM_USERS.values():
-                            if sys_user != system_user:
-                                await pz_unban_player(sys_user, steam_id)
-                    break
+    if use_pocketbase:
+        bans = await pb_client.get_bans(is_active=True)
+        for ban in bans:
+            if ban.get("steamid") == steam_id:
+                ban_id = ban.get("id")
+                if ban_id:
+                    pb_unbanned = await pb_client.deactivate_ban(ban_id)
+                break
 
-        msg = (
-            f"Player has been **unbanned** from the **{server.name}** server.\n"
-            f"Username: **{player_name or '(unknown)'}**\n"
-            f"SteamID: **{steam_id}**"
-            + (f"\n✅ Synced to PocketBase and all servers" if pb_unbanned else "")
-        )
+    # Fallback to local RCON if PocketBase failed or not configured or listener disabled
+    if not pb_unbanned:
+        success, response = await pz_unban_player(system_user, steam_id)
+        if success:
+            if not use_pocketbase:
+                if not Config.pocketbase_configured:
+                    fallback_reason = "PocketBase not configured"
+                else:
+                    fallback_reason = "Ban listener disabled"
+            else:
+                fallback_reason = "PocketBase unavailable"
+
+            msg = (
+                f"Player has been **unbanned** from the **{server.name}** server.\n"
+                f"Username: **{player_name or '(unknown)'}**\n"
+                f"SteamID: **{steam_id}**\n"
+                f"⚠️ Unbanned locally - {fallback_reason}"
+            )
+        else:
+            msg = f"Unban failed for SteamID **{steam_id}**: {response}"
     else:
-        msg = f"Unban failed for SteamID **{steam_id}**: {response}"
+        msg = (
+            f"Player has been **unbanned**.\n"
+            f"Username: **{player_name or '(unknown)'}**\n"
+            f"SteamID: **{steam_id}**\n"
+            f"✅ Synced to PocketBase - unban will be applied to all servers"
+        )
 
     await interaction.followup.send(msg)
 

@@ -45,26 +45,25 @@ class LevelRestore:
     def get_perk_logs(self, days_back: int = 3) -> list[str]:
         """Find all PerkLog files within the specified number of days, including archived folders."""
         cutoff_time = datetime.now().timestamp() - (days_back * 24 * 3600)
-        
+
         perk_files = []
-        
+
         root_pattern = f"{self.perk_log_path}/*PerkLog.txt"
         perk_files.extend(glob.glob(root_pattern))
-        
+
         folder_pattern = f"{self.perk_log_path}/logs_*/*PerkLog.txt"
         perk_files.extend(glob.glob(folder_pattern))
-        
-        valid_files = [
-            f for f in perk_files 
-            if os.path.getmtime(f) >= cutoff_time
-        ]
-        
+
+        valid_files = [f for f in perk_files if os.path.getmtime(f) >= cutoff_time]
+
         valid_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
-        
+
         logger.debug(f"Found {len(valid_files)} PerkLog files within {days_back} days")
         for f in valid_files:
-            logger.debug(f"  - {f} (mtime: {datetime.fromtimestamp(os.path.getmtime(f))})")
-        
+            logger.debug(
+                f"  - {f} (mtime: {datetime.fromtimestamp(os.path.getmtime(f))})"
+            )
+
         return valid_files
 
     def extract_timestamp(self, line: str) -> Optional[float]:
@@ -180,14 +179,14 @@ class LevelRestore:
         except Exception as e:
             logger.error(f"Error reading PerkLog file {file_path}: {e}")
             return None
-        
+
         player_lines = [
             line.strip() for line in lines if f"][{self.player_name}][" in line
         ]
-        
+
         if not player_lines:
             return None
-            
+
         return player_lines
 
     def find_deaths_in_file(self, player_lines: list[str]) -> list[tuple[int, int]]:
@@ -246,7 +245,7 @@ class LevelRestore:
         Returns pre-death and current skill levels from the death with longest survival time.
         """
         perk_log_files = self.get_perk_logs(days_back=3)
-        
+
         if not perk_log_files:
             logger.warning("No PerkLog files found within search range")
             return None, None
@@ -263,16 +262,18 @@ class LevelRestore:
             player_lines = self.extract_player_data_from_file(file_path)
             if not player_lines:
                 continue
-                
+
             deaths = self.find_deaths_in_file(player_lines)
             if not deaths:
                 continue
-                
+
             most_sig_death = max(deaths, key=lambda x: x[1])
             death_idx, death_hours = most_sig_death
-            
-            logger.debug(f"File {os.path.basename(file_path)}: found death at {death_hours} hours")
-            
+
+            logger.debug(
+                f"File {os.path.basename(file_path)}: found death at {death_hours} hours"
+            )
+
             if death_hours > best_death_hours:
                 best_death_hours = death_hours
                 best_death = most_sig_death
@@ -280,11 +281,18 @@ class LevelRestore:
                 best_player_lines = player_lines
                 best_death_line_index = death_idx
 
-        if best_death is None or best_player_lines is None or best_file_path is None or best_death_line_index is None:
+        if (
+            best_death is None
+            or best_player_lines is None
+            or best_file_path is None
+            or best_death_line_index is None
+        ):
             logger.warning("No death records found for player in any PerkLog file")
             return None, None
 
-        logger.info(f"Most significant death found: {best_death_hours} hours survived in {os.path.basename(best_file_path)}")
+        logger.info(
+            f"Most significant death found: {best_death_hours} hours survived in {os.path.basename(best_file_path)}"
+        )
 
         pre_death_skills, current_skills = self.find_most_significant_death_and_skills(
             best_player_lines, best_death_line_index
@@ -339,4 +347,5 @@ class LevelRestore:
                 )
                 return False
 
+        logger.info(f"Successfully executed {len(xp_commands)} addXP commands")
         return True

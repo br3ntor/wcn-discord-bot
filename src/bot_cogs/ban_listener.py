@@ -1,9 +1,12 @@
 import asyncio
 import logging
+from typing import cast
 
+import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
+from src.services.game_db import get_banned_player
 from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import server_isrunning
@@ -20,14 +23,14 @@ class BanListener(commands.Cog):
         if Config.pocketbase_configured:
             logger.info("PocketBase configured, starting ban listener...")
             await self.start_sse_listener()
-            await self.initial_sync.start()
+            self.initial_sync.start()
         else:
             logger.info("PocketBase not configured, skipping ban listener")
 
     async def cog_unload(self):
         if self._sse_started:
             await pb_client.unsubscribe()
-        await self.initial_sync.cancel()
+        self.initial_sync.cancel()
 
     async def start_sse_listener(self):
         await pb_client.subscribe(self.handle_ban_event)
@@ -37,6 +40,10 @@ class BanListener(commands.Cog):
     async def handle_ban_event(self, action: str, record: dict):
         steamid = record.get("steamid")
         is_active = record.get("is_active", True)
+        name = record.get("name", "Unknown")
+        reason = record.get("reason", "No reason provided")
+        server_origin = record.get("server_origin", "Unknown")
+        expire = record.get("expire")
 
         if not steamid:
             logger.warning(f"Ban event with no steamid: {record}")
@@ -45,6 +52,8 @@ class BanListener(commands.Cog):
         logger.info(
             f"Ban event: action={action}, steamid={steamid}, is_active={is_active}"
         )
+
+        mod_chan = self.bot.get_channel(Config.MOD_CHANNEL)
 
         for system_user in Config.SYSTEM_USERS.values():
             if not await server_isrunning(system_user):
@@ -55,6 +64,21 @@ class BanListener(commands.Cog):
                 success, msg = await pz_ban_player(system_user, steamid)
                 if success:
                     logger.info(f"Banned {steamid} on {system_user}")
+                    if isinstance(mod_chan, discord.TextChannel):
+                        server_name = Config.SERVER_NAMES.get(system_user, system_user)
+                        embed = discord.Embed(
+                            title=f"🚫 [{server_name}] Ban Issued",
+                            color=discord.Color.red(),
+                        )
+                        embed.add_field(name="Player", value=name, inline=True)
+                        embed.add_field(name="SteamID", value=steamid, inline=True)
+                        embed.add_field(name="Reason", value=reason, inline=False)
+                        embed.add_field(
+                            name="Server Origin", value=server_origin, inline=True
+                        )
+                        if expire:
+                            embed.add_field(name="Expires", value=expire, inline=True)
+                        await mod_chan.send(embed=embed)
                 else:
                     logger.warning(f"Failed to ban {steamid} on {system_user}: {msg}")
 
@@ -62,6 +86,18 @@ class BanListener(commands.Cog):
                 success, msg = await pz_unban_player(system_user, steamid)
                 if success:
                     logger.info(f"Unbanned {steamid} on {system_user}")
+                    if isinstance(mod_chan, discord.TextChannel):
+                        server_name = Config.SERVER_NAMES.get(system_user, system_user)
+                        embed = discord.Embed(
+                            title=f"✅ [{server_name}] Ban Removed",
+                            color=discord.Color.green(),
+                        )
+                        embed.add_field(name="Player", value=name, inline=True)
+                        embed.add_field(name="SteamID", value=steamid, inline=True)
+                        embed.add_field(
+                            name="Server Origin", value=server_origin, inline=True
+                        )
+                        await mod_chan.send(embed=embed)
                 else:
                     logger.warning(f"Failed to unban {steamid} on {system_user}: {msg}")
 
@@ -80,21 +116,44 @@ class BanListener(commands.Cog):
             logger.info("No active bans in PocketBase")
             return
 
+        unique_steamids = {
+            steamid for ban in bans if (steamid := ban.get("steamid")) is not None
+        }
+
         synced = 0
-        for ban in bans:
-            steamid = ban.get("steamid")
-            if not steamid:
-                continue
+        already_present = 0
+        db_lookup_failed = 0
+        offline_servers = set()
+        for steamid in unique_steamids:
 
             for system_user in Config.SYSTEM_USERS.values():
                 if not await server_isrunning(system_user):
+                    offline_servers.add(system_user)
+                    continue
+
+                existing_ban = await get_banned_player(system_user, steamid)
+                if isinstance(existing_ban, str):
+                    db_lookup_failed += 1
+                    logger.warning(
+                        f"Skipping initial ban sync for {steamid} on {system_user}: {existing_ban}"
+                    )
+                    continue
+
+                if existing_ban:
+                    already_present += 1
                     continue
 
                 success, _ = await pz_ban_player(system_user, steamid)
                 if success:
                     synced += 1
 
-        logger.info(f"Initial sync complete: {synced} bans applied")
+        logger.info(
+            "Initial sync complete: %s bans applied, %s already present, %s db lookups failed, %s offline servers",
+            synced,
+            already_present,
+            db_lookup_failed,
+            len(offline_servers),
+        )
 
     @tasks.loop(seconds=30)
     async def retry_sse(self):
@@ -102,4 +161,4 @@ class BanListener(commands.Cog):
             logger.info("Retrying SSE connection...")
             await self.start_sse_listener()
             if self._sse_started:
-                self.retry_sse.cancel()
+                cast(tasks.Loop, self.retry_sse).cancel()

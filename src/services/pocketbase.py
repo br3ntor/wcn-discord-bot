@@ -92,7 +92,9 @@ class PocketBaseClient:
     async def get_bans(self, is_active: bool = True) -> List[Dict[str, Any]]:
         session = await self._get_session()
         filter_expr = "is_active=true" if is_active else "is_active=false"
-        bans_url = f"{self.url}/api/collections/bans/records?filter={filter_expr}&perPage=100"
+        bans_url = (
+            f"{self.url}/api/collections/bans/records?filter={filter_expr}&perPage=100"
+        )
 
         try:
             async with session.get(bans_url, headers=self._auth_headers()) as resp:
@@ -121,6 +123,26 @@ class PocketBaseClient:
         except Exception as e:
             logger.error(f"Error fetching all bans: {e}")
             return []
+
+    async def get_ban_by_steamid(self, steamid: str) -> Optional[Dict[str, Any]]:
+        session = await self._get_session()
+        filter_expr = f'steamid="{steamid}"'
+        bans_url = (
+            f"{self.url}/api/collections/bans/records?filter={filter_expr}&perPage=1"
+        )
+
+        try:
+            async with session.get(bans_url, headers=self._auth_headers()) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    items = data.get("items", [])
+                    return items[0] if items else None
+                else:
+                    logger.error(f"Failed to get ban by steamid: {resp.status}")
+                    return None
+        except Exception as e:
+            logger.error(f"Error fetching ban by steamid: {e}")
+            return None
 
     async def create_ban(
         self,
@@ -200,9 +222,7 @@ class PocketBaseClient:
         except Exception:
             return False
 
-    async def subscribe(
-        self, callback: Callable[[str, Dict[str, Any]], Any]
-    ) -> None:
+    async def subscribe(self, callback: Callable[[str, Dict[str, Any]], Any]) -> None:
         if not self.token:
             if not await self.login():
                 logger.error("Cannot subscribe - login failed")
@@ -226,20 +246,26 @@ class PocketBaseClient:
         headers = {"Authorization": f"Bearer {self.token}"}
 
         async with sse_client.EventSource(
-            f"{self.url}/api/realtime",
-            headers=headers
+            f"{self.url}/api/realtime", headers=headers
         ) as event_source:
             async for event in event_source:
-                if event.type == "message":
+                print(f"[POCKETBASE]: {event}")
+                if event.type == "PB_CONNECT":
                     try:
                         data = json.loads(event.data)
+                        client_id = data.get("clientId")
+                        logger.info(f"PB_CONNECT, clientId: {client_id}")
+                        self._sse_client_id = client_id
+                        await self._subscribe_to_bans(client_id)
+                    except json.JSONDecodeError:
+                        pass
 
-                        if data.get("action") == "PB_CONNECT":
-                            client_id = data.get("clientId")
-                            logger.info(f"PB_CONNECT, clientId: {client_id}")
-                            await self._subscribe_to_bans(client_id)
+                elif event.type == "bans/*":
+                    try:
+                        data = json.loads(event.data)
+                        print(f"[POCKETBASE]: {data}")
 
-                        elif data.get("action") in ("create", "update", "delete"):
+                        if data.get("action") in ("create", "update", "delete"):
                             record = data.get("record", {})
                             action = data.get("action")
                             logger.info(f"Received {action} event: {record.get('id')}")
