@@ -231,7 +231,7 @@ class PocketBaseClient:
         name: str,
         reason: str,
         server_origin: str,
-        expire: Optional[str] = None,
+        expires: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         session = await self._get_session()
         create_url = f"{self.url}/api/collections/bans/records"
@@ -244,8 +244,8 @@ class PocketBaseClient:
             "is_active": True,
         }
 
-        if expire:
-            data["expire"] = expire
+        if expires:
+            data["expires"] = expires
 
         try:
             async with session.post(

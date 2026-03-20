@@ -25,7 +25,7 @@ class BanListView(discord.ui.View):
             {
                 "name": b.get("name", "Unknown"),
                 "steamid": b.get("steamid"),
-                "expire": b.get("expire") or "Permanent",
+                "expires": b.get("expires") or "Permanent",
                 "is_active": "Active" if b.get("is_active", False) else "Inactive",
             }
             for b in bans

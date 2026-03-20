@@ -43,7 +43,7 @@ class BanListenerCog(commands.Cog):
         name = record.get("name", "Unknown")
         reason = record.get("reason", "No reason provided")
         server_origin = record.get("server_origin", "Unknown")
-        expire = record.get("expire")
+        expires = record.get("expires")
 
         if not steamid:
             logger.warning(f"Ban event with no steamid: {record}")
@@ -76,8 +76,8 @@ class BanListenerCog(commands.Cog):
                         embed.add_field(
                             name="Server Origin", value=server_origin, inline=True
                         )
-                        if expire:
-                            embed.add_field(name="Expires", value=expire, inline=True)
+                        if expires:
+                            embed.add_field(name="Expires", value=expires, inline=True)
                         await mod_chan.send(embed=embed)
                 else:
                     logger.warning(f"Failed to ban {steamid} on {system_user}: {msg}")

@@ -273,7 +273,7 @@ class BanCommandsCog(commands.Cog):
                 status = "Active" if is_active else "Inactive"
                 reason = ban.get("reason", "No reason")
                 server_origin = ban.get("server_origin", "N/A")
-                expire = ban.get("expire")
+                expires = ban.get("expires")
                 ban_name = ban.get("name", "Unknown")
                 ban_steamid = ban.get("steamid", "Unknown")
 
@@ -282,7 +282,7 @@ class BanCommandsCog(commands.Cog):
                     f"**Reason:** {reason}\n"
                     f"**Server:** {server_origin}\n"
                     f"**Status:** {status}\n"
-                    f"**Expires:** {expire if expire else 'Permanent'}"
+                    f"**Expires:** {expires if expires else 'Permanent'}"
                 )
 
                 embed.add_field(
