@@ -14,7 +14,7 @@ from src.services.server import server_isrunning
 logger = logging.getLogger(__name__)
 
 
-class BanListener(commands.Cog):
+class BanListenerCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._sse_started = False
@@ -101,7 +101,6 @@ class BanListener(commands.Cog):
                 else:
                     logger.warning(f"Failed to unban {steamid} on {system_user}: {msg}")
 
-    # A loop that runs 1 time and sleeps 1 second before any action hmmm...
     @tasks.loop(count=1)
     async def initial_sync(self):
         await asyncio.sleep(1)

@@ -42,10 +42,16 @@
       "description": "Links Project Zomboid in-game chat to Discord channels",
       "requires_database": false
     },
-    "ban_listener": {
+    "ban.listener": {
       "enabled": false,
-      "class_name": "BanListener",
+      "class_name": "BanListenerCog",
       "description": "Listens to PocketBase for ban changes and syncs to servers",
+      "requires_database": false
+    },
+    "ban.commands": {
+      "enabled": false,
+      "class_name": "BanCommandsCog",
+      "description": "Ban management commands for Project Zomboid servers",
       "requires_database": false
     }
   }

@@ -49,6 +49,8 @@ async def toggle(
     await interaction.response.defer()
 
     # Check for existence of player in game servers database
+    # TODO: Maybe well remove this check so toggleing admin will create user in B41
+    # but I dont know if that will work in B42, wil ahev to try later
     system_user = SYSTEM_USERS[server.name]
     player_row = await get_player(system_user, player)
     if not player_row:
@@ -56,6 +58,7 @@ async def toggle(
             f"username: **{player}** not found in **{server.name}** database"
         )
         return
+
     # NOTE: If player_row is a str I think it's an error msg, maybe theres a clearer way to do this
     elif isinstance(player_row, str):
         await interaction.followup.send(player_row)

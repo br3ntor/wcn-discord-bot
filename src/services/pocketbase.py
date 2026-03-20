@@ -124,6 +124,68 @@ class PocketBaseClient:
             logger.error(f"Error fetching all bans: {e}")
             return []
 
+    async def get_bans_paginated(
+        self, page: int = 1, per_page: int = 10, is_active: Optional[bool] = None
+    ) -> Dict[str, Any]:
+        """Fetch bans with pagination from PocketBase.
+        
+        Args:
+            page: Page number (1-indexed)
+            per_page: Number of items per page
+            is_active: Filter by active status (None for all)
+            
+        Returns:
+            Dict with keys: page, perPage, totalPages, totalItems, items
+        """
+        session = await self._get_session()
+        
+        filter_parts = []
+        if is_active is not None:
+            filter_parts.append(f"is_active={'true' if is_active else 'false'}")
+        
+        filter_expr = "&&".join(filter_parts) if filter_parts else ""
+        
+        params = [
+            f"page={page}",
+            f"perPage={per_page}",
+            "sort=-updated",
+            "skipTotal=false",
+        ]
+        if filter_expr:
+            params.append(f"filter={filter_expr}")
+        
+        bans_url = f"{self.url}/api/collections/bans/records?{'&'.join(params)}"
+        
+        try:
+            async with session.get(bans_url, headers=self._auth_headers()) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return {
+                        "page": data.get("page", 1),
+                        "perPage": data.get("perPage", per_page),
+                        "totalPages": data.get("totalPages", 1),
+                        "totalItems": data.get("totalItems", 0),
+                        "items": data.get("items", []),
+                    }
+                else:
+                    logger.error(f"Failed to get paginated bans: {resp.status}")
+                    return {
+                        "page": 1,
+                        "perPage": per_page,
+                        "totalPages": 1,
+                        "totalItems": 0,
+                        "items": [],
+                    }
+        except Exception as e:
+            logger.error(f"Error fetching paginated bans: {e}")
+            return {
+                "page": 1,
+                "perPage": per_page,
+                "totalPages": 1,
+                "totalItems": 0,
+                "items": [],
+            }
+
     async def get_ban_by_steamid(self, steamid: str) -> Optional[Dict[str, Any]]:
         session = await self._get_session()
         filter_expr = f'steamid="{steamid}"'
@@ -143,6 +205,25 @@ class PocketBaseClient:
         except Exception as e:
             logger.error(f"Error fetching ban by steamid: {e}")
             return None
+
+    async def get_bans_by_name(self, name: str) -> List[Dict[str, Any]]:
+        session = await self._get_session()
+        filter_expr = f'name="{name}"'
+        bans_url = (
+            f"{self.url}/api/collections/bans/records?filter={filter_expr}&perPage=100"
+        )
+
+        try:
+            async with session.get(bans_url, headers=self._auth_headers()) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data.get("items", [])
+                else:
+                    logger.error(f"Failed to get bans by name: {resp.status}")
+                    return []
+        except Exception as e:
+            logger.error(f"Error fetching bans by name: {e}")
+            return []
 
     async def create_ban(
         self,

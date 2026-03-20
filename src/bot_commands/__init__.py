@@ -1,7 +1,6 @@
 from discord import app_commands
 
 from .admin import admin_group
-from .ban import ban_group
 from .cat_fact import cat_fact
 from .get_playerlist import get_playerlist
 from .heal_player import heal_player
@@ -33,7 +32,6 @@ update_group.add_command(update_sandbox_settings)
 
 __all__ = [
     "admin_group",
-    "ban_group",
     "cat_fact",
     "get_playerlist",
     "heal_player",
