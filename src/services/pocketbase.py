@@ -128,23 +128,23 @@ class PocketBaseClient:
         self, page: int = 1, per_page: int = 10, is_active: Optional[bool] = None
     ) -> Dict[str, Any]:
         """Fetch bans with pagination from PocketBase.
-        
+
         Args:
             page: Page number (1-indexed)
             per_page: Number of items per page
             is_active: Filter by active status (None for all)
-            
+
         Returns:
             Dict with keys: page, perPage, totalPages, totalItems, items
         """
         session = await self._get_session()
-        
+
         filter_parts = []
         if is_active is not None:
             filter_parts.append(f"is_active={'true' if is_active else 'false'}")
-        
+
         filter_expr = "&&".join(filter_parts) if filter_parts else ""
-        
+
         params = [
             f"page={page}",
             f"perPage={per_page}",
@@ -153,9 +153,9 @@ class PocketBaseClient:
         ]
         if filter_expr:
             params.append(f"filter={filter_expr}")
-        
+
         bans_url = f"{self.url}/api/collections/bans/records?{'&'.join(params)}"
-        
+
         try:
             async with session.get(bans_url, headers=self._auth_headers()) as resp:
                 if resp.status == 200:
@@ -330,7 +330,7 @@ class PocketBaseClient:
             f"{self.url}/api/realtime", headers=headers
         ) as event_source:
             async for event in event_source:
-                print(f"[POCKETBASE]: {event}")
+                # print(f"[POCKETBASE]: {event}")
                 if event.type == "PB_CONNECT":
                     try:
                         data = json.loads(event.data)
@@ -344,7 +344,7 @@ class PocketBaseClient:
                 elif event.type == "bans/*":
                     try:
                         data = json.loads(event.data)
-                        print(f"[POCKETBASE]: {data}")
+                        # print(f"[POCKETBASE]: {data}")
 
                         if data.get("action") in ("create", "update", "delete"):
                             record = data.get("record", {})

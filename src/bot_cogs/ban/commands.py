@@ -2,6 +2,7 @@
 
 import io
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import discord
@@ -13,7 +14,7 @@ from src.config import Config
 from src.services.game_db import get_all_banned_players, get_player_by_steamid
 from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
-from src.services.server import get_game_version, server_isrunning
+from src.services.server import server_isrunning
 
 from .utils import lookup_player, resolve_steam_id
 from .views import BanListView
@@ -52,6 +53,7 @@ class BanCommandsCog(commands.Cog):
         server="Which server?",
         player="Enter player's name or SteamID.",
         reason="Reason for the ban (optional).",
+        days="Number of days for the ban (optional, permanent if not specified).",
     )
     @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
     async def issue(
@@ -60,6 +62,7 @@ class BanCommandsCog(commands.Cog):
         server: app_commands.Choice[int],
         player: str,
         reason: Optional[str] = None,
+        days: Optional[int] = None,
     ):
         """Ban a player by name or SteamID."""
         player_input = player.strip()
@@ -77,6 +80,11 @@ class BanCommandsCog(commands.Cog):
         if not await server_isrunning(system_user):
             await interaction.followup.send(f"**{server.name}** is **NOT** running!")
             return
+
+        # Calculate expiration if days provided
+        expires = None
+        if days is not None and days > 0:
+            expires = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
 
         pb_result = None
         ban_status = "banned"
@@ -96,6 +104,7 @@ class BanCommandsCog(commands.Cog):
                             "name": player_name or "Unknown",
                             "reason": ban_reason,
                             "server_origin": server.name,
+                            "expires": expires,
                         },
                     )
                     if pb_result:
@@ -106,6 +115,7 @@ class BanCommandsCog(commands.Cog):
                     name=player_name or "Unknown",
                     reason=ban_reason,
                     server_origin=server.name,
+                    expires=expires,
                 )
 
         if not pb_result:
@@ -120,20 +130,30 @@ class BanCommandsCog(commands.Cog):
                 else:
                     fallback_reason = "PocketBase unavailable"
 
+                expires_info = (
+                    f"⏰ Expires: {expires if expires else 'Permanent'}\n"
+                    if expires
+                    else ""
+                )
                 msg = (
                     f"Player has been **banned** from the **{server.name}** server.\n"
                     f"Username: **{player_name or '(unknown)'}**\n"
                     f"SteamID: **{steam_id}**\n"
-                    f"⚠️ Banned locally - {fallback_reason}"
+                    f"{expires_info}⚠️ Banned locally - {fallback_reason}"
                 )
             else:
                 msg = f"Ban failed for SteamID **{steam_id}**: {response}"
         else:
+            expires_info = (
+                f"⏰ Expires: {expires if expires else 'Permanent'}\n"
+                if expires
+                else ""
+            )
             msg = (
                 f"Player has been **{ban_status}**.\n"
                 f"Username: **{player_name or '(unknown)'}**\n"
                 f"SteamID: **{steam_id}**\n"
-                f"✅ Synced to PocketBase - ban will be applied to all servers"
+                f"{expires_info}✅ Synced to PocketBase - ban will be applied to all servers"
             )
 
         await interaction.followup.send(msg)
@@ -263,43 +283,78 @@ class BanCommandsCog(commands.Cog):
 
         if pb_bans:
             embed = discord.Embed(
-                title="Ban Check Results",
-                description=f"Found **{len(pb_bans)}** ban(s) for the search query.",
+                title="🛡️ Ban Record Found",
                 color=discord.Color.red(),
             )
 
             for ban in pb_bans:
                 is_active = ban.get("is_active", False)
-                status = "Active" if is_active else "Inactive"
+                status_emoji = "🔴" if is_active else "⚪"
+                status = (
+                    f"{status_emoji} Active"
+                    if is_active
+                    else f"{status_emoji} Inactive"
+                )
                 reason = ban.get("reason", "No reason")
                 server_origin = ban.get("server_origin", "N/A")
                 expires = ban.get("expires")
                 ban_name = ban.get("name", "Unknown")
                 ban_steamid = ban.get("steamid", "Unknown")
 
+                if expires:
+                    try:
+                        expires_dt = datetime.fromisoformat(
+                            expires.replace("Z", "+00:00")
+                        )
+                        now = datetime.now(timezone.utc)
+                        time_diff = expires_dt - now
+
+                        expires_formatted = expires_dt.strftime(
+                            "%Y-%m-%d at %I:%M %p UTC"
+                        )
+
+                        if time_diff.total_seconds() > 0:
+                            total_seconds = int(time_diff.total_seconds())
+                            days = total_seconds // 86400
+                            hours = (total_seconds % 86400) // 3600
+                            if days > 0:
+                                time_remaining = f"{days} day{'s' if days != 1 else ''}, {hours} hour{'s' if hours != 1 else ''}"
+                            else:
+                                time_remaining = (
+                                    f"{hours} hour{'s' if hours != 1 else ''}"
+                                )
+                            expires_display = f"{time_remaining}\n({expires_formatted})"
+                        else:
+                            expires_display = f"Expired\n({expires_formatted})"
+                    except (ValueError, AttributeError):
+                        expires_display = expires
+                else:
+                    expires_display = "Permanent"
+
                 field_value = (
-                    f"**SteamID:** `{ban_steamid}`\n"
-                    f"**Reason:** {reason}\n"
-                    f"**Server:** {server_origin}\n"
-                    f"**Status:** {status}\n"
-                    f"**Expires:** {expires if expires else 'Permanent'}"
+                    f"Target: {ban_name}\n"
+                    f"SteamID: {ban_steamid}\n"
+                    f"\n"
+                    f"Current Status: {status}\n"
+                    f"Reason: {reason}\n"
+                    f"Server: {server_origin}\n"
+                    f"\n"
+                    f"Expires In: {expires_display}"
                 )
 
                 embed.add_field(
-                    name=ban_name,
+                    name="",
                     value=field_value,
                     inline=False,
                 )
 
-            embed.set_footer(text=f"Searched: {player_input}")
             await interaction.followup.send(embed=embed)
         else:
             embed = discord.Embed(
-                title="Ban Check Results",
+                title="🛡️ No Ban Record",
                 description=f"No ban found for **{player_input}**.",
                 color=discord.Color.green(),
             )
-            embed.set_footer(text=f"Searched: {player_input}")
             await interaction.followup.send(embed=embed)
 
     @ban_group.command()
@@ -345,7 +400,9 @@ class BanCommandsCog(commands.Cog):
         banned_list = [[p[0], p[1]] for p in banned_players]
         msg = f"{category} Bans:\n{tabulate(banned_list, headers=['Name', 'SteamID'])}"
 
-        note = "If the players name is None then they were banned before ever joining.\n\n"
+        note = (
+            "If the players name is None then they were banned before ever joining.\n\n"
+        )
 
         if not msg:
             await interaction.followup.send("No banned players on this server.")

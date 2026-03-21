@@ -5,9 +5,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-# My command modules folder
 import src.bot_commands as bot_commands
 from src.config import Config
+from src.services.bot_db import init_db
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def import_cog(cog_name: str, class_name: str):
 MY_GUILD = discord.Object(id=int(Config.MY_GUILD))
 
 
-class MyBot(commands.Bot):
+class WCNBot(commands.Bot):
 
     def __init__(self, *, intents: discord.Intents):
         super().__init__(command_prefix="-", intents=intents)
@@ -43,10 +43,6 @@ class MyBot(commands.Bot):
     # commands instead. By doing so, we don't have to wait up to an hour until
     # they are shown to the end-user.
     async def setup_hook(self):
-        # Load application commands (existing logic)
-        # and my old way to toggle commands on and off was just to comment
-        # them out in __all__ of the __init__ thing, the way below through Congif
-        # is preferred I think. TODO: Switch this to that!
         for command_name in bot_commands.__all__:
             attr = getattr(bot_commands, command_name)
             if isinstance(attr, app_commands.Command) or isinstance(
@@ -54,36 +50,15 @@ class MyBot(commands.Bot):
             ):
                 self.tree.add_command(attr)
 
-        # Check if any enabled cogs require database
-        database_needed = any(
-            cog_config.get("requires_database", False)
-            for cog_config in Config.COGS_CONFIG.values()
-            if cog_config.get("enabled", False)
-        )
+        try:
+            await init_db()
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.warning(f"Database initialization failed: {e}")
 
-        database_available = False
-        if database_needed:
-            logger.info("Database-dependent cogs detected, initializing database...")
-            try:
-                from src.services.bot_db import init_db
-
-                await init_db()
-                database_available = True
-                logger.info("Database initialized successfully")
-            except Exception as e:
-                logger.error(f"Database initialization failed: {e}")
-                logger.warning("Database-dependent cogs will be disabled")
-
-        # Load cogs based on configuration
         enabled_cogs = []
         for cog_name, cog_config in Config.COGS_CONFIG.items():
             if cog_config.get("enabled", False):
-                # Check database dependency with our new tracking
-                if cog_config.get("requires_database", False):
-                    if not database_available:
-                        logger.warning(f"Skipping {cog_name}: Database required but unavailable")
-                        continue
-
                 cog_class = import_cog(cog_name, cog_config["class_name"])
                 if cog_class:
                     try:
@@ -92,7 +67,6 @@ class MyBot(commands.Bot):
                     except Exception as e:
                         logger.error(f"Failed to load cog {cog_name}: {e}")
 
-        # Log enabled cogs
         if enabled_cogs:
             logger.info("Enabled Cogs:")
             for cog in enabled_cogs:
@@ -100,35 +74,18 @@ class MyBot(commands.Bot):
         else:
             logger.info("No cogs enabled in configuration")
 
-        # Report database status
-        if database_needed:
-            status = "Available" if database_available else "Unavailable"
-            logger.info(f"Database Status: {status}")
-            if database_available:
-                db_dependent_enabled = sum(
-                    1
-                    for config in Config.COGS_CONFIG.values()
-                    if config.get("enabled", False)
-                    and config.get("requires_database", False)
-                )
-                logger.info(f"Database-dependent cogs loaded: {db_dependent_enabled}")
-
-        # Sync commands (existing logic)
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
 
 
 intents = discord.Intents.all()
-bot = MyBot(intents=intents)
+bot = WCNBot(intents=intents)
 
 
-# NOTE: I wonder how to keep these in their own file?
 @bot.event
 async def on_ready():
-    # Another way to make pyright happy, still getting use to this
-    # if client.user is not None:
-    # I like this assert way, i know theres some others too.
-    assert bot.user is not None
+    if bot.user is None:
+        raise RuntimeError("bot.user is None in on_ready (this should never happen)")
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
 
 
