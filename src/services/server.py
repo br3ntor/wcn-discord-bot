@@ -131,10 +131,10 @@ async def get_servers_workshop_ids(
                 f"An unexpected error occurred while processing '{path}' for server '{server_name}': {e}. Skipping."
             )
 
-    logger.info(
-        "All collected workshop items by server (username): %s",
-        servers_workshopids_lists,
-    )
+    # logger.info(
+    #     "All collected workshop items by server (username): %s",
+    #     servers_workshopids_lists,
+    # )
     return servers_workshopids_lists
 
 
