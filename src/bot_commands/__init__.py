@@ -4,6 +4,7 @@ from .admin import admin_group
 from .cat_fact import cat_fact
 from .get_playerlist import get_playerlist
 from .heal_player import heal_player
+from .kick_player import kick_player
 from .logs import logs_group
 from .reset_password import reset_password
 from .restart_server import restart_server
@@ -36,6 +37,7 @@ __all__ = [
     "cat_fact",
     "get_playerlist",
     "heal_player",
+    "kick_player",
     "logs_group",
     "reset_password",
     "restart_group",

@@ -100,6 +100,10 @@ def _is_teleport_success(response: str, player1: str, player2: str) -> bool:
     return f"teleported {player1} to {player2}" in response
 
 
+def _is_kick_success(response: str, player: str) -> bool:
+    return f"User {player} kicked" in response
+
+
 def _is_add_xp_success(response: str, player: str, skill: str) -> bool:
     return response.startswith("Added ") and f" {skill} xp's to {player}" in response
 
@@ -285,6 +289,29 @@ async def pz_teleport_player(
 
     if not _is_teleport_success(response, player1, player2):
         logger.error("Unexpected teleport response: %s", response)
+        return False, f"Unexpected server response: {response}"
+
+    return True, response
+
+
+async def pz_kick_player(
+    server: str, player: str, reason: str | None = None
+) -> tuple[bool, str]:
+    """Kicks a player via RCON."""
+    if reason:
+        command = f'kick "{player}" -r "{reason}"'
+    else:
+        command = f'kick "{player}"'
+
+    response = await pz_send_command(server, command)
+    if response is None:
+        return False, "Could not reach the server via RCON."
+
+    if _is_player_lookup_failure(response):
+        return False, response
+
+    if not _is_kick_success(response, player):
+        logger.error("Unexpected kick response: %s", response)
         return False, f"Unexpected server response: {response}"
 
     return True, response
