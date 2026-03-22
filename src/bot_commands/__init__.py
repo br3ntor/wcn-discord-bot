@@ -13,22 +13,23 @@ from .send_message import send_message
 from .server_settings import server_settings
 from .speak import speak
 from .teleport import teleport
-from .update_mods_lists import update_mods_lists
-from .update_sandbox_settings import update_sandbox_settings
+# from .update_mods_lists import update_mods_lists
+# from .update_sandbox_settings import update_sandbox_settings
 
 restart_group = app_commands.Group(
     name="restart", description="Commands to control server restarts."
 )
 
-update_group = app_commands.Group(
-    name="update", description="Commands to update github gists with game info."
-)
-
 restart_group.add_command(restart_server)
 restart_group.add_command(restart_server_auto)
 restart_group.add_command(cancel_restart)
-update_group.add_command(update_mods_lists)
-update_group.add_command(update_sandbox_settings)
+
+# update_group = app_commands.Group(
+#     name="update", description="Commands to update github gists with game info."
+# )
+
+# update_group.add_command(update_mods_lists)
+# update_group.add_command(update_sandbox_settings)
 
 __all__ = [
     "admin_group",
@@ -38,10 +39,10 @@ __all__ = [
     "logs_group",
     "reset_password",
     "restart_group",
+    # "update_group",
     "send_message",
     "speak",
     "teleport",
-    "update_group",
     "server_settings",
     "restore_levels",
 ]
