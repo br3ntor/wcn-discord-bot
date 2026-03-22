@@ -16,7 +16,6 @@ DATA_DIR.mkdir(exist_ok=True)
 # This program is setup for one or more project zomboid servers running
 # on the same machine with a single IP. Each game instance is run under
 # its own user on a seperate port and managed as a systemd service.
-# TODO: Switch to using RCON for issuing server commands maybe
 class RconConfig(TypedDict):
     host: str
     port: int
@@ -70,7 +69,6 @@ def load_cogs_config(filepath: str) -> Dict[str, CogConfig]:
         return {}
 
 
-# TODO: Setup config so init only populates available commands based on populated env vars
 class Config:
     # Required Env Vars - Program shouldn't run without these
     ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
@@ -79,8 +77,7 @@ class Config:
     MOD_CHANNEL = int(os.getenv("MOD_CHANNEL", 0))
     DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 
-    # Optional Env Vars - TODO: Commands that depend on these shouldn't be made available
-    # Maybe a later task could be a status function the user could see to see bot setup
+    # Optional Env Vars -
     GITHUB_PAT = os.getenv("GITHUB_PAT")
     SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
     WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
@@ -96,7 +93,9 @@ class Config:
 
     @property
     def pocketbase_configured(self) -> bool:
-        return all([self.POCKETBASE_URL, self.POCKETBASE_EMAIL, self.POCKETBASE_PASSWORD])
+        return all(
+            [self.POCKETBASE_URL, self.POCKETBASE_EMAIL, self.POCKETBASE_PASSWORD]
+        )
 
     SERVER_DATA: List[ServerConfig] = load_server_data(str(CONFIG_DIR / "servers.json"))
 
