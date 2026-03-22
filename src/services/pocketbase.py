@@ -89,6 +89,10 @@ class PocketBaseClient:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
 
+    def _escape_filter_value(self, value: str) -> str:
+        """Escape special characters for PocketBase filter expressions."""
+        return value.replace("\\", "\\\\").replace('"', '\\"')
+
     async def get_bans(self, is_active: bool = True) -> List[Dict[str, Any]]:
         session = await self._get_session()
         filter_expr = "is_active=true" if is_active else "is_active=false"
@@ -188,7 +192,8 @@ class PocketBaseClient:
 
     async def get_ban_by_steamid(self, steamid: str) -> Optional[Dict[str, Any]]:
         session = await self._get_session()
-        filter_expr = f'steamid="{steamid}"'
+        safe_steamid = self._escape_filter_value(steamid)
+        filter_expr = f'steamid="{safe_steamid}"'
         bans_url = (
             f"{self.url}/api/collections/bans/records?filter={filter_expr}&perPage=1"
         )
@@ -208,7 +213,8 @@ class PocketBaseClient:
 
     async def get_bans_by_name(self, name: str) -> List[Dict[str, Any]]:
         session = await self._get_session()
-        filter_expr = f'name="{name}"'
+        safe_name = self._escape_filter_value(name)
+        filter_expr = f'name="{safe_name}"'
         bans_url = (
             f"{self.url}/api/collections/bans/records?filter={filter_expr}&perPage=100"
         )

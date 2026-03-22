@@ -16,7 +16,7 @@ from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import server_isrunning
 
-from .utils import lookup_player, resolve_steam_id
+from .utils import has_invalid_quotes, lookup_player, resolve_steam_id
 from .views import BanListView
 
 logger = logging.getLogger(__name__)
@@ -234,6 +234,11 @@ class BanCommandsCog(commands.Cog):
     async def check(self, interaction: discord.Interaction, player: str):
         """Check if a player is banned."""
         player_input = player.strip()
+        
+        if has_invalid_quotes(player_input):
+            await interaction.response.send_message("Quotes are not allowed.")
+            return
+        
         await interaction.response.defer()
 
         use_pocketbase = self._should_use_pocketbase()
