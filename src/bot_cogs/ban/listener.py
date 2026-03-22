@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timezone
 from typing import cast
 
 import discord
@@ -24,6 +25,7 @@ class BanListenerCog(commands.Cog):
             logger.info("PocketBase configured, starting ban listener...")
             await self.start_sse_listener()
             self.initial_sync.start()
+            self.check_expired_bans.start()
         else:
             logger.info("PocketBase not configured, skipping ban listener")
 
@@ -31,6 +33,7 @@ class BanListenerCog(commands.Cog):
         if self._sse_started:
             await pb_client.unsubscribe()
         self.initial_sync.cancel()
+        self.check_expired_bans.cancel()
 
     async def start_sse_listener(self):
         await pb_client.subscribe(self.handle_ban_event)
@@ -153,6 +156,46 @@ class BanListenerCog(commands.Cog):
             db_lookup_failed,
             len(offline_servers),
         )
+
+    @tasks.loop(hours=1)
+    async def check_expired_bans(self):
+        """Check for expired temporary bans and deactivate them."""
+        logger.info("Checking for expired bans...")
+
+        bans = await pb_client.get_bans(is_active=True)
+        if not bans:
+            logger.info("No active bans to check")
+            return
+
+        now = datetime.now(timezone.utc)
+        expired_count = 0
+
+        for ban in bans:
+            expires = ban.get("expires")
+            if not expires:
+                continue
+
+            try:
+                expires_dt = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+                if expires_dt <= now:
+                    ban_id = ban.get("id")
+                    steamid = ban.get("steamid", "Unknown")
+                    if ban_id:
+                        success = await pb_client.deactivate_ban(ban_id)
+                        if success:
+                            expired_count += 1
+                            logger.info(f"Deactivated expired ban for {steamid}")
+                        else:
+                            logger.warning(f"Failed to deactivate expired ban for {steamid}")
+            except (ValueError, AttributeError) as e:
+                logger.warning(f"Error parsing expires for ban {ban.get('id')}: {e}")
+
+        if expired_count > 0:
+            logger.info(f"Deactivated {expired_count} expired ban(s)")
+
+    @check_expired_bans.before_loop
+    async def before_check_expired_bans(self):
+        await self.bot.wait_until_ready()
 
     @tasks.loop(seconds=30)
     async def retry_sse(self):
