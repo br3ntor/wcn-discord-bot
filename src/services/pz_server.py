@@ -53,6 +53,20 @@ async def pz_send_command(system_user: str, server_command: str) -> str | None:
         return None
 
 
+async def pz_players(server: str) -> list[str] | None:
+    """Returns list of online players via RCON 'players' command."""
+    response = await pz_send_command(server, "players")
+    if response is None:
+        return None
+
+    players = []
+    for line in response.splitlines():
+        line = line.strip()
+        if line.startswith("-"):
+            players.append(line[1:].strip())
+    return players
+
+
 async def pz_send_message(server: str, message: str) -> bool:
     """Sends a correctly formatted message to the game-server."""
     valid_msg = re.sub(r"[\"']", "", message)

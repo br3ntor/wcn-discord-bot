@@ -1,6 +1,20 @@
+import logging
 import secrets
 import string
 from datetime import datetime
+
+import discord
+from discord import app_commands
+
+from src.config import Config
+from src.services.player_cache import PlayerCache
+
+logger = logging.getLogger(__name__)
+
+SYSTEM_USERS = Config.SYSTEM_USERS
+SERVER_NAMES = Config.SERVER_NAMES
+
+_player_cache = PlayerCache()
 
 
 def get_last_14th() -> datetime:
@@ -66,3 +80,39 @@ def generate_pz_password(length: int = 12) -> str:
     alphabet = string.ascii_letters + string.digits
     password = "".join(secrets.choice(alphabet) for _ in range(length))
     return password
+
+
+def make_player_autocomplete():
+    """Creates an autocomplete callback for player name parameters."""
+
+    async def autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        server_choice = getattr(interaction.namespace, "server", None)
+        if not server_choice:
+            return []
+
+        # server_choice is the int value (1, 2, 3...) from app_commands.Choice
+        # Map it back to server_name then system_user
+        server_names = list(SERVER_NAMES.values())
+        if server_choice < 1 or server_choice > len(server_names):
+            return []
+
+        server_name = server_names[server_choice - 1]
+        system_user = SYSTEM_USERS.get(server_name)
+        if not system_user:
+            return []
+
+        players = await _player_cache.get_players(system_user)
+        if not players:
+            return []
+
+        players.sort(key=str.lower)
+
+        if not current:
+            return [app_commands.Choice(name=p, value=p) for p in players[:25]]
+
+        matching = [p for p in players if current.lower() in p.lower()]
+        return [app_commands.Choice(name=p, value=p) for p in matching[:25]]
+
+    return autocomplete

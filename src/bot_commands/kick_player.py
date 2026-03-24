@@ -6,6 +6,7 @@ from discord import app_commands
 from src.config import Config
 from src.services.pz_server import pz_kick_player
 from src.services.server import server_isrunning
+from src.utils.helpers import make_player_autocomplete
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
@@ -24,6 +25,7 @@ SERVER_NAMES = Config.SERVER_NAMES
     player="The name of the player to kick.",
     reason="Reason for the kick (optional).",
 )
+@app_commands.autocomplete(player=make_player_autocomplete())
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def kick_player(
     interaction: discord.Interaction,

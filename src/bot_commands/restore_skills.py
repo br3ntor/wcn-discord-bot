@@ -3,6 +3,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.features.skill_restore import LevelRestore
+from src.utils.helpers import make_player_autocomplete
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
@@ -19,6 +20,7 @@ SERVER_NAMES = Config.SERVER_NAMES
 @app_commands.describe(
     server="Which server?", player="Player name to restore levels for"
 )
+@app_commands.autocomplete(player=make_player_autocomplete())
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def restore_levels(
     interaction: discord.Interaction, server: app_commands.Choice[int], player: str

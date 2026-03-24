@@ -3,6 +3,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.services.pz_server import pz_teleport_player
+from src.utils.helpers import make_player_autocomplete
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 
@@ -22,6 +23,7 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
     player1="Who to teleport?",
     player2="Teleport to who?"
 )
+@app_commands.autocomplete(player1=make_player_autocomplete(), player2=make_player_autocomplete())
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def teleport(
     interaction: discord.Interaction,
