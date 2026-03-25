@@ -45,8 +45,7 @@ class ChatLinkCog(commands.Cog):
     async def cog_unload(self):
         logger.info("ChatLinkCog unloading, stopping log monitors...")
         for monitor in self.monitor_tasks:
-            if monitor.current_task:
-                monitor.current_task.cancel()
+            await monitor.stop()
 
     async def send_to_discord(self, message: str, channel_id: int):
         channel = self.bot.get_channel(channel_id)
@@ -93,14 +92,12 @@ class ChatLinkCog(commands.Cog):
 
             callback = await make_callback(channel_id)
 
-            monitor = RealTimeLogProcessor(
-                log_directory, log_pattern, callback
-            )
+            monitor = RealTimeLogProcessor(log_directory, log_pattern, callback)
 
             self.monitor_tasks.append(monitor)
             enabled_servers.append(server_name)
 
-            await monitor.start()
+            monitor.start()
 
         if enabled_servers:
             logger.info(f"ChatLinkCog monitoring servers: {enabled_servers}")
