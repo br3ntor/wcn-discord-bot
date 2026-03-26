@@ -139,6 +139,7 @@ class BanCommandsCog(commands.Cog):
                     f"Player has been **banned** from the **{server.name}** server.\n"
                     f"Username: **{player_name or '(unknown)'}**\n"
                     f"SteamID: **{steam_id}**\n"
+                    f"[Steam Profile](http://steamcommunity.com/profiles/{steam_id})\n"
                     f"{expires_info}⚠️ Banned locally - {fallback_reason}"
                 )
             else:
@@ -153,6 +154,7 @@ class BanCommandsCog(commands.Cog):
                 f"Player has been **{ban_status}**.\n"
                 f"Username: **{player_name or '(unknown)'}**\n"
                 f"SteamID: **{steam_id}**\n"
+                f"[Steam Profile](http://steamcommunity.com/profiles/{steam_id})\n"
                 f"{expires_info}✅ Synced to PocketBase - ban will be applied to all servers"
             )
 
@@ -212,6 +214,7 @@ class BanCommandsCog(commands.Cog):
                     f"Player has been **unbanned** from the **{server.name}** server.\n"
                     f"Username: **{player_name or '(unknown)'}**\n"
                     f"SteamID: **{steam_id}**\n"
+                    f"[Steam Profile](http://steamcommunity.com/profiles/{steam_id})\n"
                     f"⚠️ Unbanned locally - {fallback_reason}"
                 )
             else:
@@ -221,6 +224,7 @@ class BanCommandsCog(commands.Cog):
                 f"Player has been **unbanned**.\n"
                 f"Username: **{player_name or '(unknown)'}**\n"
                 f"SteamID: **{steam_id}**\n"
+                f"[Steam Profile](http://steamcommunity.com/profiles/{steam_id})\n"
                 f"✅ Synced to PocketBase - unban will be applied to all servers"
             )
 
@@ -339,6 +343,7 @@ class BanCommandsCog(commands.Cog):
                 field_value = (
                     f"Target: {ban_name}\n"
                     f"SteamID: {ban_steamid}\n"
+                    f"[Steam Profile](http://steamcommunity.com/profiles/{ban_steamid})\n"
                     f"\n"
                     f"Current Status: {status}\n"
                     f"Reason: {reason}\n"
