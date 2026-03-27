@@ -408,7 +408,7 @@ class BanCommandsCog(commands.Cog):
         category = next(k for k, v in SYSTEM_USERS.items() if v == system_user)
 
         banned_list = [[p[0], p[1]] for p in banned_players]
-        msg = f"{category} Bans:\n{tabulate(banned_list, headers=['Name', 'SteamID'])}"
+        msg = f"{category} Bans ({len(banned_players)}):\n{tabulate(banned_list, headers=['Name', 'SteamID'])}"
 
         note = (
             "If the players name is None then they were banned before ever joining.\n\n"
@@ -444,31 +444,50 @@ class BanCommandsCog(commands.Cog):
             steamid for ban in bans if (steamid := ban.get("steamid")) is not None
         }
 
-        synced_count = 0
-        already_synced = 0
+        online_servers = []
         offline_servers = []
+        for server_name, system_user in SYSTEM_USERS.items():
+            if not await server_isrunning(system_user):
+                offline_servers.append(server_name)
+            else:
+                online_servers.append(system_user)
+
+        synced_unique = set()
+        already_unique = set()
 
         for steamid in unique_steamids:
-            for system_user in SYSTEM_USERS.values():
-                if not await server_isrunning(system_user):
-                    if system_user not in offline_servers:
-                        offline_servers.append(system_user)
-                    continue
+            synced_somewhere = False
+            already_everywhere = True
 
+            for system_user in online_servers:
                 existing_ban = await gamedb_get_ban_by_steamid(system_user, steamid)
                 if existing_ban:
-                    already_synced += 1
                     continue
 
+                already_everywhere = False
                 success, _ = await pz_ban_player(system_user, steamid)
                 if success:
-                    synced_count += 1
+                    synced_somewhere = True
 
-        msg = f"Synced **{synced_count}** bans from PocketBase."
-        if already_synced > 0:
-            msg += f"\nℹ️ **{already_synced}** bans already present."
+            if synced_somewhere:
+                synced_unique.add(steamid)
+            elif already_everywhere:
+                already_unique.add(steamid)
+
+        online_names = [
+            name for name, su in SYSTEM_USERS.items() if su in online_servers
+        ]
+
+        total_unique = len(unique_steamids)
+        synced_count = len(synced_unique)
+        already_count = len(already_unique)
+
+        msg = f"Synced **{synced_count}** bans from PocketBase to **{len(online_names)}** servers."
+        msg += f"\nℹ️ **{total_unique}** unique bans in PocketBase ({synced_count} synced, {already_count} already present)"
+        if online_names:
+            msg += f"\n✅ Servers: {', '.join(online_names)}"
         if offline_servers:
-            msg += f"\n⚠️ Offline servers: {', '.join(offline_servers)}"
+            msg += f"\n⚠️ Offline: {', '.join(offline_servers)}"
 
         await interaction.followup.send(msg)
 
