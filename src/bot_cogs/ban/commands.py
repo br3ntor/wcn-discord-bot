@@ -11,7 +11,7 @@ from discord.ext import commands
 from tabulate import tabulate
 
 from src.config import Config
-from src.services.game_db import get_all_banned_players, get_banned_player, get_player_by_steamid
+from src.services.game_db import gamedb_get_all_bans, gamedb_get_ban_by_steamid, gamedb_get_player_by_steamid
 from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import server_isrunning
@@ -276,7 +276,7 @@ class BanCommandsCog(commands.Cog):
 
             local_bans = []
             for system_user in SYSTEM_USERS.values():
-                bans = await get_all_banned_players(system_user)
+                bans = await gamedb_get_all_bans(system_user)
                 if isinstance(bans, str):
                     continue
                 for ban_row in bans:
@@ -380,7 +380,7 @@ class BanCommandsCog(commands.Cog):
         await interaction.response.defer()
         system_user = SYSTEM_USERS[server.name]
 
-        servers_banned_players = await get_all_banned_players(system_user)
+        servers_banned_players = await gamedb_get_all_bans(system_user)
 
         if not servers_banned_players:
             await interaction.followup.send("No banned players on this server.")
@@ -396,7 +396,7 @@ class BanCommandsCog(commands.Cog):
 
             seen_players.append(steamid)
 
-            user = await get_player_by_steamid(system_user, steamid)
+            user = await gamedb_get_player_by_steamid(system_user, steamid)
             if not user:
                 banned_players.append(("None", steamid))
                 continue
@@ -455,7 +455,7 @@ class BanCommandsCog(commands.Cog):
                         offline_servers.append(system_user)
                     continue
 
-                existing_ban = await get_banned_player(system_user, steamid)
+                existing_ban = await gamedb_get_ban_by_steamid(system_user, steamid)
                 if existing_ban:
                     already_synced += 1
                     continue
@@ -492,7 +492,7 @@ class BanCommandsCog(commands.Cog):
         failed_servers = []
 
         for server_name, system_user in SYSTEM_USERS.items():
-            server_bans = await get_all_banned_players(system_user)
+            server_bans = await gamedb_get_all_bans(system_user)
 
             if isinstance(server_bans, str):
                 failed_servers.append(server_name)
@@ -507,7 +507,7 @@ class BanCommandsCog(commands.Cog):
                 if not steamid or steamid in local_bans:
                     continue
 
-                player_row = await get_player_by_steamid(system_user, steamid)
+                player_row = await gamedb_get_player_by_steamid(system_user, steamid)
                 if isinstance(player_row, str) or not player_row:
                     player_name = "Unknown"
                 else:

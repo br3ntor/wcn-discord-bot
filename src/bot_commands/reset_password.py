@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.game_db import get_player
+from src.services.game_db import gamedb_get_player_by_name
 from src.services.pz_server import pz_reset_password_b41, pz_setpassword_b42
 from src.services.server import get_game_version, server_isrunning
 from src.utils.helpers import generate_pz_password
@@ -35,7 +35,7 @@ async def reset_password(
         )
         return
 
-    player_row = await get_player(system_user, playername)
+    player_row = await gamedb_get_player_by_name(system_user, playername)
     if isinstance(player_row, str):
         await interaction.response.send_message(player_row, ephemeral=True)
         return

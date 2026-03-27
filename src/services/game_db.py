@@ -7,7 +7,7 @@ import aiosqlite
 from src.services.server import get_game_version
 
 logger = logging.getLogger(__name__)
-def check_db_file(server: str) -> tuple[bool, str]:
+def gamedb_check_db_exists(server: str) -> tuple[bool, str]:
     path = f"/home/{server}/Zomboid/db/pzserver.db"
     if not os.path.exists(path):
         error_message = f"File does not exist:\n{path}"
@@ -16,9 +16,9 @@ def check_db_file(server: str) -> tuple[bool, str]:
     return True, path
 
 
-async def get_player(server: str, username: str) -> Optional[aiosqlite.Row] | str:
+async def gamedb_get_player_by_name(server: str, username: str) -> Optional[aiosqlite.Row] | str:
     """Return the db row for a player."""
-    file_exists, result = check_db_file(server)
+    file_exists, result = gamedb_check_db_exists(server)
     if not file_exists:
         return result
 
@@ -33,9 +33,9 @@ async def get_player(server: str, username: str) -> Optional[aiosqlite.Row] | st
         return f"Error accessing database for {server} server"
 
 
-async def get_player_by_steamid(server: str, steamid: str):
+async def gamedb_get_player_by_steamid(server: str, steamid: str):
     """Return the db row for a player."""
-    file_exists, result = check_db_file(server)
+    file_exists, result = gamedb_check_db_exists(server)
     if not file_exists:
         return result
 
@@ -50,9 +50,9 @@ async def get_player_by_steamid(server: str, steamid: str):
         return f"Error accessing database for {server} server"
 
 
-async def get_banned_player(server: str, steamid: str):
+async def gamedb_get_ban_by_steamid(server: str, steamid: str):
     """Return the db row for a banned player."""
-    file_exists, result = check_db_file(server)
+    file_exists, result = gamedb_check_db_exists(server)
     if not file_exists:
         return result
 
@@ -67,9 +67,9 @@ async def get_banned_player(server: str, steamid: str):
         return f"Error accessing database for {server} server"
 
 
-async def get_all_banned_players(server: str):
+async def gamedb_get_all_bans(server: str):
     """Return all banned users on a server."""
-    file_exists, result = check_db_file(server)
+    file_exists, result = gamedb_check_db_exists(server)
     if not file_exists:
         return result
 
@@ -82,8 +82,8 @@ async def get_all_banned_players(server: str):
         return f"Error accessing database for {server} server"
 
 
-async def get_admins(server: str) -> str:
-    file_exists, result = check_db_file(server)
+async def gamedb_get_admins(server: str) -> str:
+    file_exists, result = gamedb_check_db_exists(server)
     if not file_exists:
         return result
 

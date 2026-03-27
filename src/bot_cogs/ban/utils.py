@@ -4,7 +4,7 @@ import re
 from typing import Optional, Tuple
 
 from src.config import Config
-from src.services.game_db import get_player, get_player_by_steamid
+from src.services.game_db import gamedb_get_player_by_name, gamedb_get_player_by_steamid
 from src.services.server import get_game_version
 
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -44,11 +44,11 @@ async def lookup_player(
         steam_id = player_input
         if not is_valid_steam_id(steam_id):
             return None, None, "SteamID must be exactly 17 digits."
-        row = await get_player_by_steamid(system_user, steam_id)
+        row = await gamedb_get_player_by_steamid(system_user, steam_id)
         player_name = row[2] if row else None
     else:
         # Lookup player by name
-        player_row = await get_player(system_user, player_input)
+        player_row = await gamedb_get_player_by_name(system_user, player_input)
 
         # If player_row is a str then there must be something wrong
         if isinstance(player_row, str):
@@ -78,7 +78,7 @@ async def resolve_steam_id(player_input: str) -> Tuple[Optional[str], bool]:
 
     # Try to find the player on any server
     for system_user in SYSTEM_USERS.values():
-        player_row = await get_player(system_user, player_input)
+        player_row = await gamedb_get_player_by_name(system_user, player_input)
         if isinstance(player_row, str) or not player_row:
             continue
 

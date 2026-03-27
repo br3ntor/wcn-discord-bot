@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.game_db import get_admins, get_player
+from src.services.game_db import gamedb_get_admins, gamedb_get_player_by_name
 from src.services.pz_server import pz_set_access_level
 from src.services.server import get_game_version, server_isrunning
 
@@ -52,7 +52,7 @@ async def toggle(
     # TODO: Maybe well remove this check so toggleing admin will create user in B41
     # but I dont know if that will work in B42, wil ahev to try later
     system_user = SYSTEM_USERS[server.name]
-    player_row = await get_player(system_user, player)
+    player_row = await gamedb_get_player_by_name(system_user, player)
     if not player_row:
         await interaction.followup.send(
             f"username: **{player}** not found in **{server.name}** database"
@@ -96,7 +96,7 @@ async def toggle(
 async def list(interaction: discord.Interaction):
     """Get a list of admins on a zomboid server."""
     the_boys = [
-        f"**{servername} Admins**:\n{await get_admins(username)}"
+        f"**{servername} Admins**:\n{await gamedb_get_admins(username)}"
         for servername, username in SYSTEM_USERS.items()
     ]
     formatted_msg = "\n\n".join(the_boys)

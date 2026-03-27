@@ -8,7 +8,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.game_db import get_player
+from src.services.game_db import gamedb_get_player_by_name
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ async def get_player_logs(
 
     try:
         # Check if player exists in db, then get all them logs
-        player = await get_player(system_user, playername)
+        player = await gamedb_get_player_by_name(system_user, playername)
         if not player:
             await interaction.followup.send(
                 f"**{playername}** was not found in the database for **{server.name}**."

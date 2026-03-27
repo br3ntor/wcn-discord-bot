@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
-from src.services.game_db import get_banned_player
+from src.services.game_db import gamedb_get_ban_by_steamid
 from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import server_isrunning
@@ -138,7 +138,7 @@ class BanListenerCog(commands.Cog):
                     offline_servers.add(system_user)
                     continue
 
-                existing_ban = await get_banned_player(system_user, steamid)
+                existing_ban = await gamedb_get_ban_by_steamid(system_user, steamid)
                 if isinstance(existing_ban, str):
                     db_lookup_failed += 1
                     logger.warning(
