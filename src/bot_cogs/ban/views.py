@@ -45,7 +45,7 @@ class BanListView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         self.page -= 1
-        result = await pb_client.get_bans_paginated(self.page, 50)
+        result = await pb_client.get_bans_paginated(self.page, 25)
 
         self.previous_button.disabled = self.page <= 1
         self.next_button.disabled = self.page >= self.total_pages
@@ -59,7 +59,7 @@ class BanListView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         self.page += 1
-        result = await pb_client.get_bans_paginated(self.page, 50)
+        result = await pb_client.get_bans_paginated(self.page, 25)
 
         self.previous_button.disabled = self.page <= 1
         self.next_button.disabled = self.page >= self.total_pages

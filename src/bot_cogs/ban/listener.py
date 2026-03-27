@@ -52,6 +52,11 @@ class BanListenerCog(commands.Cog):
             logger.warning(f"Ban event with no steamid: {record}")
             return
 
+        is_backfilled = "backfilled" in reason.lower()
+        if is_backfilled:
+            logger.info(f"Skipping backfilled ban event for {steamid}")
+            return
+
         logger.info(
             f"Ban event: action={action}, steamid={steamid}, is_active={is_active}"
         )

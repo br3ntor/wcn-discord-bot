@@ -11,7 +11,7 @@ from discord.ext import commands
 from tabulate import tabulate
 
 from src.config import Config
-from src.services.game_db import get_all_banned_players, get_player_by_steamid
+from src.services.game_db import get_all_banned_players, get_banned_player, get_player_by_steamid
 from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import server_isrunning
@@ -238,11 +238,11 @@ class BanCommandsCog(commands.Cog):
     async def check(self, interaction: discord.Interaction, player: str):
         """Check if a player is banned."""
         player_input = player.strip()
-        
+
         if has_invalid_quotes(player_input):
             await interaction.response.send_message("Quotes are not allowed.")
             return
-        
+
         await interaction.response.defer()
 
         use_pocketbase = self._should_use_pocketbase()
@@ -440,26 +440,35 @@ class BanCommandsCog(commands.Cog):
             await interaction.followup.send("No active bans in PocketBase.")
             return
 
+        unique_steamids = {
+            steamid for ban in bans if (steamid := ban.get("steamid")) is not None
+        }
+
         synced_count = 0
-        failed_servers = []
+        already_synced = 0
+        offline_servers = []
 
-        for ban in bans:
-            steamid = ban.get("steamid")
-            if not steamid:
-                continue
-
+        for steamid in unique_steamids:
             for system_user in SYSTEM_USERS.values():
-                if await server_isrunning(system_user):
-                    success, _ = await pz_ban_player(system_user, steamid)
-                    if success:
-                        synced_count += 1
-                else:
-                    if system_user not in failed_servers:
-                        failed_servers.append(system_user)
+                if not await server_isrunning(system_user):
+                    if system_user not in offline_servers:
+                        offline_servers.append(system_user)
+                    continue
 
-        msg = f"Synced **{len(bans)}** bans from PocketBase."
-        if failed_servers:
-            msg += f"\n⚠️ Offline servers: {', '.join(failed_servers)}"
+                existing_ban = await get_banned_player(system_user, steamid)
+                if existing_ban:
+                    already_synced += 1
+                    continue
+
+                success, _ = await pz_ban_player(system_user, steamid)
+                if success:
+                    synced_count += 1
+
+        msg = f"Synced **{synced_count}** bans from PocketBase."
+        if already_synced > 0:
+            msg += f"\nℹ️ **{already_synced}** bans already present."
+        if offline_servers:
+            msg += f"\n⚠️ Offline servers: {', '.join(offline_servers)}"
 
         await interaction.followup.send(msg)
 
@@ -473,7 +482,7 @@ class BanCommandsCog(commands.Cog):
             await interaction.followup.send("PocketBase is not configured.")
             return
 
-        pb_bans = await pb_client.get_all_bans()
+        pb_bans = await pb_client.get_bans()
         pb_bans_by_steamid = {
             ban.get("steamid"): ban for ban in pb_bans if ban.get("steamid")
         }
@@ -587,7 +596,7 @@ class BanCommandsCog(commands.Cog):
             await interaction.followup.send("PocketBase is not configured.")
             return
 
-        result = await pb_client.get_bans_paginated(page=1, per_page=50)
+        result = await pb_client.get_bans_paginated(page=1, per_page=25)
         bans = result.get("items", [])
 
         if not bans:

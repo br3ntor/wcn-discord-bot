@@ -93,40 +93,27 @@ class PocketBaseClient:
         """Escape special characters for PocketBase filter expressions."""
         return value.replace("\\", "\\\\").replace('"', '\\"')
 
-    async def get_bans(self, is_active: bool = True) -> List[Dict[str, Any]]:
-        session = await self._get_session()
-        filter_expr = "is_active=true" if is_active else "is_active=false"
-        bans_url = (
-            f"{self.url}/api/collections/bans/records?filter={filter_expr}&perPage=100"
-        )
+    async def get_bans(self, is_active: bool | None = None) -> List[Dict[str, Any]]:
+        """Fetch all bans from PocketBase with pagination.
 
-        try:
-            async with session.get(bans_url, headers=self._auth_headers()) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    return data.get("items", [])
-                else:
-                    logger.error(f"Failed to get bans: {resp.status}")
-                    return []
-        except Exception as e:
-            logger.error(f"Error fetching bans: {e}")
-            return []
+        Args:
+            is_active: True for active only, False for inactive only, None for all
 
-    async def get_all_bans(self) -> List[Dict[str, Any]]:
-        session = await self._get_session()
-        bans_url = f"{self.url}/api/collections/bans/records?perPage=500"
+        Returns:
+            List of ban records
+        """
+        all_bans = []
+        page = 1
+        per_page = 500
 
-        try:
-            async with session.get(bans_url, headers=self._auth_headers()) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    return data.get("items", [])
-                else:
-                    logger.error(f"Failed to get all bans: {resp.status}")
-                    return []
-        except Exception as e:
-            logger.error(f"Error fetching all bans: {e}")
-            return []
+        while True:
+            result = await self.get_bans_paginated(page=page, per_page=per_page, is_active=is_active)
+            all_bans.extend(result["items"])
+            if page >= result["totalPages"]:
+                break
+            page += 1
+
+        return all_bans
 
     async def get_bans_paginated(
         self, page: int = 1, per_page: int = 10, is_active: Optional[bool] = None
