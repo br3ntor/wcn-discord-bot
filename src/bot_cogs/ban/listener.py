@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import cast
 
 import discord
 from discord.ext import commands, tasks
@@ -37,7 +36,6 @@ class BanListenerCog(commands.Cog):
             await pb_client.unsubscribe()
         self.startup_sync.cancel()
         self.check_expired_bans.cancel()
-        cast(tasks.Loop, self.retry_startup).cancel()
 
     async def start_sse_listener(self):
         await pb_client.subscribe(self.handle_ban_event)
@@ -123,6 +121,10 @@ class BanListenerCog(commands.Cog):
         if not Config.pocketbase_configured:
             return
 
+        if not await pb_client.login():
+            logger.error("PocketBase login failed, skipping startup sync")
+            return
+
         logger.info("Running startup ban sync...")
 
         # Step 1: Sync unbans — handle bans deactivated while bot was offline
@@ -147,25 +149,30 @@ class BanListenerCog(commands.Cog):
             logger.info("No inactive bans to sync")
             return
 
-        unique_steamids = {
-            steamid for ban in inactive_bans if (steamid := ban.get("steamid")) is not None
-        }
-
         unbanned = 0
-        for steamid in unique_steamids:
+        for ban in inactive_bans:
+            steamid = ban.get("steamid")
+            if not steamid:
+                continue
             for system_user in Config.SYSTEM_USERS.values():
                 if not await server_isrunning(system_user):
+                    continue
+
+                existing_ban = await gamedb_get_ban_by_steamid(system_user, steamid)
+                if isinstance(existing_ban, str):
+                    logger.warning(
+                        f"Skipping unban sync for {steamid} on {system_user}: {existing_ban}"
+                    )
+                    continue
+
+                if not existing_ban:
                     continue
 
                 success, _ = await pz_unban_player(system_user, steamid)
                 if success:
                     unbanned += 1
 
-        logger.info(
-            "Step 1/3 complete: unbanned %d player(s) from %d inactive ban record(s)",
-            unbanned,
-            len(unique_steamids),
-        )
+        logger.info("Step 1/3 complete: unbanned %d player(s)", unbanned)
 
     async def _sync_active_bans(self):
         """Fetch active bans from PB and apply to servers."""
@@ -176,16 +183,15 @@ class BanListenerCog(commands.Cog):
             logger.info("No active bans in PocketBase")
             return
 
-        unique_steamids = {
-            steamid for ban in bans if (steamid := ban.get("steamid")) is not None
-        }
-
         synced = 0
         already_present = 0
         db_lookup_failed = 0
         offline_servers = set()
 
-        for steamid in unique_steamids:
+        for ban in bans:
+            steamid = ban.get("steamid")
+            if not steamid:
+                continue
             for system_user in Config.SYSTEM_USERS.values():
                 if not await server_isrunning(system_user):
                     offline_servers.add(system_user)
@@ -251,19 +257,27 @@ class BanListenerCog(commands.Cog):
                     "server_origin": server_name,
                 }
 
-        # Check which local bans already exist in PocketBase (any status)
-        pb_existing_steamids: set[str] = set()
-        reactivation_candidates: list[str] = []
-
-        for steamid in local_bans:
-            existing = await pb_client.get_ban_by_steamid(steamid)
-            if existing:
-                pb_existing_steamids.add(steamid)
-                if not existing.get("is_active", False):
-                    reactivation_candidates.append(steamid)
+        # Bulk fetch all PB bans to check which local bans already exist
+        pb_bans = await pb_client.get_bans()
+        pb_existing_steamids = {
+            ban.get("steamid") for ban in pb_bans if ban.get("steamid")
+        }
+        pb_bans_by_steamid = {
+            ban.get("steamid"): ban for ban in pb_bans if ban.get("steamid")
+        }
+        reactivation_candidates = [
+            sid
+            for sid in local_bans
+            if sid in pb_existing_steamids
+            and not pb_bans_by_steamid.get(sid, {}).get("is_active", False)
+        ]
 
         # Only create records for steamids not in PocketBase at all
-        to_create = {sid: data for sid, data in local_bans.items() if sid not in pb_existing_steamids}
+        to_create = {
+            sid: data
+            for sid, data in local_bans.items()
+            if sid not in pb_existing_steamids
+        }
 
         created_count = 0
         failed_steamids = []
@@ -335,7 +349,9 @@ class BanListenerCog(commands.Cog):
                             expired_count += 1
                             logger.info(f"Deactivated expired ban for {steamid}")
                         else:
-                            logger.warning(f"Failed to deactivate expired ban for {steamid}")
+                            logger.warning(
+                                f"Failed to deactivate expired ban for {steamid}"
+                            )
             except (ValueError, AttributeError) as e:
                 logger.warning(f"Error parsing expires for ban {ban.get('id')}: {e}")
 
@@ -345,12 +361,3 @@ class BanListenerCog(commands.Cog):
     @check_expired_bans.before_loop
     async def before_check_expired_bans(self):
         await self.bot.wait_until_ready()
-
-    @tasks.loop(seconds=30)
-    async def retry_startup(self):
-        """Retry the full startup sync if it failed on first attempt."""
-        if not self._sse_started and Config.pocketbase_configured:
-            logger.info("Retrying startup sync...")
-            await self.startup_sync()
-            if self._sse_started:
-                cast(tasks.Loop, self.retry_startup).cancel()
