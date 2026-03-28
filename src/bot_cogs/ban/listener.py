@@ -7,7 +7,11 @@ import discord
 from discord.ext import commands, tasks
 
 from src.config import Config
-from src.services.game_db import gamedb_get_ban_by_steamid
+from src.services.game_db import (
+    gamedb_get_all_bans,
+    gamedb_get_ban_by_steamid,
+    gamedb_get_player_by_steamid,
+)
 from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import server_isrunning
@@ -23,8 +27,7 @@ class BanListenerCog(commands.Cog):
     async def cog_load(self):
         if Config.pocketbase_configured:
             logger.info("PocketBase configured, starting ban listener...")
-            await self.start_sse_listener()
-            self.initial_sync.start()
+            self.startup_sync.start()
             self.check_expired_bans.start()
         else:
             logger.info("PocketBase not configured, skipping ban listener")
@@ -32,8 +35,9 @@ class BanListenerCog(commands.Cog):
     async def cog_unload(self):
         if self._sse_started:
             await pb_client.unsubscribe()
-        self.initial_sync.cancel()
+        self.startup_sync.cancel()
         self.check_expired_bans.cancel()
+        cast(tasks.Loop, self.retry_startup).cancel()
 
     async def start_sse_listener(self):
         await pb_client.subscribe(self.handle_ban_event)
@@ -50,11 +54,6 @@ class BanListenerCog(commands.Cog):
 
         if not steamid:
             logger.warning(f"Ban event with no steamid: {record}")
-            return
-
-        is_backfilled = "backfilled" in reason.lower()
-        if is_backfilled:
-            logger.info(f"Skipping backfilled ban event for {steamid}")
             return
 
         logger.info(
@@ -110,13 +109,67 @@ class BanListenerCog(commands.Cog):
                     logger.warning(f"Failed to unban {steamid} on {system_user}: {msg}")
 
     @tasks.loop(count=1)
-    async def initial_sync(self):
+    async def startup_sync(self):
+        """Full bidirectional sync between PocketBase and local servers.
+
+        Runs before SSE subscription so no Discord messages are triggered.
+        Steps:
+        1. Sync unbans:  deactivate bans in PB → unban on servers
+        2. Sync bans:    active bans in PB → ban on servers
+        3. Backfill:     local server bans → create new PB records (no reactivation)
+        """
         await asyncio.sleep(1)
 
         if not Config.pocketbase_configured:
             return
 
-        logger.info("Running initial ban sync from PocketBase...")
+        logger.info("Running startup ban sync...")
+
+        # Step 1: Sync unbans — handle bans deactivated while bot was offline
+        await self._sync_unbans()
+
+        # Step 2: Sync active bans from PocketBase to servers
+        await self._sync_active_bans()
+
+        # Step 3: Backfill local server bans into PocketBase (new records only)
+        await self._backfill_local_bans()
+
+        # Step 4: Subscribe to SSE for real-time events
+        logger.info("Startup sync complete, subscribing to SSE...")
+        await self.start_sse_listener()
+
+    async def _sync_unbans(self):
+        """Fetch inactive bans from PB and unban on servers."""
+        logger.info("Step 1/3: Syncing unbans from PocketBase...")
+
+        inactive_bans = await pb_client.get_bans(is_active=False)
+        if not inactive_bans:
+            logger.info("No inactive bans to sync")
+            return
+
+        unique_steamids = {
+            steamid for ban in inactive_bans if (steamid := ban.get("steamid")) is not None
+        }
+
+        unbanned = 0
+        for steamid in unique_steamids:
+            for system_user in Config.SYSTEM_USERS.values():
+                if not await server_isrunning(system_user):
+                    continue
+
+                success, _ = await pz_unban_player(system_user, steamid)
+                if success:
+                    unbanned += 1
+
+        logger.info(
+            "Step 1/3 complete: unbanned %d player(s) from %d inactive ban record(s)",
+            unbanned,
+            len(unique_steamids),
+        )
+
+    async def _sync_active_bans(self):
+        """Fetch active bans from PB and apply to servers."""
+        logger.info("Step 2/3: Syncing active bans from PocketBase...")
 
         bans = await pb_client.get_bans(is_active=True)
         if not bans:
@@ -131,8 +184,8 @@ class BanListenerCog(commands.Cog):
         already_present = 0
         db_lookup_failed = 0
         offline_servers = set()
-        for steamid in unique_steamids:
 
+        for steamid in unique_steamids:
             for system_user in Config.SYSTEM_USERS.values():
                 if not await server_isrunning(system_user):
                     offline_servers.add(system_user)
@@ -142,7 +195,7 @@ class BanListenerCog(commands.Cog):
                 if isinstance(existing_ban, str):
                     db_lookup_failed += 1
                     logger.warning(
-                        f"Skipping initial ban sync for {steamid} on {system_user}: {existing_ban}"
+                        f"Skipping ban sync for {steamid} on {system_user}: {existing_ban}"
                     )
                     continue
 
@@ -155,12 +208,103 @@ class BanListenerCog(commands.Cog):
                     synced += 1
 
         logger.info(
-            "Initial sync complete: %s bans applied, %s already present, %s db lookups failed, %s offline servers",
+            "Step 2/3 complete: %d bans applied, %d already present, %d db lookups failed, %d offline servers",
             synced,
             already_present,
             db_lookup_failed,
             len(offline_servers),
         )
+
+    async def _backfill_local_bans(self):
+        """Read local server bans and create new PB records (no reactivation)."""
+        logger.info("Step 3/3: Backfilling local server bans to PocketBase...")
+
+        # Collect all bans from local server DBs
+        local_bans: dict[str, dict] = {}
+        scanned_rows = 0
+        failed_servers = []
+
+        for server_name, system_user in Config.SYSTEM_USERS.items():
+            server_bans = await gamedb_get_all_bans(system_user)
+
+            if isinstance(server_bans, str):
+                failed_servers.append(server_name)
+                logger.warning(
+                    f"Skipping local ban backfill for {server_name}: {server_bans}"
+                )
+                continue
+
+            for ban_row in server_bans:
+                scanned_rows += 1
+                steamid = ban_row[0]
+                if not steamid or steamid in local_bans:
+                    continue
+
+                player_row = await gamedb_get_player_by_steamid(system_user, steamid)
+                if isinstance(player_row, str) or not player_row:
+                    player_name = "Unknown"
+                else:
+                    player_name = player_row[2] or "Unknown"
+
+                local_bans[steamid] = {
+                    "name": player_name,
+                    "server_origin": server_name,
+                }
+
+        # Check which local bans already exist in PocketBase (any status)
+        pb_existing_steamids: set[str] = set()
+        reactivation_candidates: list[str] = []
+
+        for steamid in local_bans:
+            existing = await pb_client.get_ban_by_steamid(steamid)
+            if existing:
+                pb_existing_steamids.add(steamid)
+                if not existing.get("is_active", False):
+                    reactivation_candidates.append(steamid)
+
+        # Only create records for steamids not in PocketBase at all
+        to_create = {sid: data for sid, data in local_bans.items() if sid not in pb_existing_steamids}
+
+        created_count = 0
+        failed_steamids = []
+
+        for steamid, local_ban in to_create.items():
+            result = await pb_client.create_ban(
+                steamid=steamid,
+                name=local_ban["name"],
+                reason="Backfilled from local server ban list",
+                server_origin=local_ban["server_origin"],
+            )
+            if result:
+                created_count += 1
+            else:
+                failed_steamids.append(steamid)
+
+        if reactivation_candidates:
+            logger.warning(
+                "Skipped reactivation of %d inactive ban(s) (exist in PB but banned locally): %s",
+                len(reactivation_candidates),
+                ", ".join(reactivation_candidates[:10]),
+            )
+
+        logger.info(
+            "Step 3/3 complete: scanned %d rows across %d server(s), found %d unique steamids, "
+            "created %d new PB records, %d already in PB, %d skipped reactivation",
+            scanned_rows,
+            len(Config.SYSTEM_USERS) - len(failed_servers),
+            len(local_bans),
+            created_count,
+            len(pb_existing_steamids),
+            len(reactivation_candidates),
+        )
+
+        if failed_servers:
+            logger.warning("Failed to read from servers: %s", ", ".join(failed_servers))
+        if failed_steamids:
+            logger.warning(
+                "Failed to create PB records for: %s",
+                ", ".join(failed_steamids[:10]),
+            )
 
     @tasks.loop(hours=1)
     async def check_expired_bans(self):
@@ -203,9 +347,10 @@ class BanListenerCog(commands.Cog):
         await self.bot.wait_until_ready()
 
     @tasks.loop(seconds=30)
-    async def retry_sse(self):
+    async def retry_startup(self):
+        """Retry the full startup sync if it failed on first attempt."""
         if not self._sse_started and Config.pocketbase_configured:
-            logger.info("Retrying SSE connection...")
-            await self.start_sse_listener()
+            logger.info("Retrying startup sync...")
+            await self.startup_sync()
             if self._sse_started:
-                cast(tasks.Loop, self.retry_sse).cancel()
+                cast(tasks.Loop, self.retry_startup).cancel()
