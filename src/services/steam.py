@@ -33,13 +33,13 @@ async def get_workshop_items(workshop_ids: list[str]) -> list:
 
         items = result["response"]["publishedfiledetails"]
     except asyncio.TimeoutError:
-        logger.warning("Bruh, steam network might be taking a shit.")
+        logger.warning("Steam API timeout, network may be unavailable")
         return []
     except Exception as e:
         logger.error("An error occurred while fetching workshop items: %s", e)
         return []
 
-    logger.info("Found this many workshop_items: %s", len(items))
+    logger.debug("Found this many workshop_items: %s", len(items))
     return items
 
 

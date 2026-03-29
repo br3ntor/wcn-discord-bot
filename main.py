@@ -4,8 +4,15 @@ import discord
 from dotenv import load_dotenv
 
 if __name__ == "__main__":
-    formatter = logging.Formatter("[%(levelname)-8s] %(name)s: %(message)s")
-    discord.utils.setup_logging(formatter=formatter, level=logging.INFO, root=True)
+    # Discord handles its own loggers (stays at INFO by default)
+    discord.utils.setup_logging(root=False)
+
+    # Our loggers get their own handler, isolated from discord's
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("[%(levelname)-8s] %(name)s: %(message)s"))
+    src_logger = logging.getLogger("src")
+    src_logger.setLevel(logging.DEBUG)
+    src_logger.addHandler(handler)
 
     logger = logging.getLogger(__name__)
     logger.info("Loading env...")

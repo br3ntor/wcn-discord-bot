@@ -310,9 +310,9 @@ class PocketBaseClient:
             try:
                 await self._run_sse()
             except Exception as e:
-                logger.info(f"SSE connection closed: {e}")
+                logger.debug(f"SSE connection closed: {e}")
 
-            logger.info(f"Reconnecting to SSE in {self._reconnect_delay}s...")
+            logger.debug(f"Reconnecting to SSE in {self._reconnect_delay}s...")
             await asyncio.sleep(self._reconnect_delay)
             self._reconnect_delay = min(self._reconnect_delay * 2, 60)
 
@@ -328,7 +328,7 @@ class PocketBaseClient:
                     try:
                         data = json.loads(event.data)
                         client_id = data.get("clientId")
-                        logger.info(f"PB_CONNECT, clientId: {client_id}")
+                        logger.debug(f"PB_CONNECT, clientId: {client_id}")
                         self._sse_client_id = client_id
                         await self._subscribe_to_bans(client_id)
                     except json.JSONDecodeError:
@@ -342,7 +342,7 @@ class PocketBaseClient:
                         if data.get("action") in ("create", "update", "delete"):
                             record = data.get("record", {})
                             action = data.get("action")
-                            logger.info(f"Received {action} event: {record.get('id')}")
+                            logger.debug(f"Received {action} event: {record.get('id')}")
                             if self._callback:
                                 await self._callback(action, record)
                     except json.JSONDecodeError:
@@ -362,7 +362,7 @@ class PocketBaseClient:
                 headers=self._auth_headers(),
             ) as resp:
                 if resp.status == 204:
-                    logger.info("Subscribed to bans collection")
+                    logger.debug("Subscribed to bans collection")
                     self._reconnect_delay = 5.0
                 else:
                     error_text = await resp.text()

@@ -65,7 +65,7 @@ async def get_servers_workshop_ids(
     Assumes the file path is like '/home/{username}/Zomboid/Server/pzserver.ini'.
     """
 
-    logger.info(f"Processing server config files from paths: {file_paths}")
+    logger.debug(f"Processing server config files from paths: {file_paths}")
     servers_workshopids_lists: dict[str, list[str]] = {}
 
     for path in file_paths:
@@ -100,8 +100,8 @@ async def get_servers_workshop_ids(
             workshop_items_str = config["default"].get("WorkshopItems", "")
 
             if not workshop_items_str:
-                logger.info(
-                    f"Info: No 'WorkshopItems' found or it's empty for server '{server_name}' in {path}."
+                logger.debug(
+                    f"No 'WorkshopItems' found or it's empty for server '{server_name}' in {path}."
                 )
                 continue
 
@@ -112,8 +112,8 @@ async def get_servers_workshop_ids(
             if workshop_ids:
                 servers_workshopids_lists[server_name] = workshop_ids
             else:
-                logger.info(
-                    f"Info: 'WorkshopItems' found but contained no valid IDs after cleaning for server '{server_name}' in {path}."
+                logger.debug(
+                    f"'WorkshopItems' found but contained no valid IDs after cleaning for server '{server_name}' in {path}."
                 )
 
         except FileNotFoundError:
@@ -160,7 +160,7 @@ async def combine_servers_workshop_ids() -> list:
             all_servers_workshop_ids.update(value)
 
     workshop_ids = list(all_servers_workshop_ids)
-    logger.info(f"Found this many workshop_ids: {len(workshop_ids)}")
+    logger.debug(f"Found this many workshop_ids: {len(workshop_ids)}")
     return workshop_ids
 
 

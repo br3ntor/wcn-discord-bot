@@ -24,7 +24,6 @@ class GistUpdaterCog(commands.Cog):
     @tasks.loop(hours=1)
     async def update_modlists(self):
         """Update all mod list gists hourly."""
-        logger.info("Updating mod list gists...")
         try:
             links = await update_all_modlist_gists()
             logger.info("Updated %d mod list gist(s)", len(links))
@@ -34,7 +33,6 @@ class GistUpdaterCog(commands.Cog):
     @tasks.loop(hours=1)
     async def update_sandbox(self):
         """Update all sandbox settings gists hourly."""
-        logger.info("Updating sandbox settings gists...")
         try:
             links = await update_all_sandbox_gists()
             logger.info("Updated %d sandbox settings gist(s)", len(links))

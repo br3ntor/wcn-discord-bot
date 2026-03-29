@@ -62,7 +62,7 @@ class BanListenerCog(commands.Cog):
 
         for system_user in Config.SYSTEM_USERS.values():
             if not await server_isrunning(system_user):
-                logger.info(f"Skipping {system_user} - server not running")
+                logger.debug(f"Skipping {system_user} - server not running")
                 continue
 
             if action == "create" or (action == "update" and is_active):
@@ -146,7 +146,7 @@ class BanListenerCog(commands.Cog):
 
         inactive_bans = await pb_client.get_bans(is_active=False)
         if not inactive_bans:
-            logger.info("No inactive bans to sync")
+            logger.debug("No inactive bans to sync")
             return
 
         unbanned = 0
@@ -180,7 +180,7 @@ class BanListenerCog(commands.Cog):
 
         bans = await pb_client.get_bans(is_active=True)
         if not bans:
-            logger.info("No active bans in PocketBase")
+            logger.debug("No active bans in PocketBase")
             return
 
         synced = 0
@@ -323,11 +323,11 @@ class BanListenerCog(commands.Cog):
     @tasks.loop(hours=1)
     async def check_expired_bans(self):
         """Check for expired temporary bans and deactivate them."""
-        logger.info("Checking for expired bans...")
+        logger.debug("Checking for expired bans...")
 
         bans = await pb_client.get_bans(is_active=True)
         if not bans:
-            logger.info("No active bans to check")
+            logger.debug("No active bans to check")
             return
 
         now = datetime.now(timezone.utc)

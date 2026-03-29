@@ -45,7 +45,7 @@ class ModUpdatesCog(commands.Cog):
     async def check_mod_updates(self):
         """Checks if mods have been updated since last check.
         Sends ping to admins if there are updates."""
-        logger.info("Checking for mod updates...")
+        logger.debug("Checking for mod updates...")
 
         # Dynamically fetch the latest workshop IDs from running servers
         current_workshop_ids = await combine_servers_workshop_ids()
@@ -57,6 +57,9 @@ class ModUpdatesCog(commands.Cog):
         self.workshop_ids = current_workshop_ids
         workshop_items = await get_workshop_items(self.workshop_ids)
 
+        # Track new mods discovered during this check
+        new_mods_count = 0
+
         for item in workshop_items:
             if "title" not in item:
                 continue
@@ -65,9 +68,7 @@ class ModUpdatesCog(commands.Cog):
 
             # If we've never seen this mod before (newly added to config)
             if workshop_id not in self.mod_update_times:
-                logger.info(
-                    f"Discovered new mod: {item['title'].strip()} ({workshop_id}). Recording initial timestamp."
-                )
+                new_mods_count += 1
                 self.mod_update_times[workshop_id] = item["time_updated"]
                 continue
 
@@ -81,9 +82,7 @@ class ModUpdatesCog(commands.Cog):
                 )
 
                 if not servers_with_mod:
-                    logger.info(
-                        f"Mod {workshop_id} updated, but no running servers are using it. Skipping announcement."
-                    )
+                    logger.debug(f"Mod {workshop_id} updated, but no running servers are using it. Skipping announcement.")
                     continue
 
                 logger.debug(f"Servers with mod: {servers_with_mod}")
@@ -121,11 +120,8 @@ class ModUpdatesCog(commands.Cog):
 
                 await chan.send(update_msg)
 
-                logger.info("A mod has updated!")
-                logger.info(f"title: {item['title'].strip()}")
-                logger.info(f"updated: {formatted_time}")
                 logger.info(
-                    f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
+                    f"Mod updated: {item['title'].strip()} ({workshop_id}) — {formatted_time}"
                 )
 
                 tasks = [
@@ -145,9 +141,12 @@ class ModUpdatesCog(commands.Cog):
                         self.check_workshop_errors.start()
                         logger.info("Started workshop error scanning task")
                     else:
-                        logger.info("Workshop error scanning already running")
+                        logger.debug("Workshop error scanning already running")
                 except Exception as e:
                     logger.error(f"An unexpected exception occurred: {e}")
+
+        if new_mods_count > 0:
+            logger.info("Recording initial timestamps for %d new mods", new_mods_count)
 
     @tasks.loop(minutes=1)
     async def check_workshop_errors(self):
