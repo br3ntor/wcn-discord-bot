@@ -329,3 +329,19 @@ async def pz_kick_player(
         return False, f"Unexpected server response: {response}"
 
     return True, response
+
+
+async def pz_additem(
+    server: str, player: str, item: str, count: int = 1
+) -> tuple[bool, str]:
+    """Adds an item to a player's inventory via RCON."""
+    command = f'additem "{player}" {item} {count}'
+
+    response = await pz_send_command(server, command)
+    if response is None:
+        return False, "Could not reach the server via RCON."
+
+    if _is_player_lookup_failure(response):
+        return False, response
+
+    return True, response
