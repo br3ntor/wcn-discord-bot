@@ -93,16 +93,9 @@ class BanListenerCog(commands.Cog):
                     logger.info(f"Unbanned {steamid} on {system_user}")
                     if isinstance(mod_chan, discord.TextChannel):
                         server_name = Config.SERVER_NAMES.get(system_user, system_user)
-                        embed = discord.Embed(
-                            title=f"✅ [{server_name}] Ban Removed",
-                            color=discord.Color.green(),
+                        await mod_chan.send(
+                            f"✅ [{server_name}] Unbanned: {name} ({steamid})"
                         )
-                        embed.add_field(name="Player", value=name, inline=True)
-                        embed.add_field(name="SteamID", value=steamid, inline=True)
-                        embed.add_field(
-                            name="Server Origin", value=server_origin, inline=True
-                        )
-                        await mod_chan.send(embed=embed)
                 else:
                     logger.warning(f"Failed to unban {steamid} on {system_user}: {msg}")
 
