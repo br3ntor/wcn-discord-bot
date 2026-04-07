@@ -71,19 +71,9 @@ class BanListenerCog(commands.Cog):
                     logger.info(f"Banned {steamid} on {system_user}")
                     if isinstance(mod_chan, discord.TextChannel):
                         server_name = Config.SERVER_NAMES.get(system_user, system_user)
-                        embed = discord.Embed(
-                            title=f"🚫 [{server_name}] Ban Issued",
-                            color=discord.Color.red(),
+                        await mod_chan.send(
+                            f"🚫 [{server_name}] Banned: {name} ({steamid}) - {reason}"
                         )
-                        embed.add_field(name="Player", value=name, inline=True)
-                        embed.add_field(name="SteamID", value=steamid, inline=True)
-                        embed.add_field(name="Reason", value=reason, inline=False)
-                        embed.add_field(
-                            name="Server Origin", value=server_origin, inline=True
-                        )
-                        if expires:
-                            embed.add_field(name="Expires", value=expires, inline=True)
-                        await mod_chan.send(embed=embed)
                 else:
                     logger.warning(f"Failed to ban {steamid} on {system_user}: {msg}")
 
