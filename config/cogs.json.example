@@ -49,6 +49,11 @@
         "enabled": false,
         "class_name": "GistUpdaterCog",
         "description": "Updates GitHub gists with mod lists and sandbox settings hourly"
+    },
+    "item_cache": {
+        "enabled": true,
+        "class_name": "ItemCacheCog",
+        "description": "Scans PZ server files and caches item definitions for autocomplete"
     }
   }
 }
