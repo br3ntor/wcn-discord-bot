@@ -12,9 +12,5 @@ class ItemCacheCog(commands.Cog):
         self.bot = bot
 
     async def cog_load(self):
-        loaded = item_cache.load_from_disk()
-        if not loaded:
-            logger.info("No item cache found, scanning server files...")
-            await item_cache.scan_all_servers()
-        else:
-            logger.info("Item cache loaded from disk")
+        logger.info("Scanning server files for items...")
+        await item_cache.scan_all_servers()

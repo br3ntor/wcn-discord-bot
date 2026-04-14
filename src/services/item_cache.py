@@ -4,12 +4,9 @@ import os
 import re
 from pathlib import Path
 
-from src.config import Config, DATA_DIR
+from src.config import Config
 
 logger = logging.getLogger(__name__)
-
-CACHE_FILE = DATA_DIR / "items_cache.json"
-CACHE_VERSION = 2
 
 _LUA_ITEMNAME_RE = re.compile(r'ItemName_(\S+)\s*=\s*"([^"]*)"')
 _JSON_PAIR_RE = re.compile(r'"([^"]+)"\s*:\s*"([^"]*)"')
@@ -22,41 +19,6 @@ class ItemCache:
     def get_items(self, system_user: str) -> list[tuple[str, str]]:
         return self._items.get(system_user, [])
 
-    def load_from_disk(self) -> bool:
-        if not CACHE_FILE.exists():
-            return False
-        try:
-            with open(CACHE_FILE, "r") as f:
-                data = json.load(f)
-            if data.get("version") != CACHE_VERSION:
-                logger.info("Item cache version mismatch, re-scanning")
-                return False
-            self._items = {}
-            for user, items in data.get("servers", {}).items():
-                self._items[user] = [(i[0], i[1]) for i in items]
-            total = sum(len(v) for v in self._items.values())
-            logger.info(f"Loaded {total} items from cache for {len(self._items)} servers")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to load item cache: {e}")
-            return False
-
-    def save_to_disk(self):
-        try:
-            data = {
-                "version": CACHE_VERSION,
-                "servers": {
-                    user: [[i[0], i[1]] for i in items]
-                    for user, items in self._items.items()
-                },
-            }
-            with open(CACHE_FILE, "w") as f:
-                json.dump(data, f)
-            total = sum(len(v) for v in self._items.values())
-            logger.info(f"Saved {total} items to cache for {len(self._items)} servers")
-        except Exception as e:
-            logger.error(f"Failed to save item cache: {e}")
-
     async def scan_all_servers(self):
         import asyncio
 
@@ -66,8 +28,6 @@ class ItemCache:
             items = await asyncio.to_thread(self._scan_server, system_user)
             self._items[system_user] = items
             logger.info(f"Found {len(items)} items for {system_user}")
-
-        self.save_to_disk()
 
     def _scan_server(self, system_user: str) -> list[tuple[str, str]]:
         items_dict: dict[str, str] = {}
