@@ -43,18 +43,17 @@ class WCNBot(commands.Bot):
     # commands instead. By doing so, we don't have to wait up to an hour until
     # they are shown to the end-user.
     async def setup_hook(self):
-        for command_name in bot_commands.__all__:
-            attr = getattr(bot_commands, command_name)
-            if isinstance(attr, app_commands.Command) or isinstance(
-                attr, app_commands.Group
-            ):
-                self.tree.add_command(attr)
-
+        """Init the bots db and load our commands and cogs."""
         try:
             await init_db()
             logger.info("Database initialized successfully")
         except Exception as e:
             logger.warning(f"Database initialization failed: {e}")
+
+        for command_name in bot_commands.__all__:
+            attr = getattr(bot_commands, command_name)
+            if isinstance(attr, (app_commands.Command, app_commands.Group)):
+                self.tree.add_command(attr)
 
         enabled_cogs = []
         for cog_name, cog_config in Config.COGS_CONFIG.items():
