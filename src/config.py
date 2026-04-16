@@ -4,6 +4,10 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional, TypedDict
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 logger.info("Loading Config...")
 

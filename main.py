@@ -1,7 +1,9 @@
 import logging
 
 import discord
-from dotenv import load_dotenv
+
+from src.bot import bot
+from src.config import Config
 
 if __name__ == "__main__":
     # Discord handles its own loggers (stays at INFO by default)
@@ -15,13 +17,9 @@ if __name__ == "__main__":
     src_logger.addHandler(handler)
 
     logger = logging.getLogger(__name__)
-    logger.info("Loading env...")
-    load_dotenv()
-    from src.config import Config
+    logger.info("Starting WCN-DiscordBot")
 
     Config.validate()
-
-    from src.bot import bot
 
     token = Config.DISCORD_TOKEN
     if token is None:
