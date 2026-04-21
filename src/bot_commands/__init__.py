@@ -1,6 +1,7 @@
 from discord import app_commands
 
 from .additem import additem
+from .addvehicle import addvehicle
 from .admin import admin_group
 from .cat_fact import cat_fact
 from .get_playerlist import get_playerlist
@@ -35,6 +36,7 @@ restart_group.add_command(cancel_restart)
 
 __all__ = [
     "additem",
+    "addvehicle",
     "admin_group",
     "cat_fact",
     "get_playerlist",

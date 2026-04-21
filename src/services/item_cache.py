@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 from src.config import Config
+from src.services.server import get_workshop_ids_for_server
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ class ItemCache:
 
     def _scan_server(self, system_user: str) -> list[tuple[str, str]]:
         items_dict: dict[str, str] = {}
+        active_workshop_ids = get_workshop_ids_for_server(system_user)
 
         base_path = Path(f"/home/{system_user}/serverfiles/media/scripts")
         if base_path.exists():
@@ -40,12 +42,12 @@ class ItemCache:
             f"/home/{system_user}/serverfiles/steamapps/workshop/content/108600"
         )
         if workshop_path.exists():
-            self._scan_workshop_dir(workshop_path, items_dict)
+            self._scan_workshop_dir(workshop_path, items_dict, active_workshop_ids)
 
         translations: dict[str, str] = {}
         self._load_base_translations(system_user, translations)
         if workshop_path.exists():
-            self._load_mod_translations(workshop_path, translations)
+            self._load_mod_translations(workshop_path, active_workshop_ids, translations)
 
         for item_id, display_name in items_dict.items():
             if not display_name and item_id in translations:
@@ -64,11 +66,15 @@ class ItemCache:
         for txt_file in items_dir.rglob("*.txt"):
             self._parse_script_file(txt_file, items_dict)
 
-    def _scan_workshop_dir(self, workshop_dir: Path, items_dict: dict[str, str]):
+    def _scan_workshop_dir(self, workshop_dir: Path, items_dict: dict[str, str], active_workshop_ids: set[str]):
         for txt_file in workshop_dir.rglob("*.txt"):
             parts = txt_file.parts
             rel = txt_file.relative_to(workshop_dir)
             rel_str = str(rel)
+
+            first_dir = rel_str.split(os.sep, 1)[0] if os.sep in rel_str else rel_str.split("/", 1)[0]
+            if first_dir not in active_workshop_ids:
+                continue
 
             skip_dirs = ("vehicles", "entities")
             if any(f"{os.sep}{d}{os.sep}" in rel_str or rel_str.startswith(d + "/") for d in skip_dirs):
@@ -151,8 +157,14 @@ class ItemCache:
         except Exception as e:
             logger.warning(f"Failed to load base translations for {system_user}: {e}")
 
-    def _load_mod_translations(self, workshop_dir: Path, translations: dict[str, str]):
+    def _load_mod_translations(self, workshop_dir: Path, active_workshop_ids: set[str], translations: dict[str, str]):
         for trans_file in workshop_dir.rglob("Translate/EN/ItemName*"):
+            rel = trans_file.relative_to(workshop_dir)
+            rel_str = str(rel)
+            first_dir = rel_str.split(os.sep, 1)[0] if os.sep in rel_str else rel_str.split("/", 1)[0]
+            if first_dir not in active_workshop_ids:
+                continue
+
             if trans_file.suffix == ".json":
                 self._parse_json_translation(trans_file, translations)
             elif trans_file.suffix == ".txt":

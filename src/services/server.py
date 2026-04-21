@@ -45,6 +45,27 @@ async def server_isrunning(server: str) -> bool:
     return False
 
 
+def get_workshop_ids_for_server(system_user: str) -> set[str]:
+    """Reads WorkshopItems from a server's INI file and returns the set of active workshop IDs."""
+    ini_path = f"/home/{system_user}/Zomboid/Server/pzserver.ini"
+    try:
+        config = configparser.ConfigParser()
+        with open(ini_path, "r") as stream:
+            config.read_string("[default]\n" + stream.read())
+
+        workshop_items_str = config["default"].get("WorkshopItems", "")
+        if not workshop_items_str:
+            return set()
+
+        return {item.strip() for item in workshop_items_str.split(";") if item.strip()}
+    except FileNotFoundError:
+        logger.warning(f"Server INI not found at '{ini_path}'")
+        return set()
+    except Exception as e:
+        logger.error(f"Error reading WorkshopItems for {system_user}: {e}")
+        return set()
+
+
 async def server_setting_paths() -> list:
     """Return list of paths to running servers settings files"""
     server_files = []

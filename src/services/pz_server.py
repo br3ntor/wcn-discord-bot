@@ -345,3 +345,19 @@ async def pz_additem(
         return False, response
 
     return True, response
+
+
+async def pz_addvehicle(
+    server: str, player: str, vehicle: str
+) -> tuple[bool, str]:
+    """Spawns a vehicle near a player via RCON."""
+    command = f'addvehicle "{vehicle}" "{player}"'
+
+    response = await pz_send_command(server, command)
+    if response is None:
+        return False, "Could not reach the server via RCON."
+
+    if _is_player_lookup_failure(response):
+        return False, response
+
+    return True, response

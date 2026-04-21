@@ -9,6 +9,7 @@ from discord import app_commands
 from src.config import Config
 from src.services.item_cache import item_cache
 from src.services.player_cache import PlayerCache
+from src.services.vehicle_cache import vehicle_cache
 
 logger = logging.getLogger(__name__)
 
@@ -176,3 +177,52 @@ def _item_label(item_id: str, display_name: str) -> str:
     if len(label) > 100:
         label = label[:97] + "..."
     return label
+
+
+def make_vehicle_autocomplete():
+    """Creates an autocomplete callback for vehicle parameters."""
+
+    async def autocomplete(
+        interaction: discord.Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        server_choice = getattr(interaction.namespace, "server", None)
+        if not server_choice:
+            return []
+
+        server_names = list(SERVER_NAMES.values())
+        if server_choice < 1 or server_choice > len(server_names):
+            return []
+
+        server_name = server_names[server_choice - 1]
+        system_user = SYSTEM_USERS.get(server_name)
+        if not system_user:
+            return []
+
+        vehicles = vehicle_cache.get_vehicles(system_user)
+        if not vehicles:
+            return []
+
+        if not current:
+            choices = []
+            for vehicle_id, display_name in vehicles[:25]:
+                label = _item_label(vehicle_id, display_name)
+                choices.append(app_commands.Choice(name=label, value=vehicle_id))
+            return choices
+
+        current_lower = current.lower()
+        matching = []
+        for vehicle_id, display_name in vehicles:
+            if current_lower in vehicle_id.lower() or (
+                display_name and current_lower in display_name.lower()
+            ):
+                matching.append((vehicle_id, display_name))
+            if len(matching) >= 25:
+                break
+
+        choices = []
+        for vehicle_id, display_name in matching[:25]:
+            label = _item_label(vehicle_id, display_name)
+            choices.append(app_commands.Choice(name=label, value=vehicle_id))
+        return choices
+
+    return autocomplete
