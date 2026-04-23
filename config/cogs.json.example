@@ -50,10 +50,10 @@
         "class_name": "GistUpdaterCog",
         "description": "Updates GitHub gists with mod lists and sandbox settings hourly"
     },
-    "item_cache": {
+    "game_cache": {
         "enabled": true,
-        "class_name": "ItemCacheCog",
-        "description": "Scans PZ server files and caches item definitions for autocomplete"
+        "class_name": "GameCacheCog",
+        "description": "Scans PZ server files and caches item and vehicle definitions for autocomplete"
     }
   }
 }
