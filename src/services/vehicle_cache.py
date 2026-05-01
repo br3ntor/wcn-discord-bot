@@ -34,6 +34,7 @@ class VehicleCache:
         base_path = Path(f"/home/{system_user}/serverfiles/media/scripts")
         if base_path.exists():
             self._scan_vehicles_dir(base_path / "generated" / "vehicles", vehicles_dict)
+            self._scan_vehicles_dir(base_path / "vehicles", vehicles_dict)
 
         workshop_path = Path(
             f"/home/{system_user}/serverfiles/steamapps/workshop/content/108600"

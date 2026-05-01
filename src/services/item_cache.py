@@ -37,6 +37,7 @@ class ItemCache:
         base_path = Path(f"/home/{system_user}/serverfiles/media/scripts")
         if base_path.exists():
             self._scan_items_dir(base_path / "generated" / "items", items_dict)
+            self._scan_items_dir(base_path, items_dict)
 
         workshop_path = Path(
             f"/home/{system_user}/serverfiles/steamapps/workshop/content/108600"
