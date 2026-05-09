@@ -62,6 +62,11 @@ class ModUpdatesCog(commands.Cog):
 
         for item in workshop_items:
             if "title" not in item:
+                logger.warning(
+                    "Skipping item %s in update check — missing title (result=%s)",
+                    item.get("publishedfileid"),
+                    item.get("result"),
+                )
                 continue
 
             workshop_id = item["publishedfileid"]

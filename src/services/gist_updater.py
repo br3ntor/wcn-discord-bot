@@ -91,7 +91,11 @@ def parse_workshop_data(workshop_items: list) -> str:
                 f"[{item['title']}](https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']})\n\n"
             )
         else:
-            logger.warning("title is not in item: %s", item)
+            logger.warning(
+                "title is not in item: %s (result=%s)",
+                item,
+                item.get("result"),
+            )
 
     mods.insert(0, f"**Mod Count: {len(mods)}**\n\n")
     sorted_mods = "".join(sorted(mods))

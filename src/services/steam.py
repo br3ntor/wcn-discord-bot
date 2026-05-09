@@ -39,8 +39,33 @@ async def get_workshop_items(workshop_ids: list[str]) -> list:
         logger.error("An error occurred while fetching workshop items: %s", e)
         return []
 
-    logger.debug("Found this many workshop_items: %s", len(items))
-    return items
+    valid_items = []
+    bad_ids = []
+    for item in items:
+        if item.get("result") == 1:
+            valid_items.append(item)
+        else:
+            bad_ids.append((item.get("publishedfileid"), item.get("result")))
+            logger.warning(
+                "Skipping workshop item %s — result=%s",
+                item.get("publishedfileid"),
+                item.get("result"),
+            )
+
+    if bad_ids:
+        logger.warning(
+            "%d/%d workshop items returned non-OK results: %s",
+            len(bad_ids),
+            len(items),
+            ", ".join(f"{id}(result={r})" for id, r in bad_ids),
+        )
+
+    logger.debug(
+        "Found %d valid workshop items (filtered %d with errors)",
+        len(valid_items),
+        len(bad_ids),
+    )
+    return valid_items
 
 
 async def get_servers_workshop_items(
