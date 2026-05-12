@@ -10,17 +10,24 @@ from discord.ext import commands, tasks
 from src.config import Config
 from src.services.bot_db import (
     add_ticket_notification,
+    clear_discord_resolution_flag,
     clear_ticket_notifications_for_server,
+    get_discord_resolved_tickets,
     get_last_processed_ticket_id,
+    get_ticket_by_discord_message,
     get_tracked_tickets,
     get_tracked_tickets_in_range,
     is_ticket_processed,
+    mark_ticket_resolved_in_discord,
+    revert_discord_resolution,
     update_ticket_state,
 )
 
 logger = logging.getLogger(__name__)
 
 MOD_CHANNEL = Config.MOD_CHANNEL
+
+VALID_REACTION_EMOJIS = {"👍", "🫡", "✅"}
 
 
 class TicketWatcherCog(commands.Cog):
@@ -354,6 +361,9 @@ class TicketWatcherCog(commands.Cog):
             server_name, min_id, max_id
         )
 
+        # Get tickets resolved via Discord to skip them (they bypass game DB state)
+        discord_resolved = await get_discord_resolved_tickets(server_name)
+
         # Count how many tickets actually need updates for progress tracking
         tickets_needing_updates = []
         for tracked_ticket in tracked_tickets:
@@ -367,6 +377,10 @@ class TicketWatcherCog(commands.Cog):
 
             # Only process tickets for this server
             if tracked_server_name != server_name:
+                continue
+
+            # Skip tickets resolved via Discord — they bypass game DB state
+            if ticket_id in discord_resolved:
                 continue
 
             try:
@@ -615,3 +629,158 @@ class TicketWatcherCog(commands.Cog):
     async def cog_load(self):
         """Auto-start monitoring when the cog is loaded."""
         logger.info("Cog loaded successfully")
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        """Handle reaction add to mark ticket as answered via Discord."""
+        if payload.user_id == self.bot.user.id:
+            return
+
+        emoji = str(payload.emoji)
+        if emoji not in VALID_REACTION_EMOJIS:
+            return
+
+        guild = self.bot.get_guild(payload.guild_id)
+        if not guild:
+            return
+        member = guild.get_member(payload.user_id)
+        if not member or not member.get_role(Config.PZ_ADMIN_ROLE_ID):
+            return
+
+        ticket_info = await get_ticket_by_discord_message(payload.message_id)
+        if not ticket_info:
+            return
+
+        server_name, ticket_id, last_state, resolved_in_discord = ticket_info
+        if resolved_in_discord:
+            return
+
+        channel = self.bot.get_channel(payload.channel_id)
+        if not channel or not isinstance(channel, discord.Thread):
+            return
+
+        try:
+            message = await channel.fetch_message(payload.message_id)
+        except discord.NotFound:
+            return
+
+        if not message.embeds:
+            return
+
+        embed = message.embeds[0]
+        new_embed = discord.Embed(
+            title=embed.title,
+            color=discord.Color.green(),
+            timestamp=datetime.now(timezone.utc),
+        )
+        new_embed.add_field(
+            name="Status", value="✅ Answered (via Discord)", inline=True
+        )
+
+        description = embed.description or ""
+        if "Answered by" not in description:
+            description += f"\n\n💬 **Answered by {member.display_name}**\ndone"
+        new_embed.description = description
+        new_embed.set_footer(text="WCN Ticket System")
+
+        try:
+            await self.safe_message_edit(message, embed=new_embed)
+            await mark_ticket_resolved_in_discord(server_name, ticket_id, str(member))
+            logger.info(
+                f"Ticket #{ticket_id} on {server_name} marked answered via Discord by {member}"
+            )
+        except Exception as e:
+            logger.error(f"Error marking ticket #{ticket_id} answered via Discord: {e}")
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
+        """Handle reaction removal to revert ticket to unanswered."""
+        emoji = str(payload.emoji)
+        if emoji not in VALID_REACTION_EMOJIS:
+            return
+
+        ticket_info = await get_ticket_by_discord_message(payload.message_id)
+        if not ticket_info:
+            return
+
+        server_name, ticket_id, last_state, resolved_in_discord = ticket_info
+        if not resolved_in_discord:
+            return
+
+        channel = self.bot.get_channel(payload.channel_id)
+        if not channel or not isinstance(channel, discord.Thread):
+            return
+
+        try:
+            message = await channel.fetch_message(payload.message_id)
+        except discord.NotFound:
+            return
+
+        # Only revert if ALL valid reactions are removed
+        remaining_valid = any(
+            str(r.emoji) in VALID_REACTION_EMOJIS for r in message.reactions
+        )
+        if remaining_valid:
+            return
+
+        # Check if there's a real game-side answer
+        server_config = None
+        for sc in Config.SERVER_DATA:
+            if sc["server_name"] == server_name:
+                server_config = sc
+                break
+
+        if server_config:
+            db_path = f"/home/{server_config['system_user']}/Zomboid/db/pzserver.db"
+            if os.path.exists(db_path):
+                try:
+                    async with aiosqlite.connect(
+                        f"file:{db_path}?mode=ro", uri=True
+                    ) as pz_db:
+                        game_answer = await self._find_answer_for_ticket(
+                            pz_db, ticket_id
+                        )
+                        if game_answer:
+                            # Game has an answer — update embed with game data
+                            await self._update_ticket_embed(
+                                server_name,
+                                channel,
+                                payload.message_id,
+                                ticket_id,
+                                "answered",
+                                pz_db,
+                            )
+                            # Clear discord flag (keep last_state as answered)
+                            await clear_discord_resolution_flag(server_name, ticket_id)
+                            return
+                except Exception as e:
+                    logger.error(
+                        f"Error checking game DB for {server_name} ticket #{ticket_id}: {e}"
+                    )
+
+        # No game answer — revert to unanswered
+        if not message.embeds:
+            return
+
+        embed = message.embeds[0]
+        new_embed = discord.Embed(
+            title=embed.title,
+            color=discord.Color.orange(),
+            timestamp=datetime.now(timezone.utc),
+        )
+        new_embed.add_field(name="Status", value="🔴 Unanswered", inline=True)
+
+        description = embed.description or ""
+        if "\n\n💬 **Answered by" in description:
+            description = description.split("\n\n💬 **Answered by")[0]
+        new_embed.description = description
+        new_embed.set_footer(text="WCN Ticket System")
+
+        try:
+            await self.safe_message_edit(message, embed=new_embed)
+            await revert_discord_resolution(server_name, ticket_id)
+            logger.info(
+                f"Reverted ticket #{ticket_id} on {server_name} to unanswered (reaction removed)"
+            )
+        except Exception as e:
+            logger.error(f"Error reverting ticket #{ticket_id} on {server_name}: {e}")

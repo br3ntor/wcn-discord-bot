@@ -61,7 +61,9 @@ async def init_db():
         try:
             async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
                 columns = await cursor.fetchall()
-                has_server_name = any(col[1] == 'server_name' for col in columns)
+                col_names = [col[1] for col in columns]
+                has_server_name = 'server_name' in col_names
+                has_resolved_in_discord = 'resolved_in_discord' in col_names
             
             if not has_server_name:
                 logger.info("Migrating ticket_notifications table to support multiple servers")
@@ -76,11 +78,18 @@ async def init_db():
                         thread_id INTEGER NOT NULL,
                         processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         last_state TEXT DEFAULT 'unanswered',
+                        resolved_in_discord INTEGER DEFAULT 0,
+                        resolved_by TEXT DEFAULT NULL,
                         UNIQUE(server_name, ticket_id)
                     )
                     """
                 )
                 logger.info("Migration completed - now supporting multiple servers")
+            elif not has_resolved_in_discord:
+                logger.info("Migrating ticket_notifications table to add discord resolution columns")
+                await db.execute("ALTER TABLE ticket_notifications ADD COLUMN resolved_in_discord INTEGER DEFAULT 0")
+                await db.execute("ALTER TABLE ticket_notifications ADD COLUMN resolved_by TEXT DEFAULT NULL")
+                logger.info("Migration completed - added discord resolution columns")
         except Exception as e:
             logger.error(f"Error during migration: {e}")
 
@@ -246,6 +255,72 @@ async def clear_server_tracking(server_name: str) -> bool:
     try:
         async with aiosqlite.connect(db_path) as db:
             await db.execute("DELETE FROM ticket_notifications WHERE server_name = ?", (server_name,))
+            await db.commit()
+            return True
+    except Exception:
+        return False
+
+
+async def get_ticket_by_discord_message(discord_message_id: int) -> tuple | None:
+    """Look up a ticket by its Discord message ID."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            "SELECT server_name, ticket_id, last_state, resolved_in_discord FROM ticket_notifications WHERE discord_message_id = ?",
+            (discord_message_id,),
+        ) as cursor:
+            result = await cursor.fetchone()
+            if result:
+                return (result[0], result[1], result[2], result[3])
+            return None
+
+
+async def mark_ticket_resolved_in_discord(server_name: str, ticket_id: int, resolved_by: str) -> bool:
+    """Mark a ticket as resolved via Discord reaction."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                "UPDATE ticket_notifications SET last_state = ?, resolved_in_discord = 1, resolved_by = ? WHERE server_name = ? AND ticket_id = ?",
+                ("answered", resolved_by, server_name, ticket_id),
+            )
+            await db.commit()
+            return True
+    except Exception:
+        return False
+
+
+async def revert_discord_resolution(server_name: str, ticket_id: int) -> bool:
+    """Revert a Discord-only ticket resolution back to unanswered."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                "UPDATE ticket_notifications SET last_state = 'unanswered', resolved_in_discord = 0, resolved_by = NULL WHERE server_name = ? AND ticket_id = ?",
+                (server_name, ticket_id),
+            )
+            await db.commit()
+            return True
+    except Exception:
+        return False
+
+
+async def get_discord_resolved_tickets(server_name: str) -> set:
+    """Get all ticket IDs that were resolved via Discord for a server."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            "SELECT ticket_id FROM ticket_notifications WHERE server_name = ? AND resolved_in_discord = 1",
+            (server_name,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return {row[0] for row in rows}
+
+
+async def clear_discord_resolution_flag(server_name: str, ticket_id: int) -> bool:
+    """Clear the discord resolution flag without changing last_state (e.g., game answer appeared)."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                "UPDATE ticket_notifications SET resolved_in_discord = 0, resolved_by = NULL WHERE server_name = ? AND ticket_id = ?",
+                (server_name, ticket_id),
+            )
             await db.commit()
             return True
     except Exception:
