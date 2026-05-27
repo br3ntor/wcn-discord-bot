@@ -8,6 +8,7 @@ from .get_playerlist import get_playerlist
 from .heal_player import heal_player
 from .kick_player import kick_player
 from .logs import logs_group
+from .player_stats import player_stats
 from .reset_password import reset_password
 from .restart_server import restart_server
 from .restart_server_auto import cancel_restart, restart_server_auto
@@ -43,6 +44,7 @@ __all__ = [
     "heal_player",
     "kick_player",
     "logs_group",
+    "player_stats",
     "reset_password",
     "restart_group",
     # "update_group",

@@ -1,9 +1,15 @@
+import logging
+
 import discord
 from discord import app_commands
 
 from src.config import Config
 from src.features.skill_restore import LevelRestore
+from src.services.bot_db import get_player_stats, record_command_use
 from src.utils.helpers import make_player_autocomplete
+from src.utils.player_lookup import lookup_player
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
@@ -32,8 +38,19 @@ async def restore_levels(
     result = await lr.restore_levels()
 
     if result:
+        stats_msg = ""
+        try:
+            steam_id, _, _ = await lookup_player(SYSTEM_USERS[server.name], player)
+            if steam_id:
+                await record_command_use(steam_id, server.name, player, "restore_levels")
+                stats = await get_player_stats(steam_id)
+                if stats:
+                    stats_msg = f" (Levels restored {stats[1]} time{'s' if stats[1] != 1 else ''} total)"
+        except Exception as e:
+            logger.warning(f"Failed to record restore stats: {e}")
+
         await interaction.followup.send(
-            f"Successfully restored skill levels for **{player}** on the **{server.name}** server! 🔄"
+            f"Successfully restored skill levels for **{player}** on the **{server.name}** server! 🔄{stats_msg}"
         )
     else:
         await interaction.followup.send(

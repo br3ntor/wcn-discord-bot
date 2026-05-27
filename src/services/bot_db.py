@@ -93,6 +93,20 @@ async def init_db():
         except Exception as e:
             logger.error(f"Error during migration: {e}")
 
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS player_command_stats (
+                steam_id TEXT NOT NULL,
+                server_name TEXT NOT NULL,
+                player_name TEXT NOT NULL,
+                heal_count INTEGER DEFAULT 0,
+                restore_levels_count INTEGER DEFAULT 0,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(steam_id, server_name)
+            )
+            """
+        )
+
         await db.commit()
         logger.info("Database initialized")
 
@@ -325,3 +339,53 @@ async def clear_discord_resolution_flag(server_name: str, ticket_id: int) -> boo
             return True
     except Exception:
         return False
+
+
+async def record_command_use(
+    steam_id: str, server_name: str, player_name: str, command_type: str
+) -> bool:
+    """Record a command use for a player. command_type is 'heal' or 'restore_levels'."""
+    if command_type not in ("heal", "restore_levels"):
+        return False
+
+    count_column = f"{command_type}_count"
+
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                f"""
+                INSERT INTO player_command_stats (steam_id, server_name, player_name, {count_column}, last_updated)
+                VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
+                ON CONFLICT(steam_id, server_name) DO UPDATE SET
+                    player_name = excluded.player_name,
+                    {count_column} = {count_column} + 1,
+                    last_updated = CURRENT_TIMESTAMP
+                """,
+                (steam_id, server_name, player_name),
+            )
+            await db.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error recording command use: {e}")
+        return False
+
+
+async def get_player_stats(steam_id: str) -> tuple[int, int] | None:
+    """Get aggregated heal and restore_levels counts for a player across all servers.
+
+    Returns:
+        (total_heals, total_restores) or None if no records found.
+    """
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            """
+            SELECT COALESCE(SUM(heal_count), 0), COALESCE(SUM(restore_levels_count), 0)
+            FROM player_command_stats
+            WHERE steam_id = ?
+            """,
+            (steam_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if row and (row[0] > 0 or row[1] > 0):
+                return (row[0], row[1])
+            return None
