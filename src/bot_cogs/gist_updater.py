@@ -21,18 +21,18 @@ class GistUpdaterCog(commands.Cog):
         self.update_modlists.start()
         self.update_sandbox.start()
 
-    @tasks.loop(hours=1)
+    @tasks.loop(hours=12)
     async def update_modlists(self):
-        """Update all mod list gists hourly."""
+        """Update all mod list gists every n hours."""
         try:
             links = await update_all_modlist_gists()
             logger.info("Updated %d mod list gist(s)", len(links))
         except Exception as e:
             logger.error("Error updating mod list gists: %s", e)
 
-    @tasks.loop(hours=1)
+    @tasks.loop(hours=12)
     async def update_sandbox(self):
-        """Update all sandbox settings gists hourly."""
+        """Update all sandbox settings gists every n hours."""
         try:
             links = await update_all_sandbox_gists()
             logger.info("Updated %d sandbox settings gist(s)", len(links))
