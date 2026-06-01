@@ -1,7 +1,6 @@
 import logging
 import time
 import traceback
-from datetime import datetime, timezone
 
 import discord
 from discord.ext import commands, tasks
@@ -64,38 +63,34 @@ class PlayerlistCog(commands.Cog):
                 if server_max is not None:
                     title = f"{data['server_name']} - {data['player_count']}/{server_max} Players"
 
-                embed = discord.Embed(
-                    title=title,
-                    color=(
-                        discord.Color.green()
-                        if data["player_count"] > 0
-                        else discord.Color.red()
-                    ),
-                )
+                last_updated = f"<t:{int(time.time())}:R>"
 
                 if data["error"]:
-                    embed.description = f"⚠️ {data['error']}"
+                    body = f"⚠️ {data['error']}"
                 elif data["player_count"] == 0:
-                    embed.description = "No players online"
+                    body = "No players online"
                 else:
                     player_table = tabulate(
-                        data["players"], headers=["Name", "Duration"]
+                        data["players"],
+                        headers=["Name", "Duration"],
+                        maxcolwidths=[50, 20],
                     )
-                    content = f"```\n{player_table}\n```"
 
-                    if len(content) > 4096:
+                    # Discord message content limit is 2000
+                    if len(player_table) > 1900:
                         truncated_players = data["players"][:40]
                         player_table = tabulate(
-                            truncated_players, headers=["Name", "Duration"]
+                            truncated_players,
+                            headers=["Name", "Duration"],
+                            maxcolwidths=[50, 20],
                         )
-                        content = f"```\n{player_table}\n```\n*...and {data['player_count'] - 40} more players*"
-
-                    embed.description = content
-
-                embed.timestamp = datetime.now(timezone.utc)
+                        body = f"```\n{player_table}\n```\n*...and {data['player_count'] - 40} more players*"
+                    else:
+                        body = f"```\n{player_table}\n```"
 
                 await msg.edit(
-                    content=f"Last updated: <t:{int(time.time())}:R>", embed=embed
+                    content=f"Last updated: {last_updated}\n\n**{title}**{body}",
+                    embed=None,
                 )
                 # logger.info(
                 #     f"Successfully updated player list for {srv_info['server_name']}"
