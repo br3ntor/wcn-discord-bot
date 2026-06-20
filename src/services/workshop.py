@@ -11,7 +11,7 @@ WORKSHOP_ID_REGEX = re.compile(
 )
 
 
-def _scan_file_sync(log_path: str):
+def _find_workshop_error_ids_sync(log_path: str):
     """Synchronous file scan (runs in a thread via asyncio.to_thread)."""
     ids = set()
 
@@ -27,12 +27,12 @@ def _scan_file_sync(log_path: str):
     return sorted(ids)
 
 
-async def extract_workshop_ids(log_path: str):
+async def find_workshop_error_ids(log_path: str):
     """
     Async wrapper that runs the file scan in a thread
     so the asyncio event loop is never blocked.
     """
-    return await asyncio.to_thread(_scan_file_sync, log_path)
+    return await asyncio.to_thread(_find_workshop_error_ids_sync, log_path)
 
 
 async def write_ids_to_file(ids, output_path: str):
