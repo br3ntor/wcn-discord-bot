@@ -30,10 +30,13 @@ class RealTimeLogProcessor:
         log_directory: str,
         log_file_pattern: str,
         line_callback: Callable[[str], Coroutine],
+        start_at_end: bool = False,
     ):
         self.log_directory = log_directory
         self.log_file_pattern = log_file_pattern
         self.line_callback = line_callback
+        # Verification watchers should only process messages written after they start.
+        self.start_at_end = start_at_end
         self.current_log_file: str | None = None
         self.process = None
         self.watch_task: asyncio.Task | None = None
@@ -72,9 +75,12 @@ class RealTimeLogProcessor:
                             self.process = None
 
                         self.current_log_file = latest_log_file
+                        tail_start = "0" if self.start_at_end else "1"
                         self.process = await asyncio.create_subprocess_exec(
                             "tail",
-                            "-Fn 1",
+                            "-F",
+                            "-n",
+                            tail_start,
                             latest_log_file,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,

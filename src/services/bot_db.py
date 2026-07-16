@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import aiosqlite
@@ -107,8 +107,157 @@ async def init_db():
             """
         )
 
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pending_player_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                discord_id TEXT NOT NULL,
+                server_name TEXT NOT NULL,
+                code_hash TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                consumed_at TEXT
+            )
+            """
+        )
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_pending_player_links_active
+            ON pending_player_links(discord_id, server_name, consumed_at)
+            """
+        )
+
         await db.commit()
         logger.info("Database initialized")
+
+
+def _parse_utc(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+async def invalidate_pending_player_links(discord_id: str) -> None:
+    """Invalidate all outstanding link codes for a Discord user."""
+    consumed_at = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            """
+            UPDATE pending_player_links
+            SET consumed_at = ?
+            WHERE discord_id = ? AND consumed_at IS NULL
+            """,
+            (consumed_at, discord_id),
+        )
+        await db.commit()
+
+
+async def create_pending_player_link(
+    discord_id: str,
+    server_name: str,
+    code_hash: str,
+    expires_at: datetime,
+) -> bool:
+    """Store a temporary link code for a selected server."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO pending_player_links
+                    (discord_id, server_name, code_hash, created_at, expires_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    discord_id,
+                    server_name,
+                    code_hash,
+                    datetime.now(timezone.utc).isoformat(),
+                    expires_at.astimezone(timezone.utc).isoformat(),
+                ),
+            )
+            await db.commit()
+            return True
+    except Exception as e:
+        logger.error("Error creating pending player link: %s", e)
+        return False
+
+
+async def get_pending_player_link(
+    server_name: str, code_hash: str
+) -> dict | None:
+    """Return an unexpired pending link matching a server and code hash."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            """
+            SELECT id, discord_id, server_name, code_hash, created_at, expires_at
+            FROM pending_player_links
+            WHERE server_name = ? AND code_hash = ? AND consumed_at IS NULL
+            """,
+            (server_name, code_hash),
+        ) as cursor:
+            row = await cursor.fetchone()
+
+    if not row:
+        return None
+
+    if _parse_utc(row[5]) <= datetime.now(timezone.utc):
+        return None
+
+    return {
+        "id": row[0],
+        "discord_id": row[1],
+        "server_name": row[2],
+        "code_hash": row[3],
+        "created_at": row[4],
+        "expires_at": row[5],
+    }
+
+
+async def consume_pending_player_link(link_id: int) -> bool:
+    """Consume a pending code exactly once."""
+    consumed_at = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(db_path) as db:
+        cursor = await db.execute(
+            """
+            UPDATE pending_player_links
+            SET consumed_at = ?
+            WHERE id = ? AND consumed_at IS NULL
+            """,
+            (consumed_at, link_id),
+        )
+        await db.commit()
+        return cursor.rowcount == 1
+
+
+async def get_active_pending_link_servers() -> set[str]:
+    """Return servers with at least one unexpired pending link code."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            """
+            SELECT DISTINCT server_name, expires_at
+            FROM pending_player_links
+            WHERE consumed_at IS NULL
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    now = datetime.now(timezone.utc)
+    return {row[0] for row in rows if _parse_utc(row[1]) > now}
+
+
+async def cleanup_pending_player_links() -> None:
+    """Remove consumed and expired temporary link records."""
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            """
+            DELETE FROM pending_player_links
+            WHERE consumed_at IS NOT NULL OR expires_at <= ?
+            """,
+            (now,),
+        )
+        await db.commit()
 
 
 async def add_donation(player_name: str, email: str, amount: float) -> bool:

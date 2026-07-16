@@ -93,6 +93,111 @@ class PocketBaseClient:
         """Escape special characters for PocketBase filter expressions."""
         return value.replace("\\", "\\\\").replace('"', '\\"')
 
+    async def _ensure_token(self) -> bool:
+        if not Config.pocketbase_configured:
+            logger.warning("PocketBase not configured")
+            return False
+        if self.token:
+            return True
+        return await self.login()
+
+    async def ensure_authenticated(self) -> bool:
+        """Ensure the bot has an authenticated PocketBase session."""
+        return await self._ensure_token()
+
+    async def _player_link_request(
+        self, method: str, url: str, json_data: Optional[Dict[str, Any]] = None
+    ) -> tuple[int, Any]:
+        """Make an authenticated request for player-link records."""
+        if not await self._ensure_token():
+            return 0, None
+
+        session = await self._get_session()
+        for attempt in range(2):
+            try:
+                async with session.request(
+                    method,
+                    url,
+                    json=json_data,
+                    headers=self._auth_headers(),
+                ) as resp:
+                    if resp.status == 401 and attempt == 0:
+                        if await self.login():
+                            continue
+                        return resp.status, None
+
+                    try:
+                        data = await resp.json()
+                    except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                        data = await resp.text()
+                    return resp.status, data
+            except Exception as e:
+                logger.error("PocketBase player link request error: %s", e)
+                return 0, None
+
+        return 0, None
+
+    async def get_player_link_by_discord_id(
+        self, discord_id: str
+    ) -> Optional[Dict[str, Any]]:
+        success, record = await self.find_player_link("discord_id", discord_id)
+        return record if success else None
+
+    async def find_player_link(
+        self, field: str, value: str
+    ) -> tuple[bool, Optional[Dict[str, Any]]]:
+        if field not in {"discord_id", "steam_id"}:
+            raise ValueError(f"Unsupported player link field: {field}")
+
+        safe_value = self._escape_filter_value(value)
+        url = (
+            f'{self.url}/api/collections/player_links/records?'
+            f'filter={field}="{safe_value}"&perPage=1'
+        )
+        status, data = await self._player_link_request("GET", url)
+        if status == 200:
+            items = data.get("items", [])
+            return True, items[0] if items else None
+        if status:
+            logger.error("Failed to find player link by %s: %s", field, status)
+        return False, None
+
+    async def get_player_link_by_steam_id(
+        self, steam_id: str
+    ) -> Optional[Dict[str, Any]]:
+        success, record = await self.find_player_link("steam_id", steam_id)
+        return record if success else None
+
+    async def create_player_link(
+        self,
+        discord_id: str,
+        steam_id: str,
+        player_name: str,
+        linked_from_server: str,
+    ) -> Optional[Dict[str, Any]]:
+        url = f"{self.url}/api/collections/player_links/records"
+        status, data = await self._player_link_request(
+            "POST",
+            url,
+            {
+                "discord_id": discord_id,
+                "steam_id": steam_id,
+                "player_name": player_name,
+                "linked_from_server": linked_from_server,
+            },
+        )
+        if status in (200, 201):
+            logger.info(
+                "Created player link for Discord %s and Steam %s",
+                discord_id,
+                steam_id,
+            )
+            return data
+
+        if status:
+            logger.error("Failed to create player link: %s - %s", status, data)
+        return None
+
     async def get_bans(self, is_active: bool | None = None) -> List[Dict[str, Any]]:
         """Fetch all bans from PocketBase with pagination.
 
