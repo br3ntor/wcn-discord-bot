@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.game_db import gamedb_get_admins, gamedb_get_player_by_name
+from src.services.game_db import gamedb_get_player_by_name, gamedb_get_staff
 from src.services.pz_server import pz_set_access_level
 from src.services.server import get_game_version, server_isrunning
 
@@ -96,7 +96,7 @@ async def toggle(
 async def list(interaction: discord.Interaction):
     """Get a list of admins on a zomboid server."""
     the_boys = [
-        f"**{servername} Admins**:\n{await gamedb_get_admins(username)}"
+        f"**{servername} Privileged Users:**:\n{await gamedb_get_staff(username)}"
         for servername, username in SYSTEM_USERS.items()
     ]
     formatted_msg = "\n\n".join(the_boys)
