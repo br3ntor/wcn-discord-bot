@@ -5,7 +5,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.features.skill_restore import LevelRestore
-from src.services.bot_db import get_player_stats, record_command_use
+from src.services.bot_db import get_player_stats, log_command_history
 from src.utils.helpers import make_player_autocomplete
 from src.utils.player_lookup import lookup_player
 
@@ -42,7 +42,14 @@ async def restore_levels(
         try:
             steam_id, _, _ = await lookup_player(SYSTEM_USERS[server.name], player)
             if steam_id:
-                await record_command_use(steam_id, server.name, player, "restore_levels")
+                await log_command_history(
+                    interaction,
+                    "restore_levels",
+                    server_name=server.name,
+                    steam_id=steam_id,
+                    player_name=player,
+                    arguments={"server": server.name, "player": player},
+                )
                 stats = await get_player_stats(steam_id)
                 if stats:
                     stats_msg = f" (Levels restored {stats[1]} time{'s' if stats[1] != 1 else ''} total)"

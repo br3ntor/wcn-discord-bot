@@ -7,7 +7,7 @@ from discord.ext import commands
 
 import src.bot_commands as bot_commands
 from src.config import Config
-from src.services.bot_db import init_db
+from src.services.bot_db import init_db, sync_server_worlds
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,7 @@ class WCNBot(commands.Bot):
         try:
             await init_db()
             logger.info("Database initialized successfully")
+            await sync_server_worlds(Config.SERVER_DATA)
         except Exception as e:
             logger.warning(f"Database initialization failed: {e}")
 

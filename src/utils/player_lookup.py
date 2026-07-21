@@ -45,7 +45,11 @@ async def lookup_player(
         if not is_valid_steam_id(steam_id):
             return None, None, "SteamID must be exactly 17 digits."
         row = await gamedb_get_player_by_steamid(system_user, steam_id)
-        player_name = row[2] if row else None
+        if isinstance(row, str):
+            return None, None, row
+        if not row:
+            return None, None, f"No player found with Steam ID **{steam_id}**."
+        player_name = row[2]
     else:
         # Lookup player by name
         player_row = await gamedb_get_player_by_name(system_user, player_input)

@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.bot_db import get_player_stats, record_command_use
+from src.services.bot_db import get_player_stats, log_command_history
 from src.services.pz_server import pz_heal_player
 from src.utils.helpers import make_player_autocomplete
 from src.utils.player_lookup import lookup_player
@@ -37,7 +37,14 @@ async def heal_player(
         try:
             steam_id, _, _ = await lookup_player(SYSTEM_USERS[server.name], player)
             if steam_id:
-                await record_command_use(steam_id, server.name, player, "heal")
+                await log_command_history(
+                    interaction,
+                    "heal_player",
+                    server_name=server.name,
+                    steam_id=steam_id,
+                    player_name=player,
+                    arguments={"server": server.name, "player": player},
+                )
                 stats = await get_player_stats(steam_id)
                 if stats:
                     stats_msg = f" (Healed {stats[0]} time{'s' if stats[0] != 1 else ''} total)"

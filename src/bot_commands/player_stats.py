@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.bot_db import get_player_stats
+from src.services.bot_db import get_player_command_counts
 from src.utils.helpers import make_player_autocomplete
 from src.utils.player_lookup import lookup_player
 
@@ -30,7 +30,7 @@ SERVER_NAMES = Config.SERVER_NAMES
 async def player_stats(
     interaction: discord.Interaction, server: app_commands.Choice[int], player: str
 ):
-    """Shows how many times heal and restore levels have been used on a player."""
+    """Shows heal and skill restore counts for a player, broken down by admin vs self."""
     await interaction.response.defer()
 
     steam_id, player_name, error = await lookup_player(
@@ -41,16 +41,32 @@ async def player_stats(
         await interaction.followup.send(error or f"Could not find player **{player}**.")
         return
 
-    stats = await get_player_stats(steam_id)
+    counts = await get_player_command_counts(steam_id)
 
-    if stats:
-        heals, restores = stats
-        await interaction.followup.send(
-            f"**{player_name}** ({steam_id})\n"
-            f"Healed: {heals} time{'s' if heals != 1 else ''}\n"
-            f"Levels Restored: {restores} time{'s' if restores != 1 else ''}"
-        )
-    else:
+    heals_admin = counts.get("heal_player", 0)
+    heals_self = counts.get("heal_self", 0)
+    restores_admin = counts.get("restore_levels", 0)
+    restores_self = counts.get("restore_self", 0)
+
+    heals_total = heals_admin + heals_self
+    restores_total = restores_admin + restores_self
+
+    if heals_total == 0 and restores_total == 0:
         await interaction.followup.send(
             f"No command stats found for **{player_name}** ({steam_id})."
         )
+        return
+
+    lines = [f"**{player_name}** ({steam_id})"]
+    if heals_total:
+        lines.append(
+            f"Heals: {heals_total} total "
+            f"({heals_admin} by admins, {heals_self} self)"
+        )
+    if restores_total:
+        lines.append(
+            f"Skill Restores: {restores_total} total "
+            f"({restores_admin} by admins, {restores_self} self)"
+        )
+
+    await interaction.followup.send("\n".join(lines))

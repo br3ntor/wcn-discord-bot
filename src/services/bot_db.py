@@ -1,3 +1,5 @@
+import asyncio
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -109,6 +111,68 @@ async def init_db():
 
         await db.execute(
             """
+            CREATE TABLE IF NOT EXISTS command_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                command_name TEXT NOT NULL,
+                discord_user_id TEXT NOT NULL,
+                discord_username TEXT NOT NULL,
+                discord_roles TEXT,
+                guild_id TEXT,
+                channel_id TEXT,
+                server_name TEXT,
+                steam_id TEXT,
+                player_name TEXT,
+                arguments TEXT,
+                success INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_command_history_steam_cmd
+            ON command_history(steam_id, command_name)
+            """
+        )
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_command_history_cmd_time
+            ON command_history(command_name, created_at)
+            """
+        )
+        await db.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_command_history_user
+            ON command_history(discord_user_id)
+            """
+        )
+
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS server_worlds (
+                server_name TEXT PRIMARY KEY,
+                world_started_at TEXT NOT NULL
+            )
+            """
+        )
+
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS player_command_cooldowns (
+                cooldown_key TEXT PRIMARY KEY,
+                steam_id TEXT NOT NULL,
+                server_name TEXT NOT NULL,
+                command_name TEXT NOT NULL,
+                cooldown_until TEXT NOT NULL,
+                last_used_at TEXT NOT NULL,
+                use_count INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(steam_id, server_name, command_name)
+            )
+            """
+        )
+
+        await db.execute(
+            """
             CREATE TABLE IF NOT EXISTS pending_player_links (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 discord_id TEXT NOT NULL,
@@ -136,6 +200,80 @@ def _parse_utc(value: str) -> datetime:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+async def upsert_server_world(server_name: str, world_started_at: datetime) -> bool:
+    """Record when a server's current game world was created."""
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO server_worlds (server_name, world_started_at)
+                VALUES (?, ?)
+                ON CONFLICT(server_name) DO UPDATE SET
+                    world_started_at = excluded.world_started_at
+                """,
+                (server_name, world_started_at.astimezone(timezone.utc).isoformat()),
+            )
+            await db.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error upserting server world for {server_name}: {e}")
+        return False
+
+
+async def get_server_world_start(server_name: str) -> datetime | None:
+    """Get the recorded world start date for a server, if known."""
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            "SELECT world_started_at FROM server_worlds WHERE server_name = ?",
+            (server_name,),
+        ) as cursor:
+            row = await cursor.fetchone()
+    return _parse_utc(row[0]) if row else None
+
+
+async def _stat_birth_time(path: str) -> datetime | None:
+    """Get a filesystem path's creation time via GNU stat, or None if unknown."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "stat", "-c", "%W", path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        if proc.returncode != 0:
+            return None
+        epoch = int(stdout.decode().strip())
+        if epoch <= 0:
+            return None
+        return datetime.fromtimestamp(epoch, timezone.utc)
+    except Exception as e:
+        logger.warning(f"Could not stat birth time for {path}: {e}")
+        return None
+
+
+async def sync_server_worlds(server_data: list) -> None:
+    """Refresh world start dates from each server's save folder creation time.
+
+    The PZ multiplayer save folder is recreated on every world wipe, so its
+    filesystem birth time marks when the current world started.
+    """
+    for srv in server_data:
+        server_name = srv["server_name"]
+        save_name = srv.get("save_name", "pzserver")
+        save_path = f"/home/{srv['system_user']}/Zomboid/Saves/Multiplayer/{save_name}"
+
+        started_at = await _stat_birth_time(save_path)
+        if started_at is None:
+            logger.warning(
+                f"Could not determine world start for {server_name} ({save_path}); "
+                "keeping previous value"
+            )
+            continue
+
+        if await upsert_server_world(server_name, started_at):
+            logger.info(f"World start for {server_name}: {started_at.isoformat()}")
 
 
 async def invalidate_pending_player_links(discord_id: str) -> None:
@@ -490,51 +628,181 @@ async def clear_discord_resolution_flag(server_name: str, ticket_id: int) -> boo
         return False
 
 
-async def record_command_use(
-    steam_id: str, server_name: str, player_name: str, command_type: str
+async def log_command_history(
+    interaction,
+    command_name: str,
+    *,
+    server_name: str | None = None,
+    steam_id: str | None = None,
+    player_name: str | None = None,
+    arguments: dict | None = None,
+    success: bool = True,
 ) -> bool:
-    """Record a command use for a player. command_type is 'heal' or 'restore_levels'."""
-    if command_type not in ("heal", "restore_levels"):
-        return False
+    """Log one command invocation to the command_history table.
 
-    count_column = f"{command_type}_count"
+    Expects a discord.Interaction-like object; user, guild_id and channel_id
+    are extracted automatically. Roles are stored as a JSON list of
+    {"id", "name"} dicts, skipping @everyone.
+    """
+    user = interaction.user
+    roles = [
+        {"id": str(role.id), "name": role.name}
+        for role in getattr(user, "roles", [])
+        if not role.is_default()
+    ]
 
     try:
         async with aiosqlite.connect(db_path) as db:
             await db.execute(
-                f"""
-                INSERT INTO player_command_stats (steam_id, server_name, player_name, {count_column}, last_updated)
-                VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
-                ON CONFLICT(steam_id, server_name) DO UPDATE SET
-                    player_name = excluded.player_name,
-                    {count_column} = {count_column} + 1,
-                    last_updated = CURRENT_TIMESTAMP
+                """
+                INSERT INTO command_history (
+                    command_name, discord_user_id, discord_username, discord_roles,
+                    guild_id, channel_id, server_name, steam_id, player_name,
+                    arguments, success, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (steam_id, server_name, player_name),
+                (
+                    command_name,
+                    str(user.id),
+                    str(user),
+                    json.dumps(roles),
+                    str(interaction.guild_id) if interaction.guild_id else None,
+                    str(interaction.channel_id) if interaction.channel_id else None,
+                    server_name,
+                    steam_id,
+                    player_name,
+                    json.dumps(arguments) if arguments else None,
+                    1 if success else 0,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
             )
             await db.commit()
             return True
     except Exception as e:
-        logger.error(f"Error recording command use: {e}")
+        logger.error(f"Error logging command history: {e}")
         return False
 
 
-async def get_player_stats(steam_id: str) -> tuple[int, int] | None:
-    """Get aggregated heal and restore_levels counts for a player across all servers.
+async def get_player_command_counts(steam_id: str) -> dict[str, int]:
+    """Get per-command successful use counts for a player in the current world.
+
+    Only rows at or after each server's recorded world start date are counted.
+    Rows from servers with no recorded world start are included.
 
     Returns:
-        (total_heals, total_restores) or None if no records found.
+        Mapping of command_name to count, e.g. {"heal_player": 3, "heal_self": 2}.
     """
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
             """
-            SELECT COALESCE(SUM(heal_count), 0), COALESCE(SUM(restore_levels_count), 0)
-            FROM player_command_stats
-            WHERE steam_id = ?
+            SELECT ch.command_name, COUNT(*)
+            FROM command_history ch
+            LEFT JOIN server_worlds sw ON sw.server_name = ch.server_name
+            WHERE ch.steam_id = ? AND ch.success = 1
+              AND ch.created_at >= COALESCE(sw.world_started_at, '')
+            GROUP BY ch.command_name
             """,
             (steam_id,),
         ) as cursor:
+            rows = await cursor.fetchall()
+
+    return {row[0]: row[1] for row in rows}
+
+
+async def get_player_stats(steam_id: str) -> tuple[int, int] | None:
+    """Get aggregated admin-issued heal and restore_levels counts for a player.
+
+    Counts successful 'heal_player' and 'restore_levels' invocations in the
+    current world. Self-issued commands (e.g. 'heal_self') are not included.
+
+    Returns:
+        (total_heals, total_restores) or None if no records found.
+    """
+    counts = await get_player_command_counts(steam_id)
+    heals = counts.get("heal_player", 0)
+    restores = counts.get("restore_levels", 0)
+    if heals == 0 and restores == 0:
+        return None
+    return (heals, restores)
+
+
+def get_command_cooldown_key(
+    steam_id: str, server_name: str, command_name: str
+) -> str:
+    """Build the stable key for a player's command cooldown on one server."""
+    return f"{server_name}:{steam_id}:{command_name}"
+
+
+async def get_player_command_cooldown(
+    steam_id: str, server_name: str, command_name: str
+) -> dict | None:
+    """Get a player's cooldown record for one command and game instance."""
+    cooldown_key = get_command_cooldown_key(steam_id, server_name, command_name)
+
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            """
+            SELECT cooldown_key, steam_id, server_name, command_name,
+                   cooldown_until, last_used_at, use_count
+            FROM player_command_cooldowns
+            WHERE cooldown_key = ?
+            """,
+            (cooldown_key,),
+        ) as cursor:
             row = await cursor.fetchone()
-            if row and (row[0] > 0 or row[1] > 0):
-                return (row[0], row[1])
-            return None
+
+    if not row:
+        return None
+
+    return {
+        "cooldown_key": row[0],
+        "steam_id": row[1],
+        "server_name": row[2],
+        "command_name": row[3],
+        "cooldown_until": row[4],
+        "last_used_at": row[5],
+        "use_count": row[6],
+    }
+
+
+async def record_player_command_use(
+    steam_id: str,
+    server_name: str,
+    command_name: str,
+    cooldown_until: datetime,
+) -> bool:
+    """Record one successful player command and set its next cooldown."""
+    now = datetime.now(timezone.utc)
+    cooldown_key = get_command_cooldown_key(steam_id, server_name, command_name)
+    last_used_at = now.isoformat()
+    cooldown_until_value = cooldown_until.astimezone(timezone.utc).isoformat()
+
+    try:
+        async with aiosqlite.connect(db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO player_command_cooldowns (
+                    cooldown_key, steam_id, server_name, command_name,
+                    cooldown_until, last_used_at, use_count
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 1)
+                ON CONFLICT(cooldown_key) DO UPDATE SET
+                    cooldown_until = excluded.cooldown_until,
+                    last_used_at = excluded.last_used_at,
+                    use_count = player_command_cooldowns.use_count + 1
+                """,
+                (
+                    cooldown_key,
+                    steam_id,
+                    server_name,
+                    command_name,
+                    cooldown_until_value,
+                    last_used_at,
+                ),
+            )
+            await db.commit()
+            return True
+    except Exception as e:
+        logger.error("Error recording player command cooldown: %s", e)
+        return False

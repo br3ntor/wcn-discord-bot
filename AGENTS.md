@@ -34,6 +34,7 @@ Edit `config/cogs.json` - set `"enabled": true|false`. Bot loads cogs at startup
 - `port`: game port
 - `rcon`: {host, port, password}
 - `discord_playerlist`: thread_id, message_id
+- `save_name` (optional): PZ save folder name under `Zomboid/Saves/Multiplayer/`, defaults to `pzserver`. Its folder creation time is tracked in the `server_worlds` table and used to scope command stats to the current game world.
 
 ## Key Dependencies
 
