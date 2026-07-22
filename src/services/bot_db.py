@@ -158,16 +158,7 @@ async def init_db():
 
         await db.execute(
             """
-            CREATE TABLE IF NOT EXISTS player_command_cooldowns (
-                cooldown_key TEXT PRIMARY KEY,
-                steam_id TEXT NOT NULL,
-                server_name TEXT NOT NULL,
-                command_name TEXT NOT NULL,
-                cooldown_until TEXT NOT NULL,
-                last_used_at TEXT NOT NULL,
-                use_count INTEGER NOT NULL DEFAULT 0,
-                UNIQUE(steam_id, server_name, command_name)
-            )
+            DROP TABLE IF EXISTS player_command_cooldowns
             """
         )
 
@@ -727,82 +718,64 @@ async def get_player_stats(steam_id: str) -> tuple[int, int] | None:
     return (heals, restores)
 
 
-def get_command_cooldown_key(
-    steam_id: str, server_name: str, command_name: str
-) -> str:
-    """Build the stable key for a player's command cooldown on one server."""
-    return f"{server_name}:{steam_id}:{command_name}"
+async def get_latest_player_command(
+    steam_id: str, server_name: str, command_name: str, player_name: str
+) -> datetime | None:
+    """Get the most recent successful use of a command by a player on a server.
 
-
-async def get_player_command_cooldown(
-    steam_id: str, server_name: str, command_name: str
-) -> dict | None:
-    """Get a player's cooldown record for one command and game instance."""
-    cooldown_key = get_command_cooldown_key(steam_id, server_name, command_name)
-
+    Scoped to the current world via server_worlds. Filters by character name
+    for per-character cooldown checking. Returns the created_at timestamp or
+    None if no matching record exists.
+    """
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
             """
-            SELECT cooldown_key, steam_id, server_name, command_name,
-                   cooldown_until, last_used_at, use_count
-            FROM player_command_cooldowns
-            WHERE cooldown_key = ?
+            SELECT ch.created_at
+            FROM command_history ch
+            LEFT JOIN server_worlds sw ON sw.server_name = ch.server_name
+            WHERE ch.steam_id = ?
+              AND ch.server_name = ?
+              AND ch.command_name = ?
+              AND ch.player_name = ?
+              AND ch.success = 1
+              AND ch.created_at >= COALESCE(sw.world_started_at, '')
+            ORDER BY ch.created_at DESC
+            LIMIT 1
             """,
-            (cooldown_key,),
+            (steam_id, server_name, command_name, player_name),
         ) as cursor:
             row = await cursor.fetchone()
 
     if not row:
         return None
-
-    return {
-        "cooldown_key": row[0],
-        "steam_id": row[1],
-        "server_name": row[2],
-        "command_name": row[3],
-        "cooldown_until": row[4],
-        "last_used_at": row[5],
-        "use_count": row[6],
-    }
+    return _parse_utc(row[0])
 
 
-async def record_player_command_use(
-    steam_id: str,
-    server_name: str,
-    command_name: str,
-    cooldown_until: datetime,
-) -> bool:
-    """Record one successful player command and set its next cooldown."""
-    now = datetime.now(timezone.utc)
-    cooldown_key = get_command_cooldown_key(steam_id, server_name, command_name)
-    last_used_at = now.isoformat()
-    cooldown_until_value = cooldown_until.astimezone(timezone.utc).isoformat()
+async def get_player_command_counts_by_character(
+    steam_id: str, server_name: str
+) -> dict[str, dict[str, int]]:
+    """Get per-character, per-command successful use counts on a server in the current world.
 
-    try:
-        async with aiosqlite.connect(db_path) as db:
-            await db.execute(
-                """
-                INSERT INTO player_command_cooldowns (
-                    cooldown_key, steam_id, server_name, command_name,
-                    cooldown_until, last_used_at, use_count
-                )
-                VALUES (?, ?, ?, ?, ?, ?, 1)
-                ON CONFLICT(cooldown_key) DO UPDATE SET
-                    cooldown_until = excluded.cooldown_until,
-                    last_used_at = excluded.last_used_at,
-                    use_count = player_command_cooldowns.use_count + 1
-                """,
-                (
-                    cooldown_key,
-                    steam_id,
-                    server_name,
-                    command_name,
-                    cooldown_until_value,
-                    last_used_at,
-                ),
-            )
-            await db.commit()
-            return True
-    except Exception as e:
-        logger.error("Error recording player command cooldown: %s", e)
-        return False
+    Groups by (player_name, command_name). Returns a nested dict like:
+        {"admin": {"heal_player": 2, "heal_self": 1}, "br3ntor": {"heal_self": 1}}
+    """
+    async with aiosqlite.connect(db_path) as db:
+        async with db.execute(
+            """
+            SELECT ch.player_name, ch.command_name, COUNT(*)
+            FROM command_history ch
+            LEFT JOIN server_worlds sw ON sw.server_name = ch.server_name
+            WHERE ch.steam_id = ? AND ch.server_name = ? AND ch.success = 1
+              AND ch.created_at >= COALESCE(sw.world_started_at, '')
+            GROUP BY ch.player_name, ch.command_name
+            """,
+            (steam_id, server_name),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    result: dict[str, dict[str, int]] = {}
+    for player_name, command_name, count in rows:
+        if player_name not in result:
+            result[player_name] = {}
+        result[player_name][command_name] = count
+    return result

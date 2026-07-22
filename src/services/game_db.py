@@ -54,6 +54,23 @@ async def gamedb_get_player_by_steamid(server: str, steamid: str):
         return f"Error accessing database for {server} server"
 
 
+async def gamedb_get_players_by_steamid(server: str, steamid: str):
+    """Return all whitelist rows for a steam ID."""
+    file_exists, result = gamedb_check_db_exists(server)
+    if not file_exists:
+        return result
+
+    try:
+        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+            async with db.execute(
+                "SELECT * FROM whitelist WHERE steamid=?", [steamid]
+            ) as cursor:
+                return await cursor.fetchall()
+    except aiosqlite.Error as e:
+        logger.error(f"Database error occurred: {e}")
+        return f"Error accessing database for {server} server"
+
+
 async def gamedb_get_ban_by_steamid(server: str, steamid: str):
     """Return the db row for a banned player."""
     file_exists, result = gamedb_check_db_exists(server)

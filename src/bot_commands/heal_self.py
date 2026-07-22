@@ -6,27 +6,20 @@ from discord import app_commands
 
 from src.config import Config
 from src.services.bot_db import (
-    get_player_command_cooldown,
+    get_latest_player_command,
     log_command_history,
-    record_player_command_use,
 )
+from src.services.game_db import gamedb_get_players_by_steamid
 from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_heal_player, pz_players
-from src.utils.player_lookup import is_valid_steam_id, lookup_player
+from src.utils.player_lookup import is_valid_steam_id
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 COMMAND_NAME = "heal_self"
-COOLDOWN = timedelta(days=7)
-
-
-def _parse_utc(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+COOLDOWN = timedelta(days=15)
 
 
 def _format_remaining(until: datetime, now: datetime) -> str:
@@ -55,9 +48,7 @@ def _format_remaining(until: datetime, now: datetime) -> str:
     ]
 )
 @app_commands.describe(server="Which server?")
-async def heal_self(
-    interaction: discord.Interaction, server: app_commands.Choice[int]
-):
+async def heal_self(interaction: discord.Interaction, server: app_commands.Choice[int]):
     """Heal the caller's linked player if they are online and off cooldown."""
     await interaction.response.defer(ephemeral=True)
 
@@ -91,46 +82,19 @@ async def heal_self(
         await interaction.followup.send("That game server is not configured.")
         return
 
-    try:
-        cooldown = await get_player_command_cooldown(
-            steam_id, server_name, COMMAND_NAME
-        )
-    except Exception as e:
-        logger.error("Could not read self-heal cooldown: %s", e)
+    whitelist_rows = await gamedb_get_players_by_steamid(system_user, steam_id)
+    if isinstance(whitelist_rows, str):
         await interaction.followup.send(
-            "The self-heal cooldown could not be checked. Please try again later."
+            f"Could not look up your characters on **{server_name}**: {whitelist_rows}"
+        )
+        return
+    if not whitelist_rows:
+        await interaction.followup.send(
+            f"Your linked Steam account is not registered on **{server_name}**."
         )
         return
 
-    now = datetime.now(timezone.utc)
-    if cooldown:
-        try:
-            cooldown_until = _parse_utc(cooldown["cooldown_until"])
-        except (KeyError, TypeError, ValueError):
-            logger.exception(
-                "Invalid cooldown record for %s on %s", steam_id, server_name
-            )
-            await interaction.followup.send(
-                "Your self-heal cooldown record is invalid. Please contact an administrator."
-            )
-            return
-
-        if cooldown_until > now:
-            await interaction.followup.send(
-                "Your self-heal is on cooldown for **"
-                f"{_format_remaining(cooldown_until, now)}** on **{server_name}**."
-            )
-            return
-
-    resolved_steam_id, player_name, lookup_error = await lookup_player(
-        system_user, steam_id
-    )
-    if lookup_error or not resolved_steam_id or not player_name:
-        await interaction.followup.send(
-            lookup_error
-            or f"Your linked player is not registered on the **{server_name}** server."
-        )
-        return
+    whitelist_names = [row[2] for row in whitelist_rows]
 
     online_players = await pz_players(system_user)
     if online_players is None:
@@ -141,39 +105,42 @@ async def heal_self(
 
     online_name = next(
         (
-            online_player
-            for online_player in online_players
-            if online_player.casefold() == player_name.casefold()
+            player
+            for player in online_players
+            if player.casefold() in (name.casefold() for name in whitelist_names)
         ),
         None,
     )
     if online_name is None:
         await interaction.followup.send(
-            f"Your linked player **{player_name}** is not currently online on **{server_name}**."
+            f"None of your linked characters are currently online on **{server_name}**."
         )
         return
+
+    try:
+        latest = await get_latest_player_command(
+            steam_id, server_name, COMMAND_NAME, online_name
+        )
+    except Exception as e:
+        logger.error("Could not read self-heal history: %s", e)
+        await interaction.followup.send(
+            "The self-heal cooldown could not be checked. Please try again later."
+        )
+        return
+
+    now = datetime.now(timezone.utc)
+    if latest is not None:
+        cooldown_until = latest + COOLDOWN
+        if cooldown_until > now:
+            await interaction.followup.send(
+                "Your self-heal is on cooldown for **"
+                f"{_format_remaining(cooldown_until, now)}** on **{server_name}**."
+            )
+            return
 
     result, message = await pz_heal_player(system_user, online_name)
     if not result:
         await interaction.followup.send(f"Heal failed for **{online_name}**: {message}")
-        return
-
-    cooldown_recorded = await record_player_command_use(
-        steam_id=steam_id,
-        server_name=server_name,
-        command_name=COMMAND_NAME,
-        cooldown_until=datetime.now(timezone.utc) + COOLDOWN,
-    )
-    if not cooldown_recorded:
-        logger.error(
-            "Self-heal succeeded but cooldown could not be recorded for %s on %s",
-            steam_id,
-            server_name,
-        )
-        await interaction.followup.send(
-            f"I healed **{online_name}** on **{server_name}**, but could not record "
-            "the cooldown. Please contact an administrator."
-        )
         return
 
     await interaction.followup.send(

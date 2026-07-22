@@ -50,12 +50,12 @@ class CommandHistoryTests(unittest.IsolatedAsyncioTestCase):
         self.temp_dir.cleanup()
 
     async def log(self, command_name, steam_id="76561198000000000", **kwargs):
+        kwargs.setdefault("player_name", "TestPlayer")
+        kwargs.setdefault("server_name", "Server One")
         return await bot_db.log_command_history(
             make_interaction(),
             command_name,
             steam_id=steam_id,
-            player_name="TestPlayer",
-            server_name="Server One",
             **kwargs,
         )
 
@@ -156,6 +156,100 @@ class CommandHistoryTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(row[10], 1)
 
+    async def test_get_latest_player_command_returns_most_recent(self):
+        steam_id = "76561198000000000"
+        player_name = "TestPlayer"
+        self.assertIsNone(
+            await bot_db.get_latest_player_command(
+                steam_id, "Server One", "heal_self", player_name
+            )
+        )
+
+        await self.log("heal_self", steam_id)
+        await self.log("heal_self", steam_id, success=False)
+        await self.log("heal_player", steam_id)
+
+        latest = await bot_db.get_latest_player_command(
+            steam_id, "Server One", "heal_self", player_name
+        )
+        self.assertIsNotNone(latest)
+
+        # Different server returns None
+        self.assertIsNone(
+            await bot_db.get_latest_player_command(
+                steam_id, "Server Two", "heal_self", player_name
+            )
+        )
+        # Different command returns None
+        self.assertIsNone(
+            await bot_db.get_latest_player_command(
+                steam_id, "Server One", "restore_self", player_name
+            )
+        )
+
+    async def test_get_latest_player_command_is_world_scoped(self):
+        steam_id = "76561198000000000"
+        player_name = "TestPlayer"
+        await self.log("heal_self", steam_id)
+
+        self.assertIsNotNone(
+            await bot_db.get_latest_player_command(
+                steam_id, "Server One", "heal_self", player_name
+            )
+        )
+
+        # A world starting "now" excludes everything logged before it
+        await bot_db.upsert_server_world(
+            "Server One", datetime.now(timezone.utc) + timedelta(seconds=1)
+        )
+        self.assertIsNone(
+            await bot_db.get_latest_player_command(
+                steam_id, "Server One", "heal_self", player_name
+            )
+        )
+
+    async def test_get_latest_player_command_is_per_character(self):
+        steam_id = "76561198000000000"
+
+        await self.log("heal_self", steam_id, player_name="admin")
+        await self.log("heal_self", steam_id, player_name="br3ntor")
+
+        self.assertIsNotNone(
+            await bot_db.get_latest_player_command(
+                steam_id, "Server One", "heal_self", "admin"
+            )
+        )
+        self.assertIsNotNone(
+            await bot_db.get_latest_player_command(
+                steam_id, "Server One", "heal_self", "br3ntor"
+            )
+        )
+        # Different character returns None
+        self.assertIsNone(
+            await bot_db.get_latest_player_command(
+                steam_id, "Server One", "heal_self", "nobody"
+            )
+        )
+
+    async def test_get_player_command_counts_by_character(self):
+        steam_id = "76561198000000000"
+
+        await self.log("heal_player", steam_id, player_name="admin")
+        await self.log("heal_self", steam_id, player_name="admin")
+        await self.log("heal_self", steam_id, player_name="br3ntor")
+        await self.log("heal_self", steam_id, player_name="br3ntor")
+        await self.log("restore_self", steam_id, player_name="br3ntor")
+        await self.log("heal_player", steam_id, player_name="br3ntor", success=False)
+
+        result = await bot_db.get_player_command_counts_by_character(steam_id, "Server One")
+        self.assertEqual(
+            result,
+            {
+                "admin": {"heal_player": 1, "heal_self": 1},
+                "br3ntor": {"heal_self": 2, "restore_self": 1},
+            },
+        )
+
 
 class ServerWorldTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -204,68 +298,6 @@ class ServerWorldTests(unittest.IsolatedAsyncioTestCase):
 
     async def _fake_stat(self, path, started):
         return started if "pzserver42" in path else None
-
-
-class PlayerCommandCooldownTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        bot_db.db_path = Path(self.temp_dir.name) / "bot_database.db"
-        await bot_db.init_db()
-
-    async def asyncTearDown(self):
-        self.temp_dir.cleanup()
-
-    async def test_cooldowns_are_scoped_by_server_and_command(self):
-        steam_id = "76561198000000000"
-        cooldown_until = datetime.now(timezone.utc) + timedelta(days=7)
-
-        self.assertIsNone(
-            await bot_db.get_player_command_cooldown(
-                steam_id, "Server One", "heal_self"
-            )
-        )
-
-        self.assertTrue(
-            await bot_db.record_player_command_use(
-                steam_id, "Server One", "heal_self", cooldown_until
-            )
-        )
-
-        server_one = await bot_db.get_player_command_cooldown(
-            steam_id, "Server One", "heal_self"
-        )
-        self.assertIsNotNone(server_one)
-        self.assertEqual(server_one["use_count"], 1)
-
-        self.assertIsNone(
-            await bot_db.get_player_command_cooldown(
-                steam_id, "Server Two", "heal_self"
-            )
-        )
-        self.assertIsNone(
-            await bot_db.get_player_command_cooldown(
-                steam_id, "Server One", "restore_levels_self"
-            )
-        )
-
-    async def test_recording_again_updates_count_and_cooldown(self):
-        steam_id = "76561198000000000"
-        first_cooldown = datetime.now(timezone.utc) + timedelta(days=7)
-        second_cooldown = first_cooldown + timedelta(days=7)
-
-        await bot_db.record_player_command_use(
-            steam_id, "Server One", "heal_self", first_cooldown
-        )
-        await bot_db.record_player_command_use(
-            steam_id, "Server One", "heal_self", second_cooldown
-        )
-
-        record = await bot_db.get_player_command_cooldown(
-            steam_id, "Server One", "heal_self"
-        )
-        self.assertIsNotNone(record)
-        self.assertEqual(record["use_count"], 2)
-        self.assertEqual(record["cooldown_until"], second_cooldown.isoformat())
 
 
 if __name__ == "__main__":
