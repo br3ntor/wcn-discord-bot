@@ -39,7 +39,7 @@ def _format_remaining(until: datetime, now: datetime) -> str:
 
 
 @app_commands.command(
-    name="heal-self", description="Heal your linked player on a game server."
+    name="heal_self", description="Heal your linked player on a game server."
 )
 @app_commands.choices(
     server=[

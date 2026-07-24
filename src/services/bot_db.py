@@ -675,49 +675,6 @@ async def log_command_history(
         return False
 
 
-async def get_player_command_counts(steam_id: str) -> dict[str, int]:
-    """Get per-command successful use counts for a player in the current world.
-
-    Only rows at or after each server's recorded world start date are counted.
-    Rows from servers with no recorded world start are included.
-
-    Returns:
-        Mapping of command_name to count, e.g. {"heal_player": 3, "heal_self": 2}.
-    """
-    async with aiosqlite.connect(db_path) as db:
-        async with db.execute(
-            """
-            SELECT ch.command_name, COUNT(*)
-            FROM command_history ch
-            LEFT JOIN server_worlds sw ON sw.server_name = ch.server_name
-            WHERE ch.steam_id = ? AND ch.success = 1
-              AND ch.created_at >= COALESCE(sw.world_started_at, '')
-            GROUP BY ch.command_name
-            """,
-            (steam_id,),
-        ) as cursor:
-            rows = await cursor.fetchall()
-
-    return {row[0]: row[1] for row in rows}
-
-
-async def get_player_stats(steam_id: str) -> tuple[int, int] | None:
-    """Get aggregated admin-issued heal and restore_levels counts for a player.
-
-    Counts successful 'heal_player' and 'restore_levels' invocations in the
-    current world. Self-issued commands (e.g. 'heal_self') are not included.
-
-    Returns:
-        (total_heals, total_restores) or None if no records found.
-    """
-    counts = await get_player_command_counts(steam_id)
-    heals = counts.get("heal_player", 0)
-    restores = counts.get("restore_levels", 0)
-    if heals == 0 and restores == 0:
-        return None
-    return (heals, restores)
-
-
 async def get_latest_player_command(
     steam_id: str, server_name: str, command_name: str, player_name: str
 ) -> datetime | None:

@@ -59,66 +59,6 @@ class CommandHistoryTests(unittest.IsolatedAsyncioTestCase):
             **kwargs,
         )
 
-    async def test_get_player_stats_counts_only_admin_commands(self):
-        steam_id = "76561198000000000"
-
-        self.assertIsNone(await bot_db.get_player_stats(steam_id))
-
-        await self.log("heal_player", steam_id)
-        await self.log("heal_player", steam_id)
-        await self.log("restore_levels", steam_id)
-        # Self-heals must not count toward admin-issued stats
-        await self.log("heal_self", steam_id)
-        # Failures must not count
-        await self.log("heal_player", steam_id, success=False)
-        # Other players must not count
-        await self.log("heal_player", "76561198999999999")
-
-        stats = await bot_db.get_player_stats(steam_id)
-        self.assertEqual(stats, (2, 1))
-
-    async def test_get_player_command_counts_includes_all_commands(self):
-        steam_id = "76561198000000000"
-
-        await self.log("heal_player", steam_id)
-        await self.log("heal_self", steam_id)
-        await self.log("heal_self", steam_id)
-        await self.log("restore_self", steam_id)
-        await self.log("heal_player", steam_id, success=False)
-
-        counts = await bot_db.get_player_command_counts(steam_id)
-        self.assertEqual(
-            counts, {"heal_player": 1, "heal_self": 2, "restore_self": 1}
-        )
-
-    async def test_counts_are_filtered_by_world_start_date(self):
-        steam_id = "76561198000000000"
-
-        await self.log("heal_player", steam_id)
-        await self.log("heal_player", steam_id)
-
-        # A world starting "now" excludes everything logged before it
-        await bot_db.upsert_server_world(
-            "Server One", datetime.now(timezone.utc) + timedelta(seconds=1)
-        )
-        self.assertEqual(await bot_db.get_player_command_counts(steam_id), {})
-
-        # A world that started in the past includes the rows
-        await bot_db.upsert_server_world(
-            "Server One", datetime.now(timezone.utc) - timedelta(days=1)
-        )
-        counts = await bot_db.get_player_command_counts(steam_id)
-        self.assertEqual(counts, {"heal_player": 2})
-
-    async def test_counts_include_servers_without_world_record(self):
-        steam_id = "76561198000000000"
-
-        # Logged on "Server One" via self.log, which has no server_worlds row
-        await self.log("heal_player", steam_id)
-
-        counts = await bot_db.get_player_command_counts(steam_id)
-        self.assertEqual(counts, {"heal_player": 1})
-
     async def test_log_command_history_stores_row_data(self):
         interaction = make_interaction()
         self.assertTrue(

@@ -5,7 +5,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.features.skill_restore import LevelRestore
-from src.services.bot_db import get_player_stats, log_command_history
+from src.services.bot_db import get_player_command_counts_by_character, log_command_history
 from src.utils.helpers import make_player_autocomplete
 from src.utils.player_lookup import lookup_player
 
@@ -50,9 +50,25 @@ async def restore_levels(
                     player_name=player,
                     arguments={"server": server.name, "player": player},
                 )
-                stats = await get_player_stats(steam_id)
-                if stats:
-                    stats_msg = f" (Levels restored {stats[1]} time{'s' if stats[1] != 1 else ''} total)"
+                stats = await get_player_command_counts_by_character(steam_id, server.name)
+                char_counts = stats.get(player, {})
+                if char_counts:
+                    heals_admin = char_counts.get("heal_player", 0)
+                    heals_self = char_counts.get("heal_self", 0)
+                    restores_admin = char_counts.get("restore_levels", 0)
+                    restores_self = char_counts.get("restore_self", 0)
+                    heals_total = heals_admin + heals_self
+                    restores_total = restores_admin + restores_self
+                    parts = [f"**{player}**:"]
+                    parts.append(
+                        f"{heals_total} heal{'s' if heals_total != 1 else ''}"
+                        f" ({heals_admin} admin, {heals_self} self)"
+                    )
+                    parts.append(
+                        f"{restores_total} restore{'s' if restores_total != 1 else ''}"
+                        f" ({restores_admin} admin, {restores_self} self)"
+                    )
+                    stats_msg = "\n" + "  ".join(parts)
         except Exception as e:
             logger.warning(f"Failed to record restore stats: {e}")
 
