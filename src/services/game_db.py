@@ -103,31 +103,6 @@ async def gamedb_get_all_bans(server: str):
         return f"Error accessing database for {server} server"
 
 
-# async def gamedb_get_staff(server: str) -> str:
-#     file_exists, result = gamedb_check_db_exists(server)
-#     if not file_exists:
-#         return result
-#
-#     game_version = get_game_version(server)
-#
-#     where_clause = "role='7'"
-#
-#     if game_version == "B41":
-#         where_clause = "accesslevel='admin'"
-#
-#     try:
-#         async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
-#             query = f"SELECT username FROM whitelist WHERE {where_clause}"
-#
-#             async with db.execute(query) as cursor:
-#                 the_boys = [row[0] async for row in cursor]
-#                 return ", ".join(sorted(the_boys, key=str.casefold))
-#
-#     except aiosqlite.Error as e:
-#         logger.error(f"Database error occurred: {e}")
-#         return f"Error accessing database for {server} server"
-
-
 async def gamedb_get_staff(server: str) -> str:
     file_exists, result = gamedb_check_db_exists(server)
     if not file_exists:

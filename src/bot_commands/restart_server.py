@@ -5,6 +5,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.services.server import restart_zomboid_server, server_isrunning
+from src.utils.views import Confirm
 
 logger = logging.getLogger(__name__)
 
@@ -12,27 +13,6 @@ ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
-
-
-# Define a simple View that gives us a confirmation menu
-class Confirm(discord.ui.View):
-    def __init__(self):
-        super().__init__()
-        self.value = None
-
-    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
-    async def confirm(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.send_message("Restart confirmed.", ephemeral=True)
-        self.value = True
-        self.stop()
-
-    @discord.ui.button(label="No", style=discord.ButtonStyle.grey)
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Restart canceled.", ephemeral=True)
-        self.value = False
-        self.stop()
 
 
 @app_commands.command(name="now")
@@ -50,7 +30,7 @@ async def restart_server(
     """Restarts a server immediately."""
 
     # Send the question with buttons
-    view = Confirm()
+    view = Confirm(confirm_msg="Restart confirmed.", cancel_msg="Restart canceled.")
     await interaction.response.send_message(
         f"Restart the **{server.name}** server?", view=view, ephemeral=True
     )

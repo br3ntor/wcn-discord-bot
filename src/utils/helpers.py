@@ -84,6 +84,48 @@ def generate_pz_password(length: int = 12) -> str:
     return password
 
 
+def format_remaining(until: datetime, now: datetime) -> str:
+    """Format the duration between *until* and *now* as a human-readable string."""
+    seconds = max(1, int((until - now).total_seconds()))
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, _ = divmod(seconds, 60)
+
+    parts = []
+    if days:
+        parts.append(f"{days} day{'s' if days != 1 else ''}")
+    if hours:
+        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+    if minutes or not parts:
+        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+    return ", ".join(parts)
+
+
+def format_player_stats(stats: dict, player_name: str) -> str:
+    """Format a player command-count stats dict into a display string."""
+    char_counts = stats.get(player_name, {})
+    if not char_counts:
+        return ""
+
+    heals_admin = char_counts.get("heal_player", 0)
+    heals_self = char_counts.get("heal_self", 0)
+    restores_admin = char_counts.get("restore_levels", 0)
+    restores_self = char_counts.get("restore_self", 0)
+    heals_total = heals_admin + heals_self
+    restores_total = restores_admin + restores_self
+
+    parts = [f"**{player_name}**:"]
+    parts.append(
+        f"{heals_total} heal{'s' if heals_total != 1 else ''}"
+        f" ({heals_admin} admin, {heals_self} self)"
+    )
+    parts.append(
+        f"{restores_total} restore{'s' if restores_total != 1 else ''}"
+        f" ({restores_admin} admin, {restores_self} self)"
+    )
+    return "\n" + "  ".join(parts)
+
+
 def make_player_autocomplete():
     """Creates an autocomplete callback for player name parameters."""
 

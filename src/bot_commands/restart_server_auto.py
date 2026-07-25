@@ -5,6 +5,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.features.auto_restart import auto_restart
+from src.utils.views import Confirm
 
 logger = logging.getLogger(__name__)
 
@@ -12,29 +13,6 @@ ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
-
-
-class Confirm(discord.ui.View):
-    def __init__(self, server: str):
-        super().__init__()
-        self.value = None
-        self.server = server
-
-    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
-    async def confirm(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        await interaction.response.send_message(
-            "Auto Restart Confirmed.", ephemeral=True
-        )
-        self.value = True
-        self.stop()
-
-    @discord.ui.button(label="No", style=discord.ButtonStyle.grey)
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Auto Restart Aborted.", ephemeral=True)
-        self.value = False
-        self.stop()
 
 
 @app_commands.command(name="auto")
@@ -52,7 +30,7 @@ async def restart_server_auto(
     """Restarts server in 5min."""
 
     # Create the view containing our dropdown and buttons
-    view = Confirm(server.name)
+    view = Confirm(confirm_msg="Auto Restart Confirmed.", cancel_msg="Auto Restart Aborted.")
     await interaction.response.send_message(
         f"Automatically restart the **{server.name}** after 5min?",
         view=view,

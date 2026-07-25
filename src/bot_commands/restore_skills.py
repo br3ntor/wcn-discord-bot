@@ -6,7 +6,7 @@ from discord import app_commands
 from src.config import Config
 from src.features.skill_restore import LevelRestore
 from src.services.bot_db import get_player_command_counts_by_character, log_command_history
-from src.utils.helpers import make_player_autocomplete
+from src.utils.helpers import format_player_stats, make_player_autocomplete
 from src.utils.player_lookup import lookup_player
 
 logger = logging.getLogger(__name__)
@@ -51,24 +51,7 @@ async def restore_levels(
                     arguments={"server": server.name, "player": player},
                 )
                 stats = await get_player_command_counts_by_character(steam_id, server.name)
-                char_counts = stats.get(player, {})
-                if char_counts:
-                    heals_admin = char_counts.get("heal_player", 0)
-                    heals_self = char_counts.get("heal_self", 0)
-                    restores_admin = char_counts.get("restore_levels", 0)
-                    restores_self = char_counts.get("restore_self", 0)
-                    heals_total = heals_admin + heals_self
-                    restores_total = restores_admin + restores_self
-                    parts = [f"**{player}**:"]
-                    parts.append(
-                        f"{heals_total} heal{'s' if heals_total != 1 else ''}"
-                        f" ({heals_admin} admin, {heals_self} self)"
-                    )
-                    parts.append(
-                        f"{restores_total} restore{'s' if restores_total != 1 else ''}"
-                        f" ({restores_admin} admin, {restores_self} self)"
-                    )
-                    stats_msg = "\n" + "  ".join(parts)
+                stats_msg = format_player_stats(stats, player)
         except Exception as e:
             logger.warning(f"Failed to record restore stats: {e}")
 
@@ -80,3 +63,4 @@ async def restore_levels(
             f"Level restore failed for **{player}** on the **{server.name}** server. "
             f"Make sure the player has a valid death record in the perk logs and can be targeted by RCON addxp. See console logs for details."
         )
+
