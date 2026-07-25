@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from src.config import Config
 from src.services.log_watcher import RealTimeLogProcessor
+from src.services.server import get_zomboid_logs_dir
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class ChatLinkCog(commands.Cog):
 
             system_user = server["system_user"]
             server_name = server["server_name"]
-            log_directory = f"/home/{system_user}/Zomboid/Logs/"
+            log_directory = str(get_zomboid_logs_dir(system_user))
             log_pattern = "*chat.txt"
 
             async def make_callback(ch_id: int):

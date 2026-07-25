@@ -4,7 +4,11 @@ from typing import Optional
 import aiohttp
 
 from src.config import Config
-from src.services.server import get_servers_workshop_ids, server_setting_paths
+from src.services.server import (
+    get_sandbox_vars_path,
+    get_servers_workshop_ids,
+    server_setting_paths,
+)
 from src.services.steam import get_servers_workshop_items
 
 logger = logging.getLogger(__name__)
@@ -63,7 +67,7 @@ def get_sandbox_settings(system_user: str) -> Optional[str]:
     Returns:
         File contents or None if file not found/error
     """
-    file_path = f"/home/{system_user}/Zomboid/Server/pzserver_SandboxVars.lua"
+    file_path = get_sandbox_vars_path(system_user)
     try:
         with open(file_path) as f:
             return f.read()

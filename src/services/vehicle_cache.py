@@ -3,7 +3,11 @@ import os
 from pathlib import Path
 
 from src.config import Config
-from src.services.server import get_workshop_ids_for_server
+from src.services.server import (
+    get_serverfiles_scripts_path,
+    get_workshop_content_path,
+    get_workshop_ids_for_server,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +35,12 @@ class VehicleCache:
         vehicles_dict: dict[str, str] = {}
         active_workshop_ids = get_workshop_ids_for_server(system_user)
 
-        base_path = Path(f"/home/{system_user}/serverfiles/media/scripts")
+        base_path = get_serverfiles_scripts_path(system_user)
         if base_path.exists():
             self._scan_vehicles_dir(base_path / "generated" / "vehicles", vehicles_dict)
             self._scan_vehicles_dir(base_path / "vehicles", vehicles_dict)
 
-        workshop_path = Path(
-            f"/home/{system_user}/serverfiles/steamapps/workshop/content/108600"
-        )
+        workshop_path = get_workshop_content_path(system_user)
         if workshop_path.exists():
             self._scan_workshop_dir(workshop_path, vehicles_dict, active_workshop_ids)
 

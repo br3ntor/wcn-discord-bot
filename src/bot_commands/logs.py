@@ -9,6 +9,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.services.game_db import gamedb_get_player_by_name
+from src.services.server import get_zomboid_logs_dir
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ async def get_player_logs(
 
         current_date = datetime.now().strftime("%Y-%m-%d")
         output_file = f"/tmp/{playername}_{server.name}_{current_date}.txt"
-        logs_dir = f"/home/{system_user}/Zomboid/Logs"
+        logs_dir = str(get_zomboid_logs_dir(system_user))
 
         # Sanitize inputs
         safe_playername = shlex.quote(playername)
@@ -118,7 +119,7 @@ async def get_all_logs(
 
     current_date = datetime.now().strftime("%Y-%m-%d")
     output_file = f"/tmp/{server.name}_{current_date}_plus_{days.name}_days.zip"
-    logs_dir = f"/home/{system_user}/Zomboid/Logs"
+    logs_dir = str(get_zomboid_logs_dir(system_user))
 
     try:
 

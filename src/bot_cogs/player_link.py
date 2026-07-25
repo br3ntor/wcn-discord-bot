@@ -20,6 +20,7 @@ from src.services.bot_db import (
 )
 from src.services.log_watcher import RealTimeLogProcessor
 from src.services.pocketbase import pb_client
+from src.services.server import get_zomboid_logs_dir
 from src.utils.player_lookup import lookup_player
 
 logger = logging.getLogger(__name__)
@@ -147,7 +148,7 @@ class PlayerLinkCog(commands.Cog):
             await self._handle_chat_line(server_name, system_user, line)
 
         monitor = RealTimeLogProcessor(
-            f"/home/{system_user}/Zomboid/Logs/",
+            str(get_zomboid_logs_dir(system_user)),
             "*chat.txt",
             callback,
             start_at_end=True,

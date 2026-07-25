@@ -2,6 +2,7 @@ import asyncio
 import configparser
 import logging
 import os
+from pathlib import Path
 
 from src.config import Config
 
@@ -13,13 +14,53 @@ SERVER_NAMES = Config.SERVER_NAMES
 _max_players_cache: dict[str, int | None] | None = None
 
 
-async def server_isrunning(server: str) -> bool:
-    """Check if the given zomboid server name is running"""
+def get_game_db_path(system_user: str) -> Path:
+    """Return the path to the PZ game database."""
+    return Path(f"/home/{system_user}/Zomboid/db/pzserver.db")
+
+
+def get_server_ini_path(system_user: str) -> Path:
+    """Return the path to the PZ server INI settings file."""
+    return Path(f"/home/{system_user}/Zomboid/Server/pzserver.ini")
+
+
+def get_jre_release_path(system_user: str) -> Path:
+    """Return the path to the JRE release file for version detection."""
+    return Path(f"/home/{system_user}/serverfiles/jre64/release")
+
+
+def get_zomboid_logs_dir(system_user: str) -> Path:
+    """Return the path to the Zomboid logs directory."""
+    return Path(f"/home/{system_user}/Zomboid/Logs/")
+
+
+def get_serverfiles_scripts_path(system_user: str) -> Path:
+    """Return the path to the serverfiles media/scripts directory."""
+    return Path(f"/home/{system_user}/serverfiles/media/scripts")
+
+
+def get_workshop_content_path(system_user: str) -> Path:
+    """Return the path to the Steam workshop content directory."""
+    return Path(f"/home/{system_user}/serverfiles/steamapps/workshop/content/108600")
+
+
+def get_sandbox_vars_path(system_user: str) -> Path:
+    """Return the path to the server's SandboxVars Lua file."""
+    return Path(f"/home/{system_user}/Zomboid/Server/pzserver_SandboxVars.lua")
+
+
+def get_item_translations_path(system_user: str) -> Path:
+    """Return the path to the ItemName.json translations file."""
+    return Path(f"/home/{system_user}/serverfiles/media/lua/shared/Translate/EN/ItemName.json")
+
+
+async def server_isrunning(system_user: str) -> bool:
+    """Check if the given zomboid server user is running."""
     cmd = [
         "ps",
         "-f",
         "-u",
-        server,
+        system_user,
     ]
 
     try:
@@ -39,7 +80,6 @@ async def server_isrunning(server: str) -> bool:
 
     for line in out.splitlines():
         if "ProjectZomboid64" in line:
-            # logger.info(f"{server} is running:\n{line}")
             return True
 
     return False
@@ -47,7 +87,7 @@ async def server_isrunning(server: str) -> bool:
 
 def get_workshop_ids_for_server(system_user: str) -> set[str]:
     """Reads WorkshopItems from a server's INI file and returns the set of active workshop IDs."""
-    ini_path = f"/home/{system_user}/Zomboid/Server/pzserver.ini"
+    ini_path = get_server_ini_path(system_user)
     try:
         config = configparser.ConfigParser()
         with open(ini_path, "r") as stream:
@@ -74,7 +114,7 @@ async def server_setting_paths() -> list:
     ]
     for username in servers_with_gists:
         if await server_isrunning(username):
-            server_files.append(f"/home/{username}/Zomboid/Server/pzserver.ini")
+            server_files.append(str(get_server_ini_path(username)))
     return server_files
 
 
@@ -91,20 +131,20 @@ async def get_servers_workshop_ids(
 
     for path in file_paths:
         logger.debug(f"Attempting to process file: {path}")
-        server_name = ""
+        system_user = ""
         try:
             parts = path.split(os.sep)
             if len(parts) > 2 and parts[1] == "home":
-                server_name = parts[2]
+                system_user = parts[2]
             else:
                 logger.warning(
                     f"Warning: Could not determine username from path: {path}. Skipping this file."
                 )
                 continue
 
-            if not server_name:
+            if not system_user:
                 logger.warning(
-                    f"Warning: Server name (username) is empty for path: {path}. Skipping this file."
+                    f"Warning: system_user is empty for path: {path}. Skipping this file."
                 )
                 continue
 
@@ -114,7 +154,7 @@ async def get_servers_workshop_ids(
 
             if "default" not in config:
                 logger.warning(
-                    f"Warning: '[default]' section not found in {path} for server '{server_name}'. Skipping."
+                    f"Warning: '[default]' section not found in {path} for {system_user}. Skipping."
                 )
                 continue
 
@@ -122,7 +162,7 @@ async def get_servers_workshop_ids(
 
             if not workshop_items_str:
                 logger.debug(
-                    f"No 'WorkshopItems' found or it's empty for server '{server_name}' in {path}."
+                    f"No 'WorkshopItems' found or it's empty for {system_user} in {path}."
                 )
                 continue
 
@@ -131,10 +171,10 @@ async def get_servers_workshop_ids(
             ]
 
             if workshop_ids:
-                servers_workshopids_lists[server_name] = workshop_ids
+                servers_workshopids_lists[system_user] = workshop_ids
             else:
                 logger.debug(
-                    f"'WorkshopItems' found but contained no valid IDs after cleaning for server '{server_name}' in {path}."
+                    f"'WorkshopItems' found but contained no valid IDs after cleaning for {system_user} in {path}."
                 )
 
         except FileNotFoundError:
@@ -145,11 +185,11 @@ async def get_servers_workshop_ids(
             )
         except KeyError as e:
             logger.error(
-                f"Error: Missing expected configuration key '{e}' in {path} for server '{server_name}'. Skipping."
+                f"Error: Missing expected configuration key '{e}' in {path} for {system_user}. Skipping."
             )
         except Exception as e:
             logger.error(
-                f"An unexpected error occurred while processing '{path}' for server '{server_name}': {e}. Skipping."
+                f"An unexpected error occurred while processing '{path}' for {system_user}: {e}. Skipping."
             )
 
     # logger.info(
@@ -205,14 +245,14 @@ async def restart_zomboid_server(system_user: str):
     return True
 
 
-def get_game_version(servername: str):
+def get_game_version(system_user: str):
     """
     Detects the PZ version based on the Java release file.
     Example path: /home/pzserver/serverfiles/jre64/release
     """
-    path = f"/home/{servername}/serverfiles/jre64/release"
+    path = get_jre_release_path(system_user)
 
-    if not os.path.exists(path):
+    if not path.exists():
         logger.warning(f"Warning: Path not found: {path}")
         return "UNKNOWN"
 
@@ -227,7 +267,7 @@ def get_game_version(servername: str):
                 return "B41"
 
     except Exception as e:
-        logger.error(f"Error reading release file for {servername}: {e}")
+        logger.error(f"Error reading release file for {system_user}: {e}")
 
     return "UNKNOWN"
 
@@ -247,11 +287,11 @@ async def get_servers_max_players(file_paths: list[str]) -> dict[str, int | None
     servers_max_players: dict[str, int | None] = {}
 
     for path in file_paths:
-        server_name = ""
+        system_user = ""
         try:
             parts = path.split(os.sep)
             if len(parts) > 2 and parts[1] == "home":
-                server_name = parts[2]
+                system_user = parts[2]
             else:
                 logger.warning(
                     f"Could not determine username from path: {path}. Skipping."
@@ -264,18 +304,18 @@ async def get_servers_max_players(file_paths: list[str]) -> dict[str, int | None
 
             if "default" in config:
                 max_players = config["default"].getint("MaxPlayers", None)
-                servers_max_players[server_name] = max_players
+                servers_max_players[system_user] = max_players
             else:
-                servers_max_players[server_name] = None
+                servers_max_players[system_user] = None
 
         except FileNotFoundError:
             logger.error(f"File not found at '{path}'. MaxPlayers will be unknown.")
-            servers_max_players[server_name] = None
+            servers_max_players[system_user] = None
         except Exception as e:
             logger.error(
                 f"Error reading MaxPlayers from '{path}': {e}. MaxPlayers will be unknown."
             )
-            servers_max_players[server_name] = None
+            servers_max_players[system_user] = None
 
     _max_players_cache = servers_max_players
     return servers_max_players

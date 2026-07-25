@@ -53,9 +53,9 @@ async def pz_send_command(system_user: str, server_command: str) -> str | None:
         return None
 
 
-async def pz_players(server: str) -> list[str] | None:
+async def pz_players(system_user: str) -> list[str] | None:
     """Returns list of online players via RCON 'players' command."""
-    response = await pz_send_command(server, "players")
+    response = await pz_send_command(system_user, "players")
     if response is None:
         return None
 
@@ -67,11 +67,11 @@ async def pz_players(server: str) -> list[str] | None:
     return players
 
 
-async def pz_send_message(server: str, message: str) -> bool:
+async def pz_send_message(system_user: str, message: str) -> bool:
     """Sends a correctly formatted message to the game-server."""
     valid_msg = re.sub(r"[\"']", "", message)
     server_msg = f'servermsg "{valid_msg}"'
-    return await pz_send_command(server, server_msg) is not None
+    return await pz_send_command(system_user, server_msg) is not None
 
 
 def _is_player_not_found(response: str, player: str) -> bool:
@@ -144,9 +144,9 @@ def _is_add_user_success(response: str, player: str) -> bool:
     return f"User {player} created with the password " in response
 
 
-async def pz_heal_player(server: str, player: str) -> tuple[bool, str]:
+async def pz_heal_player(system_user: str, player: str) -> tuple[bool, str]:
     """Heals a player by toggling godmode on and off via RCON."""
-    version = get_game_version(server)
+    version = get_game_version(system_user)
 
     if version == "B42":
         god_on = f'godmodeplayer "{player}" -true'
@@ -155,7 +155,7 @@ async def pz_heal_player(server: str, player: str) -> tuple[bool, str]:
         god_on = f'godmode "{player}" -true'
         god_off = f'godmode "{player}" -false'
 
-    god_on_response = await pz_send_command(server, god_on)
+    god_on_response = await pz_send_command(system_user, god_on)
     if god_on_response is None:
         return False, "Could not reach the server via RCON."
 
@@ -167,7 +167,7 @@ async def pz_heal_player(server: str, player: str) -> tuple[bool, str]:
         return False, f"Unexpected server response: {god_on_response}"
 
     await asyncio.sleep(0.2)
-    god_off_response = await pz_send_command(server, god_off)
+    god_off_response = await pz_send_command(system_user, god_off)
     if god_off_response is None:
         return False, "Could not reach the server via RCON."
 
@@ -181,9 +181,9 @@ async def pz_heal_player(server: str, player: str) -> tuple[bool, str]:
     return True, god_off_response
 
 
-async def pz_ban_player(server: str, steam_id: str) -> tuple[bool, str]:
+async def pz_ban_player(system_user: str, steam_id: str) -> tuple[bool, str]:
     """Bans a player by SteamID via RCON."""
-    response = await pz_send_command(server, f"banid {steam_id}")
+    response = await pz_send_command(system_user, f"banid {steam_id}")
     if response is None:
         return False, "Could not reach the server via RCON."
 
@@ -194,9 +194,9 @@ async def pz_ban_player(server: str, steam_id: str) -> tuple[bool, str]:
     return True, response
 
 
-async def pz_unban_player(server: str, steam_id: str) -> tuple[bool, str]:
+async def pz_unban_player(system_user: str, steam_id: str) -> tuple[bool, str]:
     """Unbans a player by SteamID via RCON."""
-    response = await pz_send_command(server, f"unbanid {steam_id}")
+    response = await pz_send_command(system_user, f"unbanid {steam_id}")
     if response is None:
         return False, "Could not reach the server via RCON."
 
@@ -208,10 +208,10 @@ async def pz_unban_player(server: str, steam_id: str) -> tuple[bool, str]:
 
 
 async def pz_add_xp(
-    server: str, player: str, skill: str, amount: int
+    system_user: str, player: str, skill: str, amount: int
 ) -> tuple[bool, str]:
     """Adds XP to a player via RCON."""
-    response = await pz_send_command(server, f'addxp "{player}" {skill}={amount}')
+    response = await pz_send_command(system_user, f'addxp "{player}" {skill}={amount}')
     if response is None:
         return False, "Could not reach the server via RCON."
 
@@ -226,11 +226,11 @@ async def pz_add_xp(
 
 
 async def pz_set_access_level(
-    server: str, player: str, access_level: str
+    system_user: str, player: str, access_level: str
 ) -> tuple[bool, str]:
     """Sets a player's access level via RCON."""
     response = await pz_send_command(
-        server, f'setaccesslevel "{player}" "{access_level}"'
+        system_user, f'setaccesslevel "{player}" "{access_level}"'
     )
     if response is None:
         return False, "Could not reach the server via RCON."
@@ -243,10 +243,10 @@ async def pz_set_access_level(
 
 
 async def pz_setpassword_b42(
-    server: str, player: str, new_password: str
+    system_user: str, player: str, new_password: str
 ) -> tuple[bool, str]:
     """Sets a B42 player's password via RCON."""
-    response = await pz_send_command(server, f'setpassword "{player}" "{new_password}"')
+    response = await pz_send_command(system_user, f'setpassword "{player}" "{new_password}"')
     if response is None:
         return False, "Could not reach the server via RCON."
 
@@ -258,11 +258,11 @@ async def pz_setpassword_b42(
 
 
 async def pz_reset_password_b41(
-    server: str, player: str, new_password: str
+    system_user: str, player: str, new_password: str
 ) -> tuple[bool, str]:
     """Resets a B41 player's password by recreating the whitelist entry via RCON."""
     remove_response = await pz_send_command(
-        server, f'removeuserfromwhitelist "{player}"'
+        system_user, f'removeuserfromwhitelist "{player}"'
     )
     if remove_response is None:
         return False, "Could not reach the server via RCON."
@@ -272,7 +272,7 @@ async def pz_reset_password_b41(
         return False, f"Unexpected server response: {remove_response}"
 
     await asyncio.sleep(0.2)
-    add_response = await pz_send_command(server, f'adduser "{player}" "{new_password}"')
+    add_response = await pz_send_command(system_user, f'adduser "{player}" "{new_password}"')
     if add_response is None:
         return False, "Could not reach the server via RCON."
 
@@ -284,17 +284,17 @@ async def pz_reset_password_b41(
 
 
 async def pz_teleport_player(
-    server: str, player1: str, player2: str
+    system_user: str, player1: str, player2: str
 ) -> tuple[bool, str]:
     """Teleport player1 to player2. Command varies by game version."""
-    version = get_game_version(server)
+    version = get_game_version(system_user)
 
     if version == "B42":
         command = f'teleportplayer "{player1}" "{player2}"'
     else:
         command = f'teleport "{player1}" "{player2}"'
 
-    response = await pz_send_command(server, command)
+    response = await pz_send_command(system_user, command)
     if response is None:
         return False, "Could not reach the server via RCON."
 
@@ -309,7 +309,7 @@ async def pz_teleport_player(
 
 
 async def pz_kick_player(
-    server: str, player: str, reason: str | None = None
+    system_user: str, player: str, reason: str | None = None
 ) -> tuple[bool, str]:
     """Kicks a player via RCON."""
     if reason:
@@ -317,7 +317,7 @@ async def pz_kick_player(
     else:
         command = f'kick "{player}"'
 
-    response = await pz_send_command(server, command)
+    response = await pz_send_command(system_user, command)
     if response is None:
         return False, "Could not reach the server via RCON."
 
@@ -332,12 +332,12 @@ async def pz_kick_player(
 
 
 async def pz_additem(
-    server: str, player: str, item: str, count: int = 1
+    system_user: str, player: str, item: str, count: int = 1
 ) -> tuple[bool, str]:
     """Adds an item to a player's inventory via RCON."""
     command = f'additem "{player}" {item} {count}'
 
-    response = await pz_send_command(server, command)
+    response = await pz_send_command(system_user, command)
     if response is None:
         return False, "Could not reach the server via RCON."
 
@@ -348,12 +348,12 @@ async def pz_additem(
 
 
 async def pz_addvehicle(
-    server: str, player: str, vehicle: str
+    system_user: str, player: str, vehicle: str
 ) -> tuple[bool, str]:
     """Spawns a vehicle near a player via RCON."""
     command = f'addvehicle "{vehicle}" "{player}"'
 
-    response = await pz_send_command(server, command)
+    response = await pz_send_command(system_user, command)
     if response is None:
         return False, "Could not reach the server via RCON."
 

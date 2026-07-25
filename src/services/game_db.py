@@ -1,116 +1,115 @@
 import logging
-import os
 from typing import Optional
 
 import aiosqlite
 
-from src.services.server import get_game_version
+from src.services.server import get_game_db_path, get_game_version
 
 logger = logging.getLogger(__name__)
 
 
-def gamedb_check_db_exists(server: str) -> tuple[bool, str]:
-    path = f"/home/{server}/Zomboid/db/pzserver.db"
-    if not os.path.exists(path):
+def gamedb_check_db_exists(system_user: str) -> tuple[bool, str]:
+    path = get_game_db_path(system_user)
+    if not path.exists():
         error_message = f"File does not exist:\n{path}"
         logger.error(error_message)
-        return False, f"File does not exist for {server} server"
-    return True, path
+        return False, f"File does not exist for {system_user} server"
+    return True, str(path)
 
 
 async def gamedb_get_player_by_name(
-    server: str, username: str
+    system_user: str, username: str
 ) -> Optional[aiosqlite.Row] | str:
     """Return the db row for a player."""
-    file_exists, result = gamedb_check_db_exists(server)
+    file_exists, result = gamedb_check_db_exists(system_user)
     if not file_exists:
         return result
 
     try:
-        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+        async with aiosqlite.connect(str(get_game_db_path(system_user))) as db:
             async with db.execute(
                 "SELECT * FROM whitelist WHERE username=?", [username]
             ) as cursor:
                 return await cursor.fetchone()
     except aiosqlite.Error as e:
         logger.error(f"Database error occurred: {e}")
-        return f"Error accessing database for {server} server"
+        return f"Error accessing database for {system_user} server"
 
 
-async def gamedb_get_player_by_steamid(server: str, steamid: str):
+async def gamedb_get_player_by_steamid(system_user: str, steamid: str):
     """Return the db row for a player."""
-    file_exists, result = gamedb_check_db_exists(server)
+    file_exists, result = gamedb_check_db_exists(system_user)
     if not file_exists:
         return result
 
     try:
-        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+        async with aiosqlite.connect(str(get_game_db_path(system_user))) as db:
             async with db.execute(
                 "SELECT * FROM whitelist WHERE steamid=?", [steamid]
             ) as cursor:
                 return await cursor.fetchone()
     except aiosqlite.Error as e:
         logger.error(f"Database error occurred: {e}")
-        return f"Error accessing database for {server} server"
+        return f"Error accessing database for {system_user} server"
 
 
-async def gamedb_get_players_by_steamid(server: str, steamid: str):
+async def gamedb_get_players_by_steamid(system_user: str, steamid: str):
     """Return all whitelist rows for a steam ID."""
-    file_exists, result = gamedb_check_db_exists(server)
+    file_exists, result = gamedb_check_db_exists(system_user)
     if not file_exists:
         return result
 
     try:
-        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+        async with aiosqlite.connect(str(get_game_db_path(system_user))) as db:
             async with db.execute(
                 "SELECT * FROM whitelist WHERE steamid=?", [steamid]
             ) as cursor:
                 return await cursor.fetchall()
     except aiosqlite.Error as e:
         logger.error(f"Database error occurred: {e}")
-        return f"Error accessing database for {server} server"
+        return f"Error accessing database for {system_user} server"
 
 
-async def gamedb_get_ban_by_steamid(server: str, steamid: str):
+async def gamedb_get_ban_by_steamid(system_user: str, steamid: str):
     """Return the db row for a banned player."""
-    file_exists, result = gamedb_check_db_exists(server)
+    file_exists, result = gamedb_check_db_exists(system_user)
     if not file_exists:
         return result
 
     try:
-        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+        async with aiosqlite.connect(str(get_game_db_path(system_user))) as db:
             async with db.execute(
                 "SELECT * FROM bannedid WHERE steamid=?", [steamid]
             ) as cursor:
                 return await cursor.fetchone()
     except aiosqlite.Error as e:
         logger.error(f"Database error occurred: {e}")
-        return f"Error accessing database for {server} server"
+        return f"Error accessing database for {system_user} server"
 
 
-async def gamedb_get_all_bans(server: str):
+async def gamedb_get_all_bans(system_user: str):
     """Return all banned users on a server."""
-    file_exists, result = gamedb_check_db_exists(server)
+    file_exists, result = gamedb_check_db_exists(system_user)
     if not file_exists:
         return result
 
     try:
-        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+        async with aiosqlite.connect(str(get_game_db_path(system_user))) as db:
             async with db.execute("SELECT * FROM bannedid") as cursor:
                 return await cursor.fetchall()
     except aiosqlite.Error as e:
         logger.error(f"Database error occurred: {e}")
-        return f"Error accessing database for {server} server"
+        return f"Error accessing database for {system_user} server"
 
 
-async def gamedb_get_staff(server: str) -> str:
-    file_exists, result = gamedb_check_db_exists(server)
+async def gamedb_get_staff(system_user: str) -> str:
+    file_exists, result = gamedb_check_db_exists(system_user)
     if not file_exists:
         return result
 
-    game_version = get_game_version(server)
+    game_version = get_game_version(system_user)
     try:
-        async with aiosqlite.connect(f"/home/{server}/Zomboid/db/pzserver.db") as db:
+        async with aiosqlite.connect(str(get_game_db_path(system_user))) as db:
             if game_version == "B41":
                 # accesslevel is already the human-readable role name;
                 # blank/NULL means base 'regular user'
@@ -136,4 +135,4 @@ async def gamedb_get_staff(server: str) -> str:
 
     except aiosqlite.Error as e:
         logger.error(f"Database error occurred: {e}")
-        return f"Error accessing database for {server} server"
+        return f"Error accessing database for {system_user} server"

@@ -5,7 +5,12 @@ import re
 from pathlib import Path
 
 from src.config import Config
-from src.services.server import get_workshop_ids_for_server
+from src.services.server import (
+    get_item_translations_path,
+    get_serverfiles_scripts_path,
+    get_workshop_content_path,
+    get_workshop_ids_for_server,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +39,12 @@ class ItemCache:
         items_dict: dict[str, str] = {}
         active_workshop_ids = get_workshop_ids_for_server(system_user)
 
-        base_path = Path(f"/home/{system_user}/serverfiles/media/scripts")
+        base_path = get_serverfiles_scripts_path(system_user)
         if base_path.exists():
             self._scan_items_dir(base_path / "generated" / "items", items_dict)
             self._scan_items_dir(base_path, items_dict)
 
-        workshop_path = Path(
-            f"/home/{system_user}/serverfiles/steamapps/workshop/content/108600"
-        )
+        workshop_path = get_workshop_content_path(system_user)
         if workshop_path.exists():
             self._scan_workshop_dir(workshop_path, items_dict, active_workshop_ids)
 
@@ -144,9 +147,7 @@ class ItemCache:
                             current_display_name = val
 
     def _load_base_translations(self, system_user: str, translations: dict[str, str]):
-        json_path = Path(
-            f"/home/{system_user}/serverfiles/media/lua/shared/Translate/EN/ItemName.json"
-        )
+        json_path = get_item_translations_path(system_user)
         if not json_path.exists():
             return
         try:

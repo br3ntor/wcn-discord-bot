@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from datetime import datetime, timezone
 
 import aiosqlite
@@ -22,6 +21,7 @@ from src.services.bot_db import (
     revert_discord_resolution,
     update_ticket_state,
 )
+from src.services.server import get_game_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +77,9 @@ class TicketWatcherCog(commands.Cog):
         for server_config in Config.SERVER_DATA:
             server_name = server_config["server_name"]
             system_user = server_config["system_user"]
-            db_path = f"/home/{system_user}/Zomboid/db/pzserver.db"
+            db_path = get_game_db_path(system_user)
 
-            if not os.path.exists(db_path):
+            if not db_path.exists():
                 logger.warning(f"Database not found for {server_name}: {db_path}")
                 continue
 
@@ -231,9 +231,9 @@ class TicketWatcherCog(commands.Cog):
             for server_config in Config.SERVER_DATA:
                 server_name = server_config["server_name"]
                 system_user = server_config["system_user"]
-                db_path = f"/home/{system_user}/Zomboid/db/pzserver.db"
+                db_path = get_game_db_path(system_user)
 
-                if not os.path.exists(db_path):
+                if not db_path.exists():
                     logger.warning(
                         f"Database file not found for {server_name}: {db_path}"
                     )
@@ -241,7 +241,7 @@ class TicketWatcherCog(commands.Cog):
 
                 try:
                     # Connect to PZ server database
-                    async with aiosqlite.connect(db_path) as pz_db:
+                    async with aiosqlite.connect(str(db_path)) as pz_db:
                         # Phase 1: Process new tickets
                         await self._process_new_tickets(server_name, pz_db, thread)
 
@@ -731,8 +731,8 @@ class TicketWatcherCog(commands.Cog):
                 break
 
         if server_config:
-            db_path = f"/home/{server_config['system_user']}/Zomboid/db/pzserver.db"
-            if os.path.exists(db_path):
+            db_path = get_game_db_path(server_config["system_user"])
+            if db_path.exists():
                 try:
                     async with aiosqlite.connect(
                         f"file:{db_path}?mode=ro", uri=True
