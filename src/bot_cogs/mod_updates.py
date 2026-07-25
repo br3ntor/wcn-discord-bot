@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import logging
-import os
 from zoneinfo import ZoneInfo
 
 import discord
@@ -11,13 +10,9 @@ from src.config import Config
 from src.features.auto_restart import auto_restart
 from src.services.server import (
     combine_servers_workshop_ids,
-    get_game_version,
-    get_servers_workshop_ids,
-    server_setting_paths,
     servers_with_mod_update,
 )
 from src.services.steam import get_workshop_items
-from src.services.workshop import find_workshop_error_ids, write_ids_to_file
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +29,6 @@ class ModUpdatesCog(commands.Cog):
 
     async def cog_unload(self):
         self.check_mod_updates.cancel()
-        self.check_workshop_errors.stop()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -140,66 +134,11 @@ class ModUpdatesCog(commands.Cog):
                 try:
                     results = await asyncio.gather(*tasks)
                     logger.debug(f"Results: {results}")
-
-                    self.check_workshop_errors.restart()
-                    logger.info("Started workshop error scanning task")
                 except Exception as e:
                     logger.error(f"An unexpected exception occurred: {e}")
 
         if new_mods_count > 0:
             logger.info("Recording initial timestamps for %d new mods", new_mods_count)
 
-    @tasks.loop(minutes=1, count=5)
-    async def check_workshop_errors(self):
-        """Scans B42 modded server logs for workshop errors and notifies."""
-        paths = await server_setting_paths()
-        modded_servers = await get_servers_workshop_ids(paths)
 
-        if not modded_servers:
-            logger.info("No modded servers found. Stopping workshop error scan.")
-            self.check_workshop_errors.stop()
-            return
-
-        for server_name in modded_servers:
-            system_user = server_name
-
-            if get_game_version(system_user) != "B42":
-                logger.debug(f"Skipping {server_name} — not B42")
-                continue
-
-            log_path = f"/home/{system_user}/log/console/pzserver-console.log"
-            output_dir = f"/home/{system_user}/.pz-prestart"
-            output_path = f"{output_dir}/workshop_id.txt"
-
-            try:
-                error_ids = await find_workshop_error_ids(log_path)
-
-                if error_ids:
-                    logger.warning(f"Found workshop errors on {server_name}: {error_ids}")
-
-                    os.makedirs(output_dir, exist_ok=True)
-                    await write_ids_to_file(error_ids, output_path)
-                    logger.info(f"Workshop IDs written to {output_path}")
-
-                    chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
-                    if chan and isinstance(chan, discord.TextChannel):
-                        await chan.send(
-                            f"🚨 **Workshop errors detected on {server_name}!**\n"
-                            f"Problematic workshop IDs: {', '.join(error_ids)}"
-                        )
-                else:
-                    logger.debug(f"No workshop errors found on {server_name}")
-
-            except FileNotFoundError:
-                logger.warning(
-                    f"Log file not found for {server_name}: {log_path}. Skipping."
-                )
-            except Exception as e:
-                logger.error(
-                    f"Error checking workshop errors for {server_name}: {e}. Skipping."
-                )
-
-    @check_workshop_errors.after_loop
-    async def on_check_workshop_errors_finish(self):
-        logger.info("Workshop error scan completed")
 
