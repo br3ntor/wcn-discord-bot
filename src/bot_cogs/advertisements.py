@@ -20,7 +20,7 @@ times = [
 
 class AdvertisementCog(commands.Cog):
     """Cog for posting periodic donation advertisements to Discord."""
-    
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 

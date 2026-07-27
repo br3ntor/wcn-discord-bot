@@ -13,8 +13,8 @@ from .player_stats import player_stats
 from .reset_password import reset_password
 from .restart_server import restart_server
 from .restart_server_auto import cancel_restart, restart_server_auto
-from .restore_skills import restore_levels
 from .restore_self import restore_self
+from .restore_skills import restore_levels
 from .send_message import send_message
 from .server_settings import server_settings
 from .speak import speak

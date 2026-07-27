@@ -79,7 +79,9 @@ class AutoRestart:
         """Restarts the Project Zomboid game-server."""
         return await restart_zomboid_server(system_user)
 
-    async def auto_restart(self, channel: discord.TextChannel, server_name: str, init_msg: str) -> bool:
+    async def auto_restart(
+        self, channel: discord.TextChannel, server_name: str, init_msg: str
+    ) -> bool:
         """
         Starts a countdown and restarts a server at the end of it.
 
@@ -114,7 +116,9 @@ class AutoRestart:
 
         self._countdown_running[system_user] = False
 
-        msg = f"Success! The **{server_name}** was restarted and is now loading back up."
+        msg = (
+            f"Success! The **{server_name}** was restarted and is now loading back up."
+        )
         await channel.send(msg)
         return True
 

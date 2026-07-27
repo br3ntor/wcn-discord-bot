@@ -14,7 +14,6 @@ from src.services.bot_db import (
     get_discord_resolved_tickets,
     get_last_processed_ticket_id,
     get_ticket_by_discord_message,
-    get_tracked_tickets,
     get_tracked_tickets_in_range,
     is_ticket_processed,
     mark_ticket_resolved_in_discord,
@@ -291,8 +290,8 @@ class TicketWatcherCog(commands.Cog):
 
         # Query only for tickets after the last tracked ID (efficient - skip already processed)
         query = """
-            SELECT id, message, author 
-            FROM tickets 
+            SELECT id, message, author
+            FROM tickets
             WHERE answeredID IS NULL AND id > ?
             ORDER BY id ASC
             LIMIT 20

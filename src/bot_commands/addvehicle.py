@@ -25,7 +25,9 @@ SERVER_NAMES = Config.SERVER_NAMES
     player="The name of the player to spawn the vehicle near.",
     vehicle="The vehicle type in Module.Vehicle format (e.g., Base.VanAmbulance).",
 )
-@app_commands.autocomplete(player=make_player_autocomplete(), vehicle=make_vehicle_autocomplete())
+@app_commands.autocomplete(
+    player=make_player_autocomplete(), vehicle=make_vehicle_autocomplete()
+)
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def addvehicle(
     interaction: discord.Interaction,

@@ -1,9 +1,9 @@
 import asyncio
 import json
+import logging
 from datetime import datetime, timezone
 
 import aiosqlite
-import logging
 
 from src.config import DB_PATH
 
@@ -21,8 +21,7 @@ async def init_db():
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     async with aiosqlite.connect(db_path) as db:
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS banned_players (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 player_name TEXT NOT NULL,
@@ -30,11 +29,9 @@ async def init_db():
                 banned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(steam_id)
             )
-            """
-        )
+            """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS donations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 player_name TEXT NOT NULL,
@@ -42,11 +39,9 @@ async def init_db():
                 amount REAL NOT NULL,
                 donation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-            """
-        )
+            """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS ticket_notifications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 server_name TEXT NOT NULL,
@@ -57,21 +52,21 @@ async def init_db():
                 last_state TEXT DEFAULT 'unanswered',
                 UNIQUE(server_name, ticket_id)
             )
-            """
-        )
+            """)
 
         try:
             async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
                 columns = await cursor.fetchall()
                 col_names = [col[1] for col in columns]
-                has_server_name = 'server_name' in col_names
-                has_resolved_in_discord = 'resolved_in_discord' in col_names
-            
+                has_server_name = "server_name" in col_names
+                has_resolved_in_discord = "resolved_in_discord" in col_names
+
             if not has_server_name:
-                logger.info("Migrating ticket_notifications table to support multiple servers")
+                logger.info(
+                    "Migrating ticket_notifications table to support multiple servers"
+                )
                 await db.execute("DROP TABLE IF EXISTS ticket_notifications")
-                await db.execute(
-                    """
+                await db.execute("""
                     CREATE TABLE ticket_notifications (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         server_name TEXT NOT NULL,
@@ -84,19 +79,23 @@ async def init_db():
                         resolved_by TEXT DEFAULT NULL,
                         UNIQUE(server_name, ticket_id)
                     )
-                    """
-                )
+                    """)
                 logger.info("Migration completed - now supporting multiple servers")
             elif not has_resolved_in_discord:
-                logger.info("Migrating ticket_notifications table to add discord resolution columns")
-                await db.execute("ALTER TABLE ticket_notifications ADD COLUMN resolved_in_discord INTEGER DEFAULT 0")
-                await db.execute("ALTER TABLE ticket_notifications ADD COLUMN resolved_by TEXT DEFAULT NULL")
+                logger.info(
+                    "Migrating ticket_notifications table to add discord resolution columns"
+                )
+                await db.execute(
+                    "ALTER TABLE ticket_notifications ADD COLUMN resolved_in_discord INTEGER DEFAULT 0"
+                )
+                await db.execute(
+                    "ALTER TABLE ticket_notifications ADD COLUMN resolved_by TEXT DEFAULT NULL"
+                )
                 logger.info("Migration completed - added discord resolution columns")
         except Exception as e:
             logger.error(f"Error during migration: {e}")
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS player_command_stats (
                 steam_id TEXT NOT NULL,
                 server_name TEXT NOT NULL,
@@ -106,11 +105,9 @@ async def init_db():
                 last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(steam_id, server_name)
             )
-            """
-        )
+            """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS command_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 command_name TEXT NOT NULL,
@@ -126,44 +123,32 @@ async def init_db():
                 success INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL
             )
-            """
-        )
-        await db.execute(
-            """
+            """)
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_command_history_steam_cmd
             ON command_history(steam_id, command_name)
-            """
-        )
-        await db.execute(
-            """
+            """)
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_command_history_cmd_time
             ON command_history(command_name, created_at)
-            """
-        )
-        await db.execute(
-            """
+            """)
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_command_history_user
             ON command_history(discord_user_id)
-            """
-        )
+            """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS server_worlds (
                 server_name TEXT PRIMARY KEY,
                 world_started_at TEXT NOT NULL
             )
-            """
-        )
+            """)
 
-        await db.execute(
-            """
+        await db.execute("""
             DROP TABLE IF EXISTS player_command_cooldowns
-            """
-        )
+            """)
 
-        await db.execute(
-            """
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS pending_player_links (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 discord_id TEXT NOT NULL,
@@ -173,14 +158,11 @@ async def init_db():
                 expires_at TEXT NOT NULL,
                 consumed_at TEXT
             )
-            """
-        )
-        await db.execute(
-            """
+            """)
+        await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_pending_player_links_active
             ON pending_player_links(discord_id, server_name, consumed_at)
-            """
-        )
+            """)
 
         await db.commit()
         logger.info("Database initialized")
@@ -228,7 +210,10 @@ async def _stat_birth_time(path: str) -> datetime | None:
     """Get a filesystem path's creation time via GNU stat, or None if unknown."""
     try:
         proc = await asyncio.create_subprocess_exec(
-            "stat", "-c", "%W", path,
+            "stat",
+            "-c",
+            "%W",
+            path,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -312,9 +297,7 @@ async def create_pending_player_link(
         return False
 
 
-async def get_pending_player_link(
-    server_name: str, code_hash: str
-) -> dict | None:
+async def get_pending_player_link(server_name: str, code_hash: str) -> dict | None:
     """Return an unexpired pending link matching a server and code hash."""
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
@@ -362,13 +345,11 @@ async def consume_pending_player_link(link_id: int) -> bool:
 async def get_active_pending_link_servers() -> set[str]:
     """Return servers with at least one unexpired pending link code."""
     async with aiosqlite.connect(db_path) as db:
-        async with db.execute(
-            """
+        async with db.execute("""
             SELECT DISTINCT server_name, expires_at
             FROM pending_player_links
             WHERE consumed_at IS NULL
-            """
-        ) as cursor:
+            """) as cursor:
             rows = await cursor.fetchall()
 
     now = datetime.now(timezone.utc)
@@ -451,7 +432,8 @@ async def is_ticket_processed(server_name: str, ticket_id: int) -> bool:
     """Check if a ticket has already been processed."""
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
-            "SELECT 1 FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?", (server_name, ticket_id)
+            "SELECT 1 FROM ticket_notifications WHERE server_name = ? AND ticket_id = ?",
+            (server_name, ticket_id),
         ) as cursor:
             return await cursor.fetchone() is not None
 
@@ -460,7 +442,8 @@ async def get_last_processed_ticket_id(server_name: str) -> int:
     """Get the highest ticket ID that has been processed for a specific server."""
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
-            "SELECT MAX(ticket_id) FROM ticket_notifications WHERE server_name = ?", (server_name,)
+            "SELECT MAX(ticket_id) FROM ticket_notifications WHERE server_name = ?",
+            (server_name,),
         ) as cursor:
             result = await cursor.fetchone()
             if result and result[0] is not None:
@@ -472,26 +455,26 @@ async def get_last_processed_ticket_id(server_name: str) -> int:
 async def get_tracked_tickets() -> list:
     """Get all tickets that have Discord notifications posted."""
     async with aiosqlite.connect(db_path) as db:
-        async with db.execute(
-            """
+        async with db.execute("""
             SELECT server_name, ticket_id, discord_message_id, thread_id, last_state
             FROM ticket_notifications
             ORDER BY server_name, ticket_id ASC
-            """
-        ) as cursor:
+            """) as cursor:
             results = await cursor.fetchall()
             return [(row[0], row[1], row[2], row[3], row[4]) for row in results]
 
 
-async def get_tracked_tickets_in_range(server_name: str, min_id: int, max_id: int) -> list:
+async def get_tracked_tickets_in_range(
+    server_name: str, min_id: int, max_id: int
+) -> list:
     """Get tracked tickets within a specific ID range."""
     async with aiosqlite.connect(db_path) as db:
         async with db.execute(
             """SELECT server_name, ticket_id, discord_message_id, thread_id, last_state
-               FROM ticket_notifications 
+               FROM ticket_notifications
                WHERE server_name = ? AND ticket_id BETWEEN ? AND ?
                ORDER BY ticket_id ASC""",
-            (server_name, min_id, max_id)
+            (server_name, min_id, max_id),
         ) as cursor:
             results = await cursor.fetchall()
             return [(row[0], row[1], row[2], row[3], row[4]) for row in results]
@@ -546,7 +529,9 @@ async def clear_server_tracking(server_name: str) -> bool:
     """Clear all ticket notifications for a specific server from local database."""
     try:
         async with aiosqlite.connect(db_path) as db:
-            await db.execute("DELETE FROM ticket_notifications WHERE server_name = ?", (server_name,))
+            await db.execute(
+                "DELETE FROM ticket_notifications WHERE server_name = ?", (server_name,)
+            )
             await db.commit()
             return True
     except Exception:
@@ -566,7 +551,9 @@ async def get_ticket_by_discord_message(discord_message_id: int) -> tuple | None
             return None
 
 
-async def mark_ticket_resolved_in_discord(server_name: str, ticket_id: int, resolved_by: str) -> bool:
+async def mark_ticket_resolved_in_discord(
+    server_name: str, ticket_id: int, resolved_by: str
+) -> bool:
     """Mark a ticket as resolved via Discord reaction."""
     try:
         async with aiosqlite.connect(db_path) as db:

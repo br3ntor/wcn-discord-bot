@@ -81,7 +81,9 @@ class ModUpdatesCog(commands.Cog):
                 )
 
                 if not servers_with_mod:
-                    logger.debug(f"Mod {workshop_id} updated, but no running servers are using it. Skipping announcement.")
+                    logger.debug(
+                        f"Mod {workshop_id} updated, but no running servers are using it. Skipping announcement."
+                    )
                     continue
 
                 logger.debug(f"Servers with mod: {servers_with_mod}")
@@ -139,6 +141,3 @@ class ModUpdatesCog(commands.Cog):
 
         if new_mods_count > 0:
             logger.info("Recording initial timestamps for %d new mods", new_mods_count)
-
-
-

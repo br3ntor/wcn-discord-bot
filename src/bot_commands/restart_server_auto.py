@@ -30,7 +30,9 @@ async def restart_server_auto(
     """Restarts server in 5min."""
 
     # Create the view containing our dropdown and buttons
-    view = Confirm(confirm_msg="Auto Restart Confirmed.", cancel_msg="Auto Restart Aborted.")
+    view = Confirm(
+        confirm_msg="Auto Restart Confirmed.", cancel_msg="Auto Restart Aborted."
+    )
     await interaction.response.send_message(
         f"Automatically restart the **{server.name}** after 5min?",
         view=view,
@@ -78,11 +80,15 @@ async def restart_server_auto(
     ]
 )
 @app_commands.describe(server="Which server?")
-async def cancel_restart(interaction: discord.Interaction, server: app_commands.Choice[int]):
+async def cancel_restart(
+    interaction: discord.Interaction, server: app_commands.Choice[int]
+):
     """Cancels a running restart countdown for a specific server."""
     if auto_restart.is_running(server.name):
         auto_restart.abort(server.name)
-        await interaction.response.send_message(f"Abort signal sent for **{server.name}**!")
+        await interaction.response.send_message(
+            f"Abort signal sent for **{server.name}**!"
+        )
     else:
         await interaction.response.send_message(
             f"There is no countdown happening for **{server.name}**, this is you 🤡"

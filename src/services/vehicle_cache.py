@@ -53,13 +53,22 @@ class VehicleCache:
         for txt_file in vehicles_dir.rglob("*.txt"):
             self._parse_vehicle_file(txt_file, vehicles_dict)
 
-    def _scan_workshop_dir(self, workshop_dir: Path, vehicles_dict: dict[str, str], active_workshop_ids: set[str]):
+    def _scan_workshop_dir(
+        self,
+        workshop_dir: Path,
+        vehicles_dict: dict[str, str],
+        active_workshop_ids: set[str],
+    ):
         for txt_file in workshop_dir.rglob("*.txt"):
             parts = txt_file.parts
             rel = txt_file.relative_to(workshop_dir)
             rel_str = str(rel)
 
-            first_dir = rel_str.split(os.sep, 1)[0] if os.sep in rel_str else rel_str.split("/", 1)[0]
+            first_dir = (
+                rel_str.split(os.sep, 1)[0]
+                if os.sep in rel_str
+                else rel_str.split("/", 1)[0]
+            )
             if first_dir not in active_workshop_ids:
                 continue
 

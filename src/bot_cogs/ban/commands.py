@@ -11,12 +11,16 @@ from discord.ext import commands
 from tabulate import tabulate
 
 from src.config import Config
-from src.services.game_db import gamedb_get_all_bans, gamedb_get_ban_by_steamid, gamedb_get_player_by_steamid
+from src.services.game_db import (
+    gamedb_get_all_bans,
+    gamedb_get_ban_by_steamid,
+    gamedb_get_player_by_steamid,
+)
 from src.services.pocketbase import pb_client
 from src.services.pz_server import pz_ban_player, pz_unban_player
 from src.services.server import server_isrunning
-
 from src.utils.player_lookup import has_invalid_quotes, lookup_player, resolve_steam_id
+
 from .views import BanListView
 
 logger = logging.getLogger(__name__)

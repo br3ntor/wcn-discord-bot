@@ -5,9 +5,6 @@ from typing import Any
 
 import a2s
 import aiohttp
-from tabulate import tabulate
-
-from src.config import Config
 
 logger = logging.getLogger(__name__)
 

@@ -47,8 +47,6 @@ class BanListenerCog(commands.Cog):
         is_active = record.get("is_active", True)
         name = record.get("name", "Unknown")
         reason = record.get("reason", "No reason provided")
-        server_origin = record.get("server_origin", "Unknown")
-        expires = record.get("expires")
 
         if not steamid:
             logger.warning(f"Ban event with no steamid: {record}")

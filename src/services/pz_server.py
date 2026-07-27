@@ -259,7 +259,9 @@ async def pz_setpassword_b42(
     system_user: str, player: str, new_password: str
 ) -> tuple[bool, str]:
     """Sets a B42 player's password via RCON."""
-    response = await pz_send_command(system_user, f'setpassword "{player}" "{new_password}"')
+    response = await pz_send_command(
+        system_user, f'setpassword "{player}" "{new_password}"'
+    )
     if response is None:
         return False, "Could not reach the server via RCON."
 
@@ -285,7 +287,9 @@ async def pz_reset_password_b41(
         return False, f"Unexpected server response: {remove_response}"
 
     await asyncio.sleep(0.2)
-    add_response = await pz_send_command(system_user, f'adduser "{player}" "{new_password}"')
+    add_response = await pz_send_command(
+        system_user, f'adduser "{player}" "{new_password}"'
+    )
     if add_response is None:
         return False, "Could not reach the server via RCON."
 

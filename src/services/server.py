@@ -47,7 +47,9 @@ def get_sandbox_vars_path(system_user: str) -> Path:
 
 def get_item_translations_path(system_user: str) -> Path:
     """Return the path to the ItemName.json translations file."""
-    return Path(f"/home/{system_user}/serverfiles/media/lua/shared/Translate/EN/ItemName.json")
+    return Path(
+        f"/home/{system_user}/serverfiles/media/lua/shared/Translate/EN/ItemName.json"
+    )
 
 
 async def server_isrunning(system_user: str) -> bool:
@@ -83,7 +85,7 @@ async def server_isrunning(system_user: str) -> bool:
     return False
 
 
-def _read_pz_ini(path: str) -> configparser.ConfigParser:
+def _read_pz_ini(path: str | Path) -> configparser.ConfigParser:
     """Read a PZ server INI file.
 
     PZ INI files are flat key=value pairs with no section header.
@@ -218,9 +220,7 @@ async def restart_zomboid_server(system_user: str) -> bool:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(), timeout=30.0
-        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30.0)
         if process.returncode and process.returncode != 0:
             logger.error(
                 f"systemctl restart failed for {system_user} "

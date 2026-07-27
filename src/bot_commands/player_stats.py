@@ -5,7 +5,10 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.bot_db import get_player_command_counts_by_character, get_server_world_start
+from src.services.bot_db import (
+    get_player_command_counts_by_character,
+    get_server_world_start,
+)
 from src.utils.helpers import make_player_autocomplete
 from src.utils.player_lookup import lookup_player
 
@@ -68,7 +71,9 @@ async def player_stats(
 
     world_start = await get_server_world_start(server.name)
 
-    character_counts = await get_player_command_counts_by_character(steam_id, server.name)
+    character_counts = await get_player_command_counts_by_character(
+        steam_id, server.name
+    )
 
     if not character_counts:
         await interaction.followup.send(

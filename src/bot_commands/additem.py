@@ -26,7 +26,9 @@ SERVER_NAMES = Config.SERVER_NAMES
     item="The item type in Module.Item format (e.g., Base.Axe).",
     count="How many to give (optional, default 1).",
 )
-@app_commands.autocomplete(player=make_player_autocomplete(), item=make_item_autocomplete())
+@app_commands.autocomplete(
+    player=make_player_autocomplete(), item=make_item_autocomplete()
+)
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def additem(
     interaction: discord.Interaction,

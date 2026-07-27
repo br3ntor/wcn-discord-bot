@@ -20,7 +20,7 @@ times = [
 
 class ScoreboardCog(commands.Cog):
     """Cog for posting periodic scoreboard link messages to Discord."""
-    
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 

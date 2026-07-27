@@ -75,14 +75,19 @@ async def get_playerlist(
         message = await thread.fetch_message(message_id)
     except discord.NotFound:
         logger.error(
-            "Message %s not found in thread %s (server: %s)", message_id, thread_id, server_name
+            "Message %s not found in thread %s (server: %s)",
+            message_id,
+            thread_id,
+            server_name,
         )
         await interaction.followup.send(
             "The player list message seems to have been deleted.", ephemeral=True
         )
         return
     except discord.Forbidden:
-        logger.error("No permission to read message %s in thread %s", message_id, thread_id)
+        logger.error(
+            "No permission to read message %s in thread %s", message_id, thread_id
+        )
         await interaction.followup.send(
             "I don't have permission to view the player list.", ephemeral=True
         )

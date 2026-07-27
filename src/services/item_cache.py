@@ -51,7 +51,9 @@ class ItemCache:
         translations: dict[str, str] = {}
         self._load_base_translations(system_user, translations)
         if workshop_path.exists():
-            self._load_mod_translations(workshop_path, active_workshop_ids, translations)
+            self._load_mod_translations(
+                workshop_path, active_workshop_ids, translations
+            )
 
         for item_id, display_name in items_dict.items():
             if not display_name and item_id in translations:
@@ -70,18 +72,30 @@ class ItemCache:
         for txt_file in items_dir.rglob("*.txt"):
             self._parse_script_file(txt_file, items_dict)
 
-    def _scan_workshop_dir(self, workshop_dir: Path, items_dict: dict[str, str], active_workshop_ids: set[str]):
+    def _scan_workshop_dir(
+        self,
+        workshop_dir: Path,
+        items_dict: dict[str, str],
+        active_workshop_ids: set[str],
+    ):
         for txt_file in workshop_dir.rglob("*.txt"):
             parts = txt_file.parts
             rel = txt_file.relative_to(workshop_dir)
             rel_str = str(rel)
 
-            first_dir = rel_str.split(os.sep, 1)[0] if os.sep in rel_str else rel_str.split("/", 1)[0]
+            first_dir = (
+                rel_str.split(os.sep, 1)[0]
+                if os.sep in rel_str
+                else rel_str.split("/", 1)[0]
+            )
             if first_dir not in active_workshop_ids:
                 continue
 
             skip_dirs = ("vehicles", "entities")
-            if any(f"{os.sep}{d}{os.sep}" in rel_str or rel_str.startswith(d + "/") for d in skip_dirs):
+            if any(
+                f"{os.sep}{d}{os.sep}" in rel_str or rel_str.startswith(d + "/")
+                for d in skip_dirs
+            ):
                 continue
 
             if "media" not in parts:
@@ -142,7 +156,7 @@ class ItemCache:
                 if stripped.startswith("DisplayName"):
                     idx = stripped.find("=")
                     if idx != -1:
-                        val = stripped[idx + 1:].strip().rstrip(",").strip()
+                        val = stripped[idx + 1 :].strip().rstrip(",").strip()
                         if val and current_display_name is None:
                             current_display_name = val
 
@@ -159,11 +173,20 @@ class ItemCache:
         except Exception as e:
             logger.warning(f"Failed to load base translations for {system_user}: {e}")
 
-    def _load_mod_translations(self, workshop_dir: Path, active_workshop_ids: set[str], translations: dict[str, str]):
+    def _load_mod_translations(
+        self,
+        workshop_dir: Path,
+        active_workshop_ids: set[str],
+        translations: dict[str, str],
+    ):
         for trans_file in workshop_dir.rglob("Translate/EN/ItemName*"):
             rel = trans_file.relative_to(workshop_dir)
             rel_str = str(rel)
-            first_dir = rel_str.split(os.sep, 1)[0] if os.sep in rel_str else rel_str.split("/", 1)[0]
+            first_dir = (
+                rel_str.split(os.sep, 1)[0]
+                if os.sep in rel_str
+                else rel_str.split("/", 1)[0]
+            )
             if first_dir not in active_workshop_ids:
                 continue
 

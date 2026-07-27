@@ -36,8 +36,6 @@ class KoFiDonationCog(commands.Cog):
         verification_token = donation["verification_token"]
         is_public = donation["is_public"]
         donator = donation["from_name"]
-        # I stopped sending this back because I think its just meant for the one who issued the donation.
-        url = donation["url"]
         email = donation["email"]
 
         goal_url = "https://ko-fi.com/westcoastnoobs/goal"
@@ -77,7 +75,9 @@ class KoFiDonationCog(commands.Cog):
 
             current_amount = donos_since_last_bill + starting_amount
 
-            donation_progress = show_donation_progress(current_amount, Config.KOFI_DONATION_GOAL)
+            donation_progress = show_donation_progress(
+                current_amount, Config.KOFI_DONATION_GOAL
+            )
             await discord_channel.send(donation_progress)
 
         else:

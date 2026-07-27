@@ -85,10 +85,16 @@ class PlayerLinkCog(commands.Cog):
         self.watcher_cleanup_tasks.clear()
         self.verification_watchers.clear()
 
-    @app_commands.command(name="link", description="Link your Discord account to your in-game player.")
+    @app_commands.command(
+        name="link", description="Link your Discord account to your in-game player."
+    )
     @app_commands.choices(server=SERVER_CHOICES)
-    @app_commands.describe(server="The server where you will enter the verification code")
-    async def link(self, interaction: discord.Interaction, server: app_commands.Choice[str]):
+    @app_commands.describe(
+        server="The server where you will enter the verification code"
+    )
+    async def link(
+        self, interaction: discord.Interaction, server: app_commands.Choice[str]
+    ):
         """Create a temporary code for linking a Discord account to a player."""
         await interaction.response.defer(ephemeral=True)
 
@@ -175,7 +181,9 @@ class PlayerLinkCog(commands.Cog):
                     await monitor.stop()
                     if self.verification_watchers.get(server_name) is monitor:
                         self.verification_watchers.pop(server_name, None)
-                    logger.info("Stopped temporary player-link watcher for %s", server_name)
+                    logger.info(
+                        "Stopped temporary player-link watcher for %s", server_name
+                    )
                     return
         except asyncio.CancelledError:
             raise
@@ -184,9 +192,7 @@ class PlayerLinkCog(commands.Cog):
             if self.watcher_cleanup_tasks.get(server_name) is current_task:
                 self.watcher_cleanup_tasks.pop(server_name, None)
 
-    async def _handle_chat_line(
-        self, server_name: str, system_user: str, line: str
-    ):
+    async def _handle_chat_line(self, server_name: str, system_user: str, line: str):
         parsed = parse_local_verification_message(line)
         if not parsed:
             return

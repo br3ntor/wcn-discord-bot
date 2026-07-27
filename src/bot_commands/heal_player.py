@@ -4,7 +4,10 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.bot_db import get_player_command_counts_by_character, log_command_history
+from src.services.bot_db import (
+    get_player_command_counts_by_character,
+    log_command_history,
+)
 from src.services.pz_server import pz_heal_player
 from src.utils.helpers import format_player_stats, make_player_autocomplete
 from src.utils.player_lookup import lookup_player
@@ -45,7 +48,9 @@ async def heal_player(
                     player_name=player,
                     arguments={"server": server.name, "player": player},
                 )
-                stats = await get_player_command_counts_by_character(steam_id, server.name)
+                stats = await get_player_command_counts_by_character(
+                    steam_id, server.name
+                )
                 stats_msg = format_player_stats(stats, player)
         except Exception as e:
             logger.warning(f"Failed to record heal stats: {e}")

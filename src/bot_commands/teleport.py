@@ -19,11 +19,11 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
     ]
 )
 @app_commands.describe(
-    server="Which server?",
-    player1="Who to teleport?",
-    player2="Teleport to who?"
+    server="Which server?", player1="Who to teleport?", player2="Teleport to who?"
 )
-@app_commands.autocomplete(player1=make_player_autocomplete(), player2=make_player_autocomplete())
+@app_commands.autocomplete(
+    player1=make_player_autocomplete(), player2=make_player_autocomplete()
+)
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
 async def teleport(
     interaction: discord.Interaction,

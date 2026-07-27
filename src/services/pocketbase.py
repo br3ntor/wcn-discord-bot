@@ -151,7 +151,7 @@ class PocketBaseClient:
 
         safe_value = self._escape_filter_value(value)
         url = (
-            f'{self.url}/api/collections/player_links/records?'
+            f"{self.url}/api/collections/player_links/records?"
             f'filter={field}="{safe_value}"&perPage=1'
         )
         status, data = await self._player_link_request("GET", url)
@@ -212,7 +212,9 @@ class PocketBaseClient:
         per_page = 500
 
         while True:
-            result = await self.get_bans_paginated(page=page, per_page=per_page, is_active=is_active)
+            result = await self.get_bans_paginated(
+                page=page, per_page=per_page, is_active=is_active
+            )
             all_bans.extend(result["items"])
             if page >= result["totalPages"]:
                 break
