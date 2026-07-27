@@ -9,22 +9,17 @@
 - [x] Add `encoding="utf-8"` to all `open()` calls
 - [x] Log stack trace in `on_application_command_error`
 - [x] Refactor path-parsing in `get_servers_workshop_ids` / `get_servers_max_players` — username now flows through as a dict key from `server_setting_paths()`, eliminating ~30 lines of fragile `os.sep` splitting
+- [x] **GitHub Actions CI** — pytest + black + ruff (mypy deferred until pre-existing type errors are fixed)
+- [x] **`pyproject.toml`** — consolidate dev tool configs under one file; keep `requirements.txt` for runtime deps
+- [x] **Extract INI helper** — `_read_pz_ini()` in `server.py`, replaces 3 duplicated `configparser` blocks
+- [x] **Type annotations** — added full generics to public functions in `server.py`, `pz_server.py`, `steam.py`
+- [x] **Black formatting** — auto-formatted entire codebase, fixed unused imports/variables/trailing whitespace
 
 ## Remaining
 
-### CI & Tooling
-
-- [ ] **GitHub Actions CI** — pytest + black + ruff + mypy
-- [ ] **`pyproject.toml`** — consolidate dev tool configs under one file; keep `requirements.txt` for runtime deps
-
 ### Code Quality
 
-- [ ] **Extract INI helper** — `read_string("[default]\n" + ...)` pattern appears in 3 places:
-  - `server.py:get_workshop_ids_for_server:93`
-  - `server.py:get_servers_workshop_ids:145`
-  - `server.py:get_servers_max_players:299`
 - [ ] **Split large modules** — `ticket_watcher.py` (31KB, ~800 lines) and `bot_db.py` (738 lines)
-- [ ] **Type annotations** — add full generics to public functions in `server.py`, `pz_server.py`, `steam.py`
 
 ### Database
 
