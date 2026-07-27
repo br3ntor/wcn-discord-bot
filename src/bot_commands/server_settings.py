@@ -43,7 +43,7 @@ async def server_settings(
 
     settings = {}
     try:
-        with open(PZ_SERVER_INI_PATH, "r") as file:
+        with open(PZ_SERVER_INI_PATH, "r", encoding="utf-8") as file:
             for line in file:
                 if line.strip() and not line.startswith("#"):
                     match = re.match(r"(\w+)=(.*)", line.strip())

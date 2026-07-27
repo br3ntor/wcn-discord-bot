@@ -26,8 +26,8 @@ class PlayerlistCog(commands.Cog):
             logger.warning("SERVER_PUB_IP is not a string. Skipping loop.")
             return
 
-        paths = await server_setting_paths()
-        max_players = await get_servers_max_players(paths)
+        user_paths = await server_setting_paths()
+        max_players = await get_servers_max_players(user_paths)
 
         for srv_info in Config.SERVER_DATA:
             if not srv_info["discord_playerlist"]:

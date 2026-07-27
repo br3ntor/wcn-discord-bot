@@ -6,15 +6,11 @@ from typing import Dict, List, Optional, TypedDict
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 logger = logging.getLogger(__name__)
-logger.info("Loading Config...")
 
 CONFIG_DIR = Path(__file__).parent.parent / "config"
 DATA_DIR = Path(__file__).parent.parent / "data"
 DB_PATH = DATA_DIR / "bot_database.db"
-DATA_DIR.mkdir(exist_ok=True)
 
 
 # This program is setup for one or more project zomboid servers running
@@ -50,7 +46,7 @@ class CogConfig(TypedDict):
 
 def load_server_data(filepath: str) -> List[ServerConfig]:
     try:
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         logger.warning(f"Server config file not found at {filepath}, using empty list.")
@@ -62,7 +58,7 @@ def load_server_data(filepath: str) -> List[ServerConfig]:
 
 def load_cogs_config(filepath: str) -> Dict[str, CogConfig]:
     try:
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data.get("cogs", {})
     except FileNotFoundError:
@@ -75,36 +71,84 @@ def load_cogs_config(filepath: str) -> Dict[str, CogConfig]:
 
 class Config:
     # Required Env Vars - Program shouldn't run without these
-    ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
-    MY_GUILD = int(os.getenv("MY_GUILD", 0))
-    PZ_ADMIN_ROLE_ID = int(os.getenv("PZ_ADMIN_ROLE_ID", 0))
-    MOD_CHANNEL = int(os.getenv("MOD_CHANNEL", 0))
-    DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+    ANNOUNCE_CHANNEL: int
+    MY_GUILD: int
+    PZ_ADMIN_ROLE_ID: int
+    MOD_CHANNEL: int
+    DISCORD_TOKEN: Optional[str]
 
-    # Optional Env Vars -
-    GITHUB_PAT = os.getenv("GITHUB_PAT")
-    SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
-    WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
-    SETTINGS_PATH = os.getenv("SETTINGS_PATH")
+    # Optional Env Vars
+    GITHUB_PAT: Optional[str]
+    SERVER_PUB_IP: Optional[str]
+    WEBHOOK_SECRET: Optional[str]
+    SETTINGS_PATH: Optional[str]
 
-    KOFI_BILL_DAY = int(os.getenv("KOFI_BILL_DAY", 6))
-    KOFI_STARTING_AMOUNT = float(os.getenv("KOFI_STARTING_AMOUNT", 5))
-    KOFI_DONATION_GOAL = float(os.getenv("KOFI_DONATION_GOAL", 80))
+    KOFI_BILL_DAY: int
+    KOFI_STARTING_AMOUNT: float
+    KOFI_DONATION_GOAL: float
 
-    POCKETBASE_URL = os.getenv("POCKETBASE_URL")
-    POCKETBASE_EMAIL = os.getenv("POCKETBASE_EMAIL")
-    POCKETBASE_PASSWORD = os.getenv("POCKETBASE_PASSWORD")
-    pocketbase_configured = all(
-        [POCKETBASE_URL, POCKETBASE_EMAIL, POCKETBASE_PASSWORD]
-    )
+    POCKETBASE_URL: Optional[str]
+    POCKETBASE_EMAIL: Optional[str]
+    POCKETBASE_PASSWORD: Optional[str]
+    pocketbase_configured: bool
 
-    SERVER_DATA: List[ServerConfig] = load_server_data(str(CONFIG_DIR / "servers.json"))
+    SERVER_DATA: List[ServerConfig]
 
     # Map server name to system user.
-    SYSTEM_USERS = {srv["server_name"]: srv["system_user"] for srv in SERVER_DATA}
+    SYSTEM_USERS: Dict[str, str]
 
     # Map system user to server name.
-    SERVER_NAMES = {srv["system_user"]: srv["server_name"] for srv in SERVER_DATA}
+    SERVER_NAMES: Dict[str, str]
+
+    COGS_CONFIG: Dict[str, CogConfig]
+
+    @classmethod
+    def init(cls):
+        """Initialize config from environment variables and config files.
+
+        Must be called from main.py before importing any other src modules
+        that reference Config attributes.
+        """
+        load_dotenv()
+        DATA_DIR.mkdir(exist_ok=True)
+
+        # Required Env Vars
+        cls.ANNOUNCE_CHANNEL = int(os.getenv("ANNOUNCE_CHANNEL", 0))
+        cls.MY_GUILD = int(os.getenv("MY_GUILD", 0))
+        cls.PZ_ADMIN_ROLE_ID = int(os.getenv("PZ_ADMIN_ROLE_ID", 0))
+        cls.MOD_CHANNEL = int(os.getenv("MOD_CHANNEL", 0))
+        cls.DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+
+        # Optional Env Vars
+        cls.GITHUB_PAT = os.getenv("GITHUB_PAT")
+        cls.SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
+        cls.WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
+        cls.SETTINGS_PATH = os.getenv("SETTINGS_PATH")
+
+        cls.KOFI_BILL_DAY = int(os.getenv("KOFI_BILL_DAY", 6))
+        cls.KOFI_STARTING_AMOUNT = float(os.getenv("KOFI_STARTING_AMOUNT", 5))
+        cls.KOFI_DONATION_GOAL = float(os.getenv("KOFI_DONATION_GOAL", 80))
+
+        cls.POCKETBASE_URL = os.getenv("POCKETBASE_URL")
+        cls.POCKETBASE_EMAIL = os.getenv("POCKETBASE_EMAIL")
+        cls.POCKETBASE_PASSWORD = os.getenv("POCKETBASE_PASSWORD")
+        cls.pocketbase_configured = all(
+            [cls.POCKETBASE_URL, cls.POCKETBASE_EMAIL, cls.POCKETBASE_PASSWORD]
+        )
+
+        cls.SERVER_DATA = load_server_data(str(CONFIG_DIR / "servers.json"))
+
+        cls.SYSTEM_USERS = {
+            srv["server_name"]: srv["system_user"] for srv in cls.SERVER_DATA
+        }
+
+        cls.SERVER_NAMES = {
+            srv["system_user"]: srv["server_name"] for srv in cls.SERVER_DATA
+        }
+
+        cls.COGS_CONFIG = load_cogs_config(str(CONFIG_DIR / "cogs.json"))
+
+        logger.info("Config loaded")
 
     @staticmethod
     def get_rcon_config(server_name: str) -> Optional[ServerConfig]:
@@ -119,8 +163,6 @@ class Config:
             if server["system_user"] == system_user:
                 return server
         return None
-
-    COGS_CONFIG: Dict[str, CogConfig] = load_cogs_config(str(CONFIG_DIR / "cogs.json"))
 
     @staticmethod
     def validate():

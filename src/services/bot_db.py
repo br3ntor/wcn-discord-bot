@@ -1,15 +1,15 @@
 import asyncio
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 import aiosqlite
 import logging
 
+from src.config import DB_PATH
+
 logger = logging.getLogger(__name__)
 
-project_root = Path(__file__).parent.parent.parent
-db_path = project_root / "data" / "bot_database.db"
+db_path = DB_PATH
 
 
 async def init_db():

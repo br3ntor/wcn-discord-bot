@@ -22,9 +22,6 @@ def import_cog(cog_name: str, class_name: str):
         return None
 
 
-MY_GUILD = discord.Object(id=int(Config.MY_GUILD))
-
-
 class WCNBot(commands.Bot):
 
     def __init__(self, *, intents: discord.Intents):
@@ -74,8 +71,8 @@ class WCNBot(commands.Bot):
         else:
             logger.info("No cogs enabled in configuration")
 
-        self.tree.copy_global_to(guild=MY_GUILD)
-        await self.tree.sync(guild=MY_GUILD)
+        self.tree.copy_global_to(guild=discord.Object(id=Config.MY_GUILD))
+        await self.tree.sync(guild=discord.Object(id=Config.MY_GUILD))
 
 
 intents = discord.Intents.all()
@@ -103,4 +100,4 @@ async def on_application_command_error(
             "An error occurred while processing your command, check logs.",
             ephemeral=True,
         )
-    logger.error(f"AppCommandError: {error}")
+    logger.error("AppCommandError", exc_info=error)

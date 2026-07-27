@@ -2,8 +2,13 @@ import logging
 
 import discord
 
-from src.bot import bot
 from src.config import Config
+
+# Initialize config before importing bot (which imports cogs/services
+# that reference Config attributes at module scope).
+Config.init()
+
+from src.bot import bot  # noqa: E402
 
 if __name__ == "__main__":
     # Discord handles its own loggers (stays at INFO by default)

@@ -113,8 +113,8 @@ async def update_all_modlist_gists() -> list[str]:
     Returns:
         List of gist links that were updated
     """
-    settings_paths = await server_setting_paths()
-    servers_workshop_ids = await get_servers_workshop_ids(settings_paths)
+    user_paths = await server_setting_paths()
+    servers_workshop_ids = await get_servers_workshop_ids(user_paths)
     servers_mods = await get_servers_workshop_items(servers_workshop_ids)
 
     gist_links = []

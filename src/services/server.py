@@ -1,15 +1,11 @@
 import asyncio
 import configparser
 import logging
-import os
 from pathlib import Path
 
 from src.config import Config
 
 logger = logging.getLogger(__name__)
-
-SERVER_DATA = Config.SERVER_DATA
-SERVER_NAMES = Config.SERVER_NAMES
 
 _max_players_cache: dict[str, int | None] | None = None
 
@@ -67,16 +63,18 @@ async def server_isrunning(system_user: str) -> bool:
         process = await asyncio.create_subprocess_exec(
             *cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
         )
-
         output, error = await process.communicate()
-
     except Exception as e:
         logger.error(f"Subprocess error occurred: {e}")
+        return False
 
     out, err = output.decode(), error.decode()
 
     if err:
         logger.warning(err)
+
+    if process.returncode and process.returncode != 0:
+        logger.debug(f"ps returned non-zero: {process.returncode}")
 
     for line in out.splitlines():
         if "ProjectZomboid64" in line:
@@ -90,7 +88,7 @@ def get_workshop_ids_for_server(system_user: str) -> set[str]:
     ini_path = get_server_ini_path(system_user)
     try:
         config = configparser.ConfigParser()
-        with open(ini_path, "r") as stream:
+        with open(ini_path, "r", encoding="utf-8") as stream:
             config.read_string("[default]\n" + stream.read())
 
         workshop_items_str = config["default"].get("WorkshopItems", "")
@@ -106,50 +104,31 @@ def get_workshop_ids_for_server(system_user: str) -> set[str]:
         return set()
 
 
-async def server_setting_paths() -> list:
-    """Return list of paths to running servers settings files"""
-    server_files = []
+async def server_setting_paths() -> dict[str, str]:
+    """Return mapping of system_user to ini path for running servers with gists."""
+    user_paths: dict[str, str] = {}
     servers_with_gists = [
-        server["system_user"] for server in SERVER_DATA if server["gists"]
+        server["system_user"] for server in Config.SERVER_DATA if server["gists"]
     ]
     for username in servers_with_gists:
         if await server_isrunning(username):
-            server_files.append(str(get_server_ini_path(username)))
-    return server_files
+            user_paths[username] = str(get_server_ini_path(username))
+    return user_paths
 
 
 async def get_servers_workshop_ids(
-    file_paths: list[str],
+    user_paths: dict[str, str],
 ) -> dict[str, list[str]]:
-    """
-    Returns running server names (which are the usernames) with their workshop ids.
-    Assumes the file path is like '/home/{username}/Zomboid/Server/pzserver.ini'.
-    """
+    """Returns running server names (usernames) with their workshop ids."""
 
-    logger.debug(f"Processing server config files from paths: {file_paths}")
+    logger.debug(f"Processing server config files: {user_paths}")
     servers_workshopids_lists: dict[str, list[str]] = {}
 
-    for path in file_paths:
-        logger.debug(f"Attempting to process file: {path}")
-        system_user = ""
+    for system_user, path in user_paths.items():
+        logger.debug(f"Attempting to process file for {system_user}: {path}")
         try:
-            parts = path.split(os.sep)
-            if len(parts) > 2 and parts[1] == "home":
-                system_user = parts[2]
-            else:
-                logger.warning(
-                    f"Warning: Could not determine username from path: {path}. Skipping this file."
-                )
-                continue
-
-            if not system_user:
-                logger.warning(
-                    f"Warning: system_user is empty for path: {path}. Skipping this file."
-                )
-                continue
-
             config = configparser.ConfigParser()
-            with open(path, "r") as stream:
+            with open(path, "r", encoding="utf-8") as stream:
                 config.read_string("[default]\n" + stream.read())
 
             if "default" not in config:
@@ -179,10 +158,6 @@ async def get_servers_workshop_ids(
 
         except FileNotFoundError:
             logger.error(f"Error: File not found at '{path}'. Skipping this file.")
-        except IndexError:
-            logger.error(
-                f"Error: Path format unexpected for '{path}'. Could not extract username. Skipping."
-            )
         except KeyError as e:
             logger.error(
                 f"Error: Missing expected configuration key '{e}' in {path} for {system_user}. Skipping."
@@ -192,29 +167,25 @@ async def get_servers_workshop_ids(
                 f"An unexpected error occurred while processing '{path}' for {system_user}: {e}. Skipping."
             )
 
-    # logger.info(
-    #     "All collected workshop items by server (username): %s",
-    #     servers_workshopids_lists,
-    # )
     return servers_workshopids_lists
 
 
 async def servers_with_mod_update(workshop_id: str) -> list[str]:
     """Returns a list of running servers the updated mod is running on"""
-    paths = await server_setting_paths()
-    servers = await get_servers_workshop_ids(paths)
+    user_paths = await server_setting_paths()
+    servers = await get_servers_workshop_ids(user_paths)
 
     server_names = []
     for key, value in servers.items():
         if workshop_id in value:
-            server_names.append(SERVER_NAMES[key])
+            server_names.append(Config.SERVER_NAMES[key])
     return server_names
 
 
 async def combine_servers_workshop_ids() -> list:
     """Returns all workshop_ids together from running servers."""
-    paths = await server_setting_paths()
-    servers = await get_servers_workshop_ids(paths)
+    user_paths = await server_setting_paths()
+    servers = await get_servers_workshop_ids(user_paths)
     all_servers_workshop_ids = set()
     for value in servers.values():
         if value:
@@ -235,14 +206,27 @@ async def restart_zomboid_server(system_user: str):
 
     try:
         cmd = ["sudo", "/usr/bin/systemctl", "restart", system_user]
-        process = await asyncio.create_subprocess_exec(*cmd)
-        exit_code = await process.wait()
-        if exit_code != 0:
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(
+            process.communicate(), timeout=30.0
+        )
+        if process.returncode and process.returncode != 0:
+            logger.error(
+                f"systemctl restart failed for {system_user} "
+                f"(rc={process.returncode}): {stderr.decode().strip()}"
+            )
             return False
-    except Exception as e:
-        logger.error(f"error occurred: {e}")
+        return True
+    except asyncio.TimeoutError:
+        logger.error(f"systemctl restart timed out for {system_user}")
         return False
-    return True
+    except Exception as e:
+        logger.error(f"restart_zomboid_server error: {e}")
+        return False
 
 
 def get_game_version(system_user: str):
@@ -257,7 +241,7 @@ def get_game_version(system_user: str):
         return "UNKNOWN"
 
     try:
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             content = f.read()
 
             if 'JAVA_VERSION="25' in content:
@@ -272,7 +256,7 @@ def get_game_version(system_user: str):
     return "UNKNOWN"
 
 
-async def get_servers_max_players(file_paths: list[str]) -> dict[str, int | None]:
+async def get_servers_max_players(user_paths: dict[str, str]) -> dict[str, int | None]:
     """
     Returns dict mapping server names (usernames) to their MaxPlayers setting.
     Returns None if not found or on error.
@@ -286,20 +270,10 @@ async def get_servers_max_players(file_paths: list[str]) -> dict[str, int | None
 
     servers_max_players: dict[str, int | None] = {}
 
-    for path in file_paths:
-        system_user = ""
+    for system_user, path in user_paths.items():
         try:
-            parts = path.split(os.sep)
-            if len(parts) > 2 and parts[1] == "home":
-                system_user = parts[2]
-            else:
-                logger.warning(
-                    f"Could not determine username from path: {path}. Skipping."
-                )
-                continue
-
             config = configparser.ConfigParser()
-            with open(path, "r") as stream:
+            with open(path, "r", encoding="utf-8") as stream:
                 config.read_string("[default]\n" + stream.read())
 
             if "default" in config:

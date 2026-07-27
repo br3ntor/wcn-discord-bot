@@ -174,7 +174,7 @@ class LevelRestore:
     def extract_player_data_from_file(self, file_path: str) -> Optional[list[str]]:
         """Extract all log lines for the player from a single PerkLog file."""
         try:
-            with open(file_path, "r") as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
         except Exception as e:
             logger.error(f"Error reading PerkLog file {file_path}: {e}")
