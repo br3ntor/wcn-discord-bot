@@ -23,8 +23,8 @@
 
 ### Database
 
-- [ ] **DB schema versioning** — init_db uses ad-hoc column checks + `DROP TABLE IF EXISTS player_command_cooldowns` on every startup. Add a `schema_version` table and make migrations explicit.
-- [ ] **Make DB path configurable** via env var
+- [x] **DB schema versioning** — init_db uses ad-hoc column checks + `DROP TABLE IF EXISTS player_command_cooldowns` on every startup. Add a `schema_version` table and make migrations explicit.
+- [x] **Make DB path configurable** via env var
 
 ### Documentation
 

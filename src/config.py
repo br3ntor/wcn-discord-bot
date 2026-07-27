@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 CONFIG_DIR = Path(__file__).parent.parent / "config"
 DATA_DIR = Path(__file__).parent.parent / "data"
-DB_PATH = DATA_DIR / "bot_database.db"
 
 
 # This program is setup for one or more project zomboid servers running
@@ -82,6 +81,7 @@ class Config:
     SERVER_PUB_IP: Optional[str]
     WEBHOOK_SECRET: Optional[str]
     SETTINGS_PATH: Optional[str]
+    DB_PATH: Path
 
     KOFI_BILL_DAY: int
     KOFI_STARTING_AMOUNT: float
@@ -124,6 +124,9 @@ class Config:
         cls.SERVER_PUB_IP = os.getenv("SERVER_PUB_IP")
         cls.WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
         cls.SETTINGS_PATH = os.getenv("SETTINGS_PATH")
+
+        db_path_env = os.getenv("DB_PATH")
+        cls.DB_PATH = Path(db_path_env) if db_path_env else DATA_DIR / "bot_database.db"
 
         cls.KOFI_BILL_DAY = int(os.getenv("KOFI_BILL_DAY", 6))
         cls.KOFI_STARTING_AMOUNT = float(os.getenv("KOFI_STARTING_AMOUNT", 5))

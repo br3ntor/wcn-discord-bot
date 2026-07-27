@@ -2,170 +2,256 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable, Coroutine, List, Tuple
 
 import aiosqlite
 
-from src.config import DB_PATH
+from src.config import Config
 
 logger = logging.getLogger(__name__)
 
-db_path = DB_PATH
+db_path = (
+    getattr(Config, "DB_PATH", None)
+    or Path(__file__).parent.parent.parent / "data" / "bot_database.db"
+)
+
+SCHEMA_VERSION = 4
+
+MIGRATIONS: List[Tuple[int, str, Callable[[aiosqlite.Connection], Coroutine]]] = []
+
+
+def _migration(version: int, description: str) -> Callable[
+    [Callable[[aiosqlite.Connection], Coroutine]],
+    Callable[[aiosqlite.Connection], Coroutine],
+]:
+    """Decorator to register a migration function."""
+
+    def decorator(
+        fn: Callable[[aiosqlite.Connection], Coroutine],
+    ) -> Callable[[aiosqlite.Connection], Coroutine]:
+        MIGRATIONS.append((version, description, fn))
+        return fn
+
+    return decorator
+
+
+@_migration(1, "Create initial tables")
+async def _migrate_v1(db: aiosqlite.Connection) -> None:
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS banned_players (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_name TEXT NOT NULL,
+            steam_id TEXT NOT NULL,
+            banned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(steam_id)
+        )
+        """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS donations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            player_name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            amount REAL NOT NULL,
+            donation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS ticket_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_name TEXT NOT NULL,
+            ticket_id INTEGER NOT NULL,
+            discord_message_id INTEGER NOT NULL,
+            thread_id INTEGER NOT NULL,
+            processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_state TEXT DEFAULT 'unanswered',
+            resolved_in_discord INTEGER DEFAULT 0,
+            resolved_by TEXT DEFAULT NULL,
+            UNIQUE(server_name, ticket_id)
+        )
+        """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_command_stats (
+            steam_id TEXT NOT NULL,
+            server_name TEXT NOT NULL,
+            player_name TEXT NOT NULL,
+            heal_count INTEGER DEFAULT 0,
+            restore_levels_count INTEGER DEFAULT 0,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(steam_id, server_name)
+        )
+        """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS command_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            command_name TEXT NOT NULL,
+            discord_user_id TEXT NOT NULL,
+            discord_username TEXT NOT NULL,
+            discord_roles TEXT,
+            guild_id TEXT,
+            channel_id TEXT,
+            server_name TEXT,
+            steam_id TEXT,
+            player_name TEXT,
+            arguments TEXT,
+            success INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL
+        )
+        """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_command_history_steam_cmd
+        ON command_history(steam_id, command_name)
+        """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_command_history_cmd_time
+        ON command_history(command_name, created_at)
+        """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_command_history_user
+        ON command_history(discord_user_id)
+        """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS server_worlds (
+            server_name TEXT PRIMARY KEY,
+            world_started_at TEXT NOT NULL
+        )
+        """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS pending_player_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            discord_id TEXT NOT NULL,
+            server_name TEXT NOT NULL,
+            code_hash TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            consumed_at TEXT
+        )
+        """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_pending_player_links_active
+        ON pending_player_links(discord_id, server_name, consumed_at)
+        """)
+
+
+@_migration(2, "Add server_name to ticket_notifications (multi-server support)")
+async def _migrate_v2(db: aiosqlite.Connection) -> None:
+    async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
+        columns = {row[1] for row in await cursor.fetchall()}
+
+    if "server_name" in columns:
+        return
+
+    await db.execute("DROP TABLE IF EXISTS ticket_notifications")
+    await db.execute("""
+        CREATE TABLE ticket_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            server_name TEXT NOT NULL,
+            ticket_id INTEGER NOT NULL,
+            discord_message_id INTEGER NOT NULL,
+            thread_id INTEGER NOT NULL,
+            processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_state TEXT DEFAULT 'unanswered',
+            resolved_in_discord INTEGER DEFAULT 0,
+            resolved_by TEXT DEFAULT NULL,
+            UNIQUE(server_name, ticket_id)
+        )
+        """)
+
+
+@_migration(3, "Add resolved_in_discord and resolved_by to ticket_notifications")
+async def _migrate_v3(db: aiosqlite.Connection) -> None:
+    async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
+        columns = {row[1] for row in await cursor.fetchall()}
+
+    if "resolved_in_discord" not in columns:
+        await db.execute(
+            "ALTER TABLE ticket_notifications ADD COLUMN resolved_in_discord INTEGER DEFAULT 0"
+        )
+    if "resolved_by" not in columns:
+        await db.execute(
+            "ALTER TABLE ticket_notifications ADD COLUMN resolved_by TEXT DEFAULT NULL"
+        )
+
+
+@_migration(4, "Drop deprecated player_command_cooldowns table")
+async def _migrate_v4(db: aiosqlite.Connection) -> None:
+    await db.execute("DROP TABLE IF EXISTS player_command_cooldowns")
+
+
+async def _get_schema_version(db: aiosqlite.Connection) -> int:
+    cursor = await db.execute(
+        "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
+    )
+    row = await cursor.fetchone()
+    return row[0] if row else 0
+
+
+async def _set_schema_version(db: aiosqlite.Connection, version: int) -> None:
+    await db.execute("DELETE FROM schema_version")
+    await db.execute("INSERT INTO schema_version (version) VALUES (?)", (version,))
+
+
+async def _detect_legacy_version(db: aiosqlite.Connection) -> int:
+    """Detect schema version for databases created before schema_version table existed."""
+    cursor = await db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='ticket_notifications'"
+    )
+    if not await cursor.fetchone():
+        return 0
+
+    async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
+        columns = {row[1] for row in await cursor.fetchall()}
+
+    if "server_name" not in columns:
+        return 1
+    if "resolved_in_discord" not in columns:
+        return 2
+
+    cursor = await db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='player_command_cooldowns'"
+    )
+    if await cursor.fetchone():
+        return 3
+
+    return 4
 
 
 async def init_db():
-    """Initialize the database and create tables if they don't exist."""
+    """Initialize the database and run pending migrations."""
     global db_path
 
     db_path = db_path.resolve()
-
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     async with aiosqlite.connect(db_path) as db:
         await db.execute("""
-            CREATE TABLE IF NOT EXISTS banned_players (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_name TEXT NOT NULL,
-                steam_id TEXT NOT NULL,
-                banned_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(steam_id)
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER NOT NULL
             )
-            """)
-
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS donations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                player_name TEXT NOT NULL,
-                email TEXT NOT NULL,
-                amount REAL NOT NULL,
-                donation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """)
-
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS ticket_notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                server_name TEXT NOT NULL,
-                ticket_id INTEGER NOT NULL,
-                discord_message_id INTEGER NOT NULL,
-                thread_id INTEGER NOT NULL,
-                processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_state TEXT DEFAULT 'unanswered',
-                UNIQUE(server_name, ticket_id)
-            )
-            """)
-
-        try:
-            async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
-                columns = await cursor.fetchall()
-                col_names = [col[1] for col in columns]
-                has_server_name = "server_name" in col_names
-                has_resolved_in_discord = "resolved_in_discord" in col_names
-
-            if not has_server_name:
-                logger.info(
-                    "Migrating ticket_notifications table to support multiple servers"
-                )
-                await db.execute("DROP TABLE IF EXISTS ticket_notifications")
-                await db.execute("""
-                    CREATE TABLE ticket_notifications (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        server_name TEXT NOT NULL,
-                        ticket_id INTEGER NOT NULL,
-                        discord_message_id INTEGER NOT NULL,
-                        thread_id INTEGER NOT NULL,
-                        processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        last_state TEXT DEFAULT 'unanswered',
-                        resolved_in_discord INTEGER DEFAULT 0,
-                        resolved_by TEXT DEFAULT NULL,
-                        UNIQUE(server_name, ticket_id)
-                    )
-                    """)
-                logger.info("Migration completed - now supporting multiple servers")
-            elif not has_resolved_in_discord:
-                logger.info(
-                    "Migrating ticket_notifications table to add discord resolution columns"
-                )
-                await db.execute(
-                    "ALTER TABLE ticket_notifications ADD COLUMN resolved_in_discord INTEGER DEFAULT 0"
-                )
-                await db.execute(
-                    "ALTER TABLE ticket_notifications ADD COLUMN resolved_by TEXT DEFAULT NULL"
-                )
-                logger.info("Migration completed - added discord resolution columns")
-        except Exception as e:
-            logger.error(f"Error during migration: {e}")
-
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS player_command_stats (
-                steam_id TEXT NOT NULL,
-                server_name TEXT NOT NULL,
-                player_name TEXT NOT NULL,
-                heal_count INTEGER DEFAULT 0,
-                restore_levels_count INTEGER DEFAULT 0,
-                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(steam_id, server_name)
-            )
-            """)
-
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS command_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                command_name TEXT NOT NULL,
-                discord_user_id TEXT NOT NULL,
-                discord_username TEXT NOT NULL,
-                discord_roles TEXT,
-                guild_id TEXT,
-                channel_id TEXT,
-                server_name TEXT,
-                steam_id TEXT,
-                player_name TEXT,
-                arguments TEXT,
-                success INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL
-            )
-            """)
-        await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_command_history_steam_cmd
-            ON command_history(steam_id, command_name)
-            """)
-        await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_command_history_cmd_time
-            ON command_history(command_name, created_at)
-            """)
-        await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_command_history_user
-            ON command_history(discord_user_id)
-            """)
-
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS server_worlds (
-                server_name TEXT PRIMARY KEY,
-                world_started_at TEXT NOT NULL
-            )
-            """)
-
-        await db.execute("""
-            DROP TABLE IF EXISTS player_command_cooldowns
-            """)
-
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS pending_player_links (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                discord_id TEXT NOT NULL,
-                server_name TEXT NOT NULL,
-                code_hash TEXT NOT NULL UNIQUE,
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
-                consumed_at TEXT
-            )
-            """)
-        await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_pending_player_links_active
-            ON pending_player_links(discord_id, server_name, consumed_at)
-            """)
-
+        """)
         await db.commit()
-        logger.info("Database initialized")
+
+        current_version = await _get_schema_version(db)
+
+        if current_version == 0:
+            current_version = await _detect_legacy_version(db)
+            if current_version > 0:
+                await _set_schema_version(db, current_version)
+                await db.commit()
+
+        if current_version < SCHEMA_VERSION:
+            logger.info(
+                f"Migrating database from version {current_version} to {SCHEMA_VERSION}"
+            )
+            for version, description, migrate_fn in MIGRATIONS:
+                if current_version < version:
+                    logger.info(f"Running migration v{version}: {description}")
+                    await migrate_fn(db)
+                    await _set_schema_version(db, version)
+                    await db.commit()
+            logger.info("Database migration completed")
+        else:
+            logger.info("Database schema is up to date")
 
 
 def _parse_utc(value: str) -> datetime:
