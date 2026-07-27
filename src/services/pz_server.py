@@ -75,14 +75,17 @@ async def pz_send_message(system_user: str, message: str) -> bool:
 
 
 def _is_player_not_found(response: str, player: str) -> bool:
+    """Check if the RCON response indicates the player was not found."""
     return f"User {player} not found." in response
 
 
 def _is_godmode_enabled(response: str, player: str) -> bool:
+    """Check if the RCON response confirms godmode was enabled."""
     return f"User {player} is now invincible." in response
 
 
 def _is_godmode_disabled(response: str, player: str) -> bool:
+    """Check if the RCON response confirms godmode was disabled."""
     off_strings = (
         f"User {player} is no more invincible.",
         f"User {player} is no longer invincible.",
@@ -91,6 +94,7 @@ def _is_godmode_disabled(response: str, player: str) -> bool:
 
 
 def _is_ban_success(response: str, steam_id: str) -> bool:
+    """Check if the RCON response confirms a successful ban."""
     success_strings = (
         f"SteamID {steam_id} is now banned",
         f"System banned SteamID {steam_id}",
@@ -99,10 +103,12 @@ def _is_ban_success(response: str, steam_id: str) -> bool:
 
 
 def _is_unban_success(response: str, steam_id: str) -> bool:
+    """Check if the RCON response confirms a successful unban."""
     return f"SteamID {steam_id} is now unbanned" in response
 
 
 def _is_player_lookup_failure(response: str) -> bool:
+    """Check if the RCON response indicates the player could not be found."""
     failure_strings = (
         "Can't find player",
         "No such user",
@@ -111,18 +117,22 @@ def _is_player_lookup_failure(response: str) -> bool:
 
 
 def _is_teleport_success(response: str, player1: str, player2: str) -> bool:
+    """Check if the RCON response confirms a successful teleport."""
     return f"teleported {player1} to {player2}" in response
 
 
 def _is_kick_success(response: str, player: str) -> bool:
+    """Check if the RCON response confirms a successful kick."""
     return f"User {player} kicked" in response
 
 
 def _is_add_xp_success(response: str, player: str, skill: str) -> bool:
+    """Check if the RCON response confirms XP was added."""
     return response.startswith("Added ") and f" {skill} xp's to {player}" in response
 
 
 def _is_set_access_level_success(response: str, player: str, access_level: str) -> bool:
+    """Check if the RCON response confirms the access level was set."""
     expected_responses = {
         "admin": f"User {player} is now admin",
         "user": f"User {player} is now user",
@@ -133,14 +143,17 @@ def _is_set_access_level_success(response: str, player: str, access_level: str) 
 
 
 def _is_setpassword_b42_success(response: str) -> bool:
+    """Check if the RCON response confirms a successful B42 password set."""
     return response.startswith("Your new password is ")
 
 
 def _is_remove_user_success(response: str, player: str) -> bool:
+    """Check if the RCON response confirms whitelist removal."""
     return f"User {player} removed from white list" in response
 
 
 def _is_add_user_success(response: str, player: str) -> bool:
+    """Check if the RCON response confirms whitelist addition."""
     return f"User {player} created with the password " in response
 
 

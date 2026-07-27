@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from typing import Any
 
 import a2s
 import aiohttp
@@ -11,8 +12,8 @@ from src.config import Config
 logger = logging.getLogger(__name__)
 
 
-async def get_workshop_items(workshop_ids: list[str]) -> list:
-    """Calls steam api to get mod data."""
+async def get_workshop_items(workshop_ids: list[str]) -> list[dict[str, Any]]:
+    """Fetch mod metadata from the Steam API for the given workshop IDs."""
     try:
         int_ids = [int(id) for id in workshop_ids]
         item_count = len(int_ids)
@@ -80,13 +81,16 @@ async def get_servers_workshop_items(
 
 
 def format_time(seconds: float) -> str:
+    """Format seconds into a human-readable 'HHhr MMmin' string."""
     return time.strftime("%Hhr %Mmin", time.gmtime(seconds))
 
 
-async def get_steam_playerlist(server_ip: str, port: int, server_name: str) -> dict:
-    """
-    Queries a steam server and returns structured player data.
-    Returns a dict with keys: 'server_name', 'player_count', 'players', 'error'
+async def get_steam_playerlist(
+    server_ip: str, port: int, server_name: str
+) -> dict[str, Any]:
+    """Query a Steam server and return structured player data.
+
+    Returns a dict with keys: 'server_name', 'player_count', 'players', 'error'.
     """
     try:
         players = await a2s.aplayers((server_ip, port))

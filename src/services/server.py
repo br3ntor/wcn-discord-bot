@@ -83,14 +83,23 @@ async def server_isrunning(system_user: str) -> bool:
     return False
 
 
+def _read_pz_ini(path: str) -> configparser.ConfigParser:
+    """Read a PZ server INI file.
+
+    PZ INI files are flat key=value pairs with no section header.
+    This prepends a synthetic [default] section so configparser can parse them.
+    """
+    config = configparser.ConfigParser()
+    with open(path, "r", encoding="utf-8") as stream:
+        config.read_string("[default]\n" + stream.read())
+    return config
+
+
 def get_workshop_ids_for_server(system_user: str) -> set[str]:
     """Reads WorkshopItems from a server's INI file and returns the set of active workshop IDs."""
     ini_path = get_server_ini_path(system_user)
     try:
-        config = configparser.ConfigParser()
-        with open(ini_path, "r", encoding="utf-8") as stream:
-            config.read_string("[default]\n" + stream.read())
-
+        config = _read_pz_ini(ini_path)
         workshop_items_str = config["default"].get("WorkshopItems", "")
         if not workshop_items_str:
             return set()
@@ -127,9 +136,7 @@ async def get_servers_workshop_ids(
     for system_user, path in user_paths.items():
         logger.debug(f"Attempting to process file for {system_user}: {path}")
         try:
-            config = configparser.ConfigParser()
-            with open(path, "r", encoding="utf-8") as stream:
-                config.read_string("[default]\n" + stream.read())
+            config = _read_pz_ini(path)
 
             if "default" not in config:
                 logger.warning(
@@ -182,7 +189,7 @@ async def servers_with_mod_update(workshop_id: str) -> list[str]:
     return server_names
 
 
-async def combine_servers_workshop_ids() -> list:
+async def combine_servers_workshop_ids() -> list[str]:
     """Returns all workshop_ids together from running servers."""
     user_paths = await server_setting_paths()
     servers = await get_servers_workshop_ids(user_paths)
@@ -196,7 +203,7 @@ async def combine_servers_workshop_ids() -> list:
     return workshop_ids
 
 
-async def restart_zomboid_server(system_user: str):
+async def restart_zomboid_server(system_user: str) -> bool:
     """Restarts the Project Zomboid game-server service.
 
     Args:
@@ -229,11 +236,8 @@ async def restart_zomboid_server(system_user: str):
         return False
 
 
-def get_game_version(system_user: str):
-    """
-    Detects the PZ version based on the Java release file.
-    Example path: /home/pzserver/serverfiles/jre64/release
-    """
+def get_game_version(system_user: str) -> str:
+    """Detect the PZ version based on the Java release file."""
     path = get_jre_release_path(system_user)
 
     if not path.exists():
@@ -272,9 +276,7 @@ async def get_servers_max_players(user_paths: dict[str, str]) -> dict[str, int |
 
     for system_user, path in user_paths.items():
         try:
-            config = configparser.ConfigParser()
-            with open(path, "r", encoding="utf-8") as stream:
-                config.read_string("[default]\n" + stream.read())
+            config = _read_pz_ini(path)
 
             if "default" in config:
                 max_players = config["default"].getint("MaxPlayers", None)
