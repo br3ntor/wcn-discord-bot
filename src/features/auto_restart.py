@@ -62,7 +62,10 @@ class AutoRestart:
 
                 await pz_send_message(system_user, "Restart has been ABORTED")
 
-                return False, f"Auto restart ABORTED for the **{server_name}** server."
+                return (
+                    False,
+                    f"Auto restart ABORTED 👼 for the **{server_name}** server.",
+                )
 
             if seconds_left % 60 == 0:
                 await pz_send_message(
@@ -72,7 +75,6 @@ class AutoRestart:
 
             await asyncio.sleep(5)
             seconds_left -= 5
-        self._countdown_running[system_user] = True
         return True, ""
 
     async def restart_server(self, system_user: str) -> bool:
@@ -103,24 +105,23 @@ class AutoRestart:
 
         await channel.send(init_msg)
 
-        countdown_status = await self.run_countdown(system_user, 300)
-        if not countdown_status[0]:
-            await channel.send(countdown_status[1])
-            return False
+        try:
+            countdown_status = await self.run_countdown(system_user, 300)
+            if not countdown_status[0]:
+                await channel.send(countdown_status[1])
+                return False
 
-        if not await self.restart_server(system_user):
-            await channel.send(
-                f"There was a problem restarting the **{server_name}** server."
-            )
-            return False
+            if not await self.restart_server(system_user):
+                await channel.send(
+                    f"There was a problem restarting the **{server_name}** server."
+                )
+                return False
 
-        self._countdown_running[system_user] = False
-
-        msg = (
-            f"Success! The **{server_name}** was restarted and is now loading back up."
-        )
-        await channel.send(msg)
-        return True
+            msg = f"Success! The **{server_name}** was restarted and is now loading back up."
+            await channel.send(msg)
+            return True
+        finally:
+            self._countdown_running[system_user] = False
 
 
 auto_restart = AutoRestart()

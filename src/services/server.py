@@ -208,6 +208,10 @@ async def combine_servers_workshop_ids() -> list[str]:
 async def restart_zomboid_server(system_user: str) -> bool:
     """Restarts the Project Zomboid game-server service.
 
+    Blocks until systemctl returns. systemctl restart waits for the service
+    to stop, then for ExecStartPre (backup), and finally for the new process
+    to start — so this can take several minutes when a backup runs.
+
     Args:
         system_user: The name of the linux user running the game server.
 
@@ -215,25 +219,14 @@ async def restart_zomboid_server(system_user: str) -> bool:
 
     try:
         cmd = ["sudo", "/usr/bin/systemctl", "restart", system_user]
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30.0)
-        if process.returncode and process.returncode != 0:
-            logger.error(
-                f"systemctl restart failed for {system_user} "
-                f"(rc={process.returncode}): {stderr.decode().strip()}"
-            )
+        process = await asyncio.create_subprocess_exec(*cmd)
+        exit_code = await process.wait()
+        if exit_code != 0:
             return False
-        return True
-    except asyncio.TimeoutError:
-        logger.error(f"systemctl restart timed out for {system_user}")
-        return False
     except Exception as e:
         logger.error(f"restart_zomboid_server error: {e}")
         return False
+    return True
 
 
 def get_game_version(system_user: str) -> str:
