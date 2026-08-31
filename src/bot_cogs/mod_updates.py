@@ -21,11 +21,22 @@ MY_GUILD = Config.MY_GUILD
 PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 
+async def _run_auto_restart(
+    channel: discord.TextChannel, server_name: str, init_msg: str
+) -> None:
+    """Runs auto_restart in the background, logging any failures."""
+    try:
+        await auto_restart.auto_restart(channel, server_name, init_msg)
+    except Exception:
+        logger.exception("Auto restart task for %s failed", server_name)
+
+
 class ModUpdatesCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.mod_update_times: dict[str, int] = {}
         self.workshop_ids: list[str] | None = None
+        self._restart_tasks: set[asyncio.Task] = set()
 
     async def cog_unload(self):
         self.check_mod_updates.cancel()
@@ -53,6 +64,10 @@ class ModUpdatesCog(commands.Cog):
 
         # Track new mods discovered during this check
         new_mods_count = 0
+
+        # Collect every mod that updated and is used by a running server, so
+        # all updates in one pass can share a single restart per server.
+        updated_mods: list[tuple[dict, list[str]]] = []
 
         for item in workshop_items:
             if "title" not in item:
@@ -87,57 +102,64 @@ class ModUpdatesCog(commands.Cog):
                     continue
 
                 logger.debug(f"Servers with mod: {servers_with_mod}")
-
-                local_time = ZoneInfo("localtime")
-                time_updated = datetime.datetime.fromtimestamp(
-                    item["time_updated"], tz=local_time
-                )
-                formatted_time = time_updated.strftime("%b %d @ %I:%M%p %Z")
-
-                guild = self.bot.get_guild(MY_GUILD)
-                if not guild:
-                    logger.warning("Unable to get guild")
-                    continue
-                ar = guild.get_role(PZ_ADMIN_ROLE_ID)
-                if not ar:
-                    logger.warning("Unable to get admin role id")
-                    continue
-                admin_role = ar.mention
-
-                update_msg = (
-                    f"{admin_role} A mod has updated on **{'** and **'.join(servers_with_mod)}**!\n"
-                    f"Title: {item['title'].strip()}\n"
-                    f"Updated: {formatted_time}\n"
-                    f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
-                )
-
-                chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
-                if not chan:
-                    logger.warning("Unable to get discord channel.")
-                    continue
-                if not isinstance(chan, discord.TextChannel):
-                    logger.warning("Chan is not TextChannel?")
-                    continue
-
-                await chan.send(update_msg)
-
-                logger.info(
-                    f"Mod updated: {item['title'].strip()} ({workshop_id}) — {formatted_time}"
-                )
-
-                tasks = [
-                    auto_restart.auto_restart(
-                        chan,
-                        server_name,
-                        f"Auto restart triggered for the **{server_name}** server. Restarting in 5min.",
-                    )
-                    for server_name in servers_with_mod
-                ]
-                try:
-                    results = await asyncio.gather(*tasks)
-                    logger.debug(f"Results: {results}")
-                except Exception as e:
-                    logger.error(f"An unexpected exception occurred: {e}")
+                updated_mods.append((item, servers_with_mod))
 
         if new_mods_count > 0:
             logger.info("Recording initial timestamps for %d new mods", new_mods_count)
+
+        if not updated_mods:
+            return
+
+        guild = self.bot.get_guild(MY_GUILD)
+        if not guild:
+            logger.warning("Unable to get guild")
+            return
+        ar = guild.get_role(PZ_ADMIN_ROLE_ID)
+        if not ar:
+            logger.warning("Unable to get admin role id")
+            return
+        admin_role = ar.mention
+
+        chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
+        if not isinstance(chan, discord.TextChannel):
+            logger.warning("Unable to get discord channel.")
+            return
+
+        local_time = ZoneInfo("localtime")
+
+        # Announce each updated mod
+        for item, servers_with_mod in updated_mods:
+            time_updated = datetime.datetime.fromtimestamp(
+                item["time_updated"], tz=local_time
+            )
+            formatted_time = time_updated.strftime("%b %d @ %I:%M%p %Z")
+
+            update_msg = (
+                f"{admin_role} A mod has updated on **{'** and **'.join(servers_with_mod)}**!\n"
+                f"Title: {item['title'].strip()}\n"
+                f"Updated: {formatted_time}\n"
+                f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
+            )
+
+            await chan.send(update_msg)
+
+            logger.info(
+                f"Mod updated: {item['title'].strip()} ({item['publishedfileid']}) — {formatted_time}"
+            )
+
+        # Queue a single restart per server for the whole batch of updates.
+        mods_per_server: dict[str, int] = {}
+        for _, servers_with_mod in updated_mods:
+            for server_name in servers_with_mod:
+                mods_per_server[server_name] = mods_per_server.get(server_name, 0) + 1
+
+        for server_name, count in mods_per_server.items():
+            mod_word = "update" if count == 1 else "updates"
+            init_msg = (
+                f"Auto restart triggered for the **{server_name}** server. "
+                f"{count} mod {mod_word} detected. Restarting in 5min."
+            )
+
+            task = asyncio.create_task(_run_auto_restart(chan, server_name, init_msg))
+            self._restart_tasks.add(task)
+            task.add_done_callback(self._restart_tasks.discard)
