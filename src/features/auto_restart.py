@@ -37,9 +37,7 @@ class AutoRestart:
         system_user = SYSTEM_USERS[server_name]
         self._abort_signals[system_user] = True
 
-    async def _run_countdown(
-        self, system_user: str, duration: int
-    ) -> tuple[bool, str]:
+    async def _run_countdown(self, system_user: str, duration: int) -> tuple[bool, str]:
         """
         Runs a countdown timer for the auto-restart, announcing the time remaining
         to the Project Zomboid server every minute.

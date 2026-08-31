@@ -14,10 +14,21 @@ Requires environment variables in `.env` (see `.env.example`):
 - `DISCORD_TOKEN` (required)
 - `ANNOUNCE_CHANNEL`, `MY_GUILD`, `PZ_ADMIN_ROLE_ID`, `MOD_CHANNEL` (required)
 
+## Lint / Typecheck / Test
+
+```bash
+.venv/bin/ruff check .
+.venv/bin/black --check .
+.venv/bin/mypy <scoped paths>
+.venv/bin/pytest
+```
+
+mypy has pre-existing errors repo-wide (see TODO in `pyproject.toml`) — check only the files you touched, not the whole tree.
+
 ## Project Structure
 
 - **Entry point**: `main.py` loads config, then `src/bot.py`
-- **Bot class**: `src/bot.py` - `WCNBot` extends `commands.Bot`, uses discord.py 2.6
+- **Bot class**: `src/bot.py` - `WCNBot` extends `commands.Bot`, uses discord.py 2.7
 - **Cogs**: `src/bot_cogs/*/*.py` - dynamically loaded from `config/cogs.json`
 - **Features**: `src/features/*.py` - utility features (auto_restart, godmode, skill_restore, teleport)
 - **Services**: `src/services/*.py` - PZ server, Steam, Workshop, PocketBase, DB, etc.
@@ -38,5 +49,6 @@ Edit `config/cogs.json` - set `"enabled": true|false`. Bot loads cogs at startup
 
 ## Key Dependencies
 
-- discord.py==2.6.4
+- discord.py==2.7.1
 - aiosqlite, aiohttp, rcon, python-a2s (server queries)
+- Dev tools (`requirements-dev.txt`): ruff, black, mypy, pytest
