@@ -76,6 +76,12 @@ async def restart_server(
             )
             return
 
+        # Acknowledge in the channel the command was issued from
+        await interaction.followup.send(
+            f"**{server.name}** restart initiated — "
+            f"announcement sent to <#{ANNOUNCE_CHANNEL}>."
+        )
+
         # Let the people know whats up!
         await announce_chan.send(initiated_by)
 

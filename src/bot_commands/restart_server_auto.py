@@ -66,6 +66,12 @@ async def restart_server_auto(
         if not isinstance(announce_chan, discord.TextChannel):
             raise TypeError("Not a text channel")
 
+        # Acknowledge in the channel the command was issued from
+        await interaction.followup.send(
+            f"**{server.name}** auto restart initiated — restarting in 5min. "
+            f"Updates will be posted in <#{ANNOUNCE_CHANNEL}>."
+        )
+
         await auto_restart.auto_restart(announce_chan, server.name, init_msg)
 
     else:
