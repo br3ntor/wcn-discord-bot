@@ -50,6 +50,11 @@
             "class_name": "BanCommandsCog",
             "description": "Ban management commands for Project Zomboid servers"
         },
+        "account.commands": {
+            "enabled": true,
+            "class_name": "AccountCog",
+            "description": "Whitelist account management commands for Project Zomboid servers"
+        },
         "gist_updater": {
             "enabled": true,
             "class_name": "GistUpdaterCog",

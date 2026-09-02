@@ -154,7 +154,11 @@ def _is_remove_user_success(response: str, player: str) -> bool:
 
 def _is_add_user_success(response: str, player: str) -> bool:
     """Check if the RCON response confirms whitelist addition."""
-    return f"User {player} created with the password " in response
+    success_strings = (
+        f"User {player} created with the password ",
+        f"User {player} created without password",
+    )
+    return any(message in response for message in success_strings)
 
 
 async def pz_heal_player(system_user: str, player: str) -> tuple[bool, str]:
@@ -272,32 +276,50 @@ async def pz_setpassword_b42(
     return True, response
 
 
+async def pz_add_user(
+    system_user: str, player: str, password: str | None = None
+) -> tuple[bool, str]:
+    """Adds a player to the whitelist via RCON, with an optional password."""
+    if password is None:
+        command = f'adduser "{player}"'
+    else:
+        command = f'adduser "{player}" "{password}"'
+
+    response = await pz_send_command(system_user, command)
+    if response is None:
+        return False, "Could not reach the server via RCON."
+
+    if not _is_add_user_success(response, player):
+        logger.error("Unexpected adduser response: %s", response)
+        return False, f"Unexpected server response: {response}"
+
+    return True, response
+
+
+async def pz_remove_user(system_user: str, player: str) -> tuple[bool, str]:
+    """Removes a player from the whitelist via RCON."""
+    response = await pz_send_command(system_user, f'removeuserfromwhitelist "{player}"')
+    if response is None:
+        return False, "Could not reach the server via RCON."
+
+    if not _is_remove_user_success(response, player):
+        logger.error("Unexpected removeuserfromwhitelist response: %s", response)
+        return False, f"Unexpected server response: {response}"
+
+    return True, response
+
+
 async def pz_reset_password_b41(
     system_user: str, player: str, new_password: str
 ) -> tuple[bool, str]:
     """Resets a B41 player's password by recreating the whitelist entry via RCON."""
-    remove_response = await pz_send_command(
-        system_user, f'removeuserfromwhitelist "{player}"'
-    )
-    if remove_response is None:
-        return False, "Could not reach the server via RCON."
-
-    if not _is_remove_user_success(remove_response, player):
-        logger.error("Unexpected removeuserfromwhitelist response: %s", remove_response)
-        return False, f"Unexpected server response: {remove_response}"
+    removed, remove_response = await pz_remove_user(system_user, player)
+    if not removed:
+        return False, remove_response
 
     await asyncio.sleep(0.2)
-    add_response = await pz_send_command(
-        system_user, f'adduser "{player}" "{new_password}"'
-    )
-    if add_response is None:
-        return False, "Could not reach the server via RCON."
 
-    if not _is_add_user_success(add_response, player):
-        logger.error("Unexpected adduser response: %s", add_response)
-        return False, f"Unexpected server response: {add_response}"
-
-    return True, add_response
+    return await pz_add_user(system_user, player, new_password)
 
 
 async def pz_teleport_player(

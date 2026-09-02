@@ -4,7 +4,11 @@ import re
 from typing import Optional, Tuple
 
 from src.config import Config
-from src.services.game_db import gamedb_get_player_by_name, gamedb_get_player_by_steamid
+from src.services.game_db import (
+    gamedb_get_player_by_name,
+    gamedb_get_player_by_steamid,
+    gamedb_get_players_by_steamid,
+)
 from src.services.server import get_game_version
 
 SYSTEM_USERS = Config.SYSTEM_USERS
@@ -93,3 +97,29 @@ async def resolve_steam_id(player_input: str) -> Tuple[Optional[str], bool]:
             return player_row[8], True
 
     return None, False
+
+
+async def find_accounts_by_steamid(
+    steam_id: str,
+) -> Tuple[dict[str, list[str]], dict[str, str]]:
+    """
+    Find all whitelisted accounts for a Steam ID across all servers.
+
+    Returns:
+        Tuple of (accounts_by_server, errors_by_server)
+        - accounts_by_server: Mapping of server name to that server's
+          usernames for the Steam ID (only servers with matches)
+        - errors_by_server: Mapping of server name to error message for
+          servers whose database could not be queried
+    """
+    accounts_by_server: dict[str, list[str]] = {}
+    errors_by_server: dict[str, str] = {}
+
+    for server_name, system_user in SYSTEM_USERS.items():
+        rows = await gamedb_get_players_by_steamid(system_user, steam_id)
+        if isinstance(rows, str):
+            errors_by_server[server_name] = rows
+        elif rows:
+            accounts_by_server[server_name] = [row[2] for row in rows]
+
+    return accounts_by_server, errors_by_server

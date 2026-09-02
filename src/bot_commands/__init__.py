@@ -10,7 +10,6 @@ from .heal_self import heal_self
 from .kick_player import kick_player
 from .logs import logs_group
 from .player_stats import player_stats
-from .reset_password import reset_password
 from .restart_server import restart_server
 from .restart_server_auto import cancel_restart, restart_server_auto
 from .restore_self import restore_self
@@ -39,7 +38,6 @@ __all__ = [
     "kick_player",
     "logs_group",
     "player_stats",
-    "reset_password",
     "restart_group",
     "send_message",
     "speak",
