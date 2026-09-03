@@ -158,7 +158,7 @@ class AccountCog(commands.Cog):
 
         await interaction.followup.send(
             f"Account **{username}** has been removed from the **{server.name}** "
-            f"whitelist. They can set their own password the next time they join.",
+            f"whitelist.",
             ephemeral=False,
         )
 
