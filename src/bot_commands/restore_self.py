@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.features.skill_restore import LevelRestore
+from src.features.skill_restore import FAILURE_EXPLANATIONS, LevelRestore
 from src.services.bot_db import (
     get_latest_player_command,
     log_command_history,
@@ -128,12 +128,13 @@ async def restore_self(
             return
 
     lr = LevelRestore(server_name, online_name)
-    result = await lr.restore_levels()
-    if not result:
+    success, reason = await lr.restore_levels()
+    if not success:
+        detail = FAILURE_EXPLANATIONS.get(reason, "An unknown error occurred.")
         await interaction.followup.send(
             f"Level restore failed for **{online_name}** on the **{server_name}** "
-            "server. Make sure you have a valid death record within the last few "
-            "days. Please contact an administrator if the problem persists."
+            f"server. {detail} Please contact an administrator if the problem "
+            "persists."
         )
         return
 

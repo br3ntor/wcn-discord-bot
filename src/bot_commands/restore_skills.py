@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.features.skill_restore import LevelRestore
+from src.features.skill_restore import FAILURE_EXPLANATIONS, LevelRestore
 from src.services.bot_db import (
     get_player_command_counts_by_character,
     log_command_history,
@@ -38,9 +38,9 @@ async def restore_levels(
     await interaction.response.defer()
 
     lr = LevelRestore(server.name, player)
-    result = await lr.restore_levels()
+    success, reason = await lr.restore_levels()
 
-    if result:
+    if success:
         stats_msg = ""
         try:
             steam_id, _, _ = await lookup_player(SYSTEM_USERS[server.name], player)
@@ -64,7 +64,10 @@ async def restore_levels(
             f"Successfully restored skill levels for **{player}** on the **{server.name}** server! 🔄{stats_msg}"
         )
     else:
+        detail = FAILURE_EXPLANATIONS.get(
+            reason, "An unknown error occurred. See console logs for details."
+        )
         await interaction.followup.send(
-            f"Level restore failed for **{player}** on the **{server.name}** server. "
-            f"Make sure the player has a valid death record in the perk logs and can be targeted by RCON addxp. See console logs for details."
+            f"Level restore failed for **{player}** on the **{server.name}** "
+            f"server. {detail}"
         )
