@@ -22,11 +22,11 @@ PZ_ADMIN_ROLE_ID = Config.PZ_ADMIN_ROLE_ID
 
 
 async def _run_auto_restart(
-    channel: discord.TextChannel, server_name: str, init_msg: str
+    channel: discord.TextChannel, server_name: str, init_msg: str, reason: str = ""
 ) -> None:
     """Runs auto_restart in the background, logging any failures."""
     try:
-        await auto_restart.auto_restart(channel, server_name, init_msg)
+        await auto_restart.auto_restart(channel, server_name, init_msg, reason)
     except Exception:
         logger.exception("Auto restart task for %s failed", server_name)
 
@@ -155,11 +155,14 @@ class ModUpdatesCog(commands.Cog):
 
         for server_name, count in mods_per_server.items():
             mod_word = "update" if count == 1 else "updates"
+            reason = f"{count} mod {mod_word}" if count > 1 else "a mod update"
             init_msg = (
                 f"Auto restart triggered for the **{server_name}** server. "
                 f"{count} mod {mod_word} detected. Restarting in 5min."
             )
 
-            task = asyncio.create_task(_run_auto_restart(chan, server_name, init_msg))
+            task = asyncio.create_task(
+                _run_auto_restart(chan, server_name, init_msg, reason)
+            )
             self._restart_tasks.add(task)
             task.add_done_callback(self._restart_tasks.discard)

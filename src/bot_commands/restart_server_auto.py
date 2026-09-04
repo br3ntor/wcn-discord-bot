@@ -72,7 +72,12 @@ async def restart_server_auto(
             f"Updates will be posted in <#{ANNOUNCE_CHANNEL}>."
         )
 
-        await auto_restart.auto_restart(announce_chan, server.name, init_msg)
+        await auto_restart.auto_restart(
+            announce_chan,
+            server.name,
+            init_msg,
+            reason=f"on request of {interaction.user.display_name}",
+        )
 
     else:
         logger.info("Restart cancelled for %s...", server.name)

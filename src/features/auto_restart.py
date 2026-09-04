@@ -37,7 +37,9 @@ class AutoRestart:
         system_user = SYSTEM_USERS[server_name]
         self._abort_signals[system_user] = True
 
-    async def _run_countdown(self, system_user: str, duration: int) -> tuple[bool, str]:
+    async def _run_countdown(
+        self, system_user: str, duration: int, reason: str = ""
+    ) -> tuple[bool, str]:
         """
         Runs a countdown timer for the auto-restart, announcing the time remaining
         to the Project Zomboid server every minute.
@@ -47,6 +49,8 @@ class AutoRestart:
         Args:
             system_user: The linux user running the server.
             duration: Time in seconds. Should be a multiple of 60.
+            reason: Optional short reason for the restart, included in the
+                in-game countdown messages.
         Returns:
             tuple[bool, str]: Success (True) or failure (False), and error message.
         """
@@ -64,9 +68,10 @@ class AutoRestart:
 
             if self._seconds_left[system_user] % 60 == 0:
                 minutes = self._seconds_left[system_user] // 60
+                reason_part = f" for {reason}" if reason else ""
                 await pz_send_message(
                     system_user,
-                    f"The server will restart in {minutes} minute(s)!",
+                    f"The server will restart in {minutes} minute(s){reason_part}!",
                 )
 
             await asyncio.sleep(5)
@@ -74,7 +79,11 @@ class AutoRestart:
         return True, ""
 
     async def auto_restart(
-        self, channel: discord.TextChannel, server_name: str, init_msg: str
+        self,
+        channel: discord.TextChannel,
+        server_name: str,
+        init_msg: str,
+        reason: str = "",
     ) -> bool:
         """
         Starts a countdown and restarts a server at the end of it.
@@ -86,6 +95,8 @@ class AutoRestart:
             channel: Discord channel to send messages to.
             server_name: The server name (key in SERVER_NAMES).
             init_msg: Initial message to announce countdown start.
+            reason: Optional short reason for the restart, included in the
+                in-game countdown messages.
         Returns:
             bool: True if restart succeeded, False otherwise.
         """
@@ -111,7 +122,7 @@ class AutoRestart:
 
             await channel.send(init_msg)
 
-            countdown_status = await self._run_countdown(system_user, 300)
+            countdown_status = await self._run_countdown(system_user, 300, reason)
             if not countdown_status[0]:
                 await channel.send(countdown_status[1])
                 return False
