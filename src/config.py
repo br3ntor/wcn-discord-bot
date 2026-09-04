@@ -92,6 +92,11 @@ class Config:
     POCKETBASE_PASSWORD: Optional[str]
     pocketbase_configured: bool
 
+    # AI Summary (OpenRouter)
+    OPENROUTER_API_KEY: Optional[str]
+    OPENROUTER_MODEL: str
+    AI_SUMMARY_CHANNEL: int
+
     SERVER_DATA: List[ServerConfig]
 
     # Map server name to system user.
@@ -138,6 +143,14 @@ class Config:
         cls.pocketbase_configured = all(
             [cls.POCKETBASE_URL, cls.POCKETBASE_EMAIL, cls.POCKETBASE_PASSWORD]
         )
+
+        # AI Summary (OpenRouter)
+        cls.OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+        cls.OPENROUTER_MODEL = os.getenv(
+            "OPENROUTER_MODEL", "deepseek/deepseek-v4-flash-0731"
+        )
+        ai_summary_channel = os.getenv("AI_SUMMARY_CHANNEL")
+        cls.AI_SUMMARY_CHANNEL = int(ai_summary_channel) if ai_summary_channel else 0
 
         cls.SERVER_DATA = load_server_data(str(CONFIG_DIR / "servers.json"))
 

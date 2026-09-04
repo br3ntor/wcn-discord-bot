@@ -92,12 +92,16 @@ async def on_application_command_error(
     interaction: discord.Interaction, error: app_commands.AppCommandError
 ):
     if isinstance(error, app_commands.MissingRole):
-        await interaction.response.send_message(
-            "You do not have the required role to use this command.", ephemeral=True
-        )
+        message = "You do not have the required role to use this command."
     else:
-        await interaction.response.send_message(
-            "An error occurred while processing your command, check logs.",
-            ephemeral=True,
-        )
+        message = "An error occurred while processing your command, check logs."
+
+    try:
+        await interaction.response.send_message(message, ephemeral=True)
+    except discord.errors.InteractionResponded:
+        # Command already deferred/responded; use the followup webhook instead.
+        try:
+            await interaction.followup.send(message, ephemeral=True)
+        except discord.HTTPException as e:
+            logger.error("Failed to send error followup: %s", e)
     logger.error("AppCommandError", exc_info=error)

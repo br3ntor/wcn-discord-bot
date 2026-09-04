@@ -4,6 +4,7 @@ from .additem import additem
 from .addvehicle import addvehicle
 from .admin import admin_group
 from .cat_fact import cat_fact
+from .chat_summary import chat_summary
 from .get_playerlist import get_playerlist
 from .heal_player import heal_player
 from .heal_self import heal_self
@@ -32,6 +33,7 @@ __all__ = [
     "addvehicle",
     "admin_group",
     "cat_fact",
+    "chat_summary",
     "get_playerlist",
     "heal_player",
     "heal_self",
