@@ -27,12 +27,19 @@ async def monitor_restart(
     server_name: str,
     announce_chan: discord.TextChannel,
     max_wait: float = 900.0,
+    started: float | None = None,
 ) -> None:
     """Waits for a restarted server to accept RCON commands, then announces it.
 
     Posts a success message to the announce channel once the server responds
     to RCON, or alerts the mod channel if it does not come up within max_wait.
     Never raises — Discord failures are logged instead.
+
+    Args:
+        started: A time.monotonic() timestamp captured before the restart
+            command was sent, so elapsed time covers the full restart
+            (shutdown, backup, startup, world load). Defaults to the moment
+            monitoring begins.
     """
     try:
         mod_chan = announce_chan.guild.get_channel(Config.MOD_CHANNEL)
@@ -43,7 +50,8 @@ async def monitor_restart(
             )
             mod_chan = None
 
-        started = time.monotonic()
+        if started is None:
+            started = time.monotonic()
         up = await wait_for_server_up(system_user, max_wait=max_wait)
         elapsed = _format_elapsed(time.monotonic() - started)
 
@@ -55,7 +63,8 @@ async def monitor_restart(
 
         alert = (
             f"⚠️ The **{server_name}** server did not come back up "
-            f"within {int(max_wait // 60)} minutes of restarting."
+            f"within {int(max_wait // 60)} minutes of restarting "
+            f"({elapsed} elapsed since the restart command was sent)."
         )
         if mod_chan is not None:
             await mod_chan.send(alert)
@@ -70,10 +79,13 @@ def start_restart_monitor(
     server_name: str,
     announce_chan: discord.TextChannel,
     max_wait: float = 900.0,
+    started: float | None = None,
 ) -> asyncio.Task:
     """Starts monitor_restart as a background task held against GC."""
     task = asyncio.create_task(
-        monitor_restart(system_user, server_name, announce_chan, max_wait)
+        monitor_restart(
+            system_user, server_name, announce_chan, max_wait, started=started
+        )
     )
     _active_monitors.add(task)
     task.add_done_callback(_active_monitors.discard)

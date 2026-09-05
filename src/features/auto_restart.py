@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 import discord
 
@@ -128,6 +129,7 @@ class AutoRestart:
                 await channel.send(countdown_status[1])
                 return False
 
+            restart_started = time.monotonic()
             if not await restart_zomboid_server(system_user):
                 await channel.send(
                     f"There was a problem restarting the **{server_name}** server."
@@ -136,7 +138,9 @@ class AutoRestart:
 
             msg = f"Success! The **{server_name}** was restarted and is now loading back up."
             await channel.send(msg)
-            start_restart_monitor(system_user, server_name, channel)
+            start_restart_monitor(
+                system_user, server_name, channel, started=restart_started
+            )
             return True
         finally:
             self._countdown_running[system_user] = False

@@ -1,4 +1,5 @@
 import logging
+import time
 
 import discord
 from discord import app_commands
@@ -86,6 +87,7 @@ async def restart_server(
         # Let the people know whats up!
         await announce_chan.send(initiated_by)
 
+        restart_started = time.monotonic()
         await restart_zomboid_server(system_user)
 
         status_msg = (
@@ -96,7 +98,9 @@ async def restart_server(
         # Announce restart
         await announce_chan.send(status_msg)
 
-        start_restart_monitor(system_user, server.name, announce_chan)
+        start_restart_monitor(
+            system_user, server.name, announce_chan, started=restart_started
+        )
 
     else:
         logger.info("Restart cancelled for %s...", server.name)
