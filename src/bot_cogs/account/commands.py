@@ -177,11 +177,11 @@ class AccountCog(commands.Cog):
 
         if has_invalid_quotes(playername):
             await interaction.response.send_message(
-                "Quotes are not allowed.", ephemeral=False
+                "Quotes are not allowed.", ephemeral=True
             )
             return
 
-        await interaction.response.defer(ephemeral=False)
+        await interaction.response.defer(ephemeral=True)
 
         system_user = SYSTEM_USERS[server.name]
         game_version = get_game_version(system_user)
@@ -189,24 +189,24 @@ class AccountCog(commands.Cog):
         if game_version == "UNKNOWN":
             await interaction.followup.send(
                 f"Unable to determine game version for **{server.name}** server.",
-                ephemeral=False,
+                ephemeral=True,
             )
             return
 
         player_row = await gamedb_get_player_by_name(system_user, playername)
         if isinstance(player_row, str):
-            await interaction.followup.send(player_row, ephemeral=False)
+            await interaction.followup.send(player_row, ephemeral=True)
             return
         if not player_row:
             await interaction.followup.send(
                 f"**{playername}** not found on the **{server.name}** server.",
-                ephemeral=False,
+                ephemeral=True,
             )
             return
 
         if not await server_isrunning(system_user):
             await interaction.followup.send(
-                f"**{server.name}** is **NOT** running!", ephemeral=False
+                f"**{server.name}** is **NOT** running!", ephemeral=True
             )
             return
 
@@ -222,11 +222,18 @@ class AccountCog(commands.Cog):
 
         if success:
             await interaction.followup.send(
-                f"The password for {playername} has been reset to: {new_pass}",
-                ephemeral=False,
+                f"The password for **{playername}** has been reset to: {new_pass}",
+                ephemeral=True,
             )
+            mod_chan = self.bot.get_channel(Config.MOD_CHANNEL)
+            if isinstance(mod_chan, discord.TextChannel):
+                server_name = SERVER_NAMES.get(system_user, system_user)
+                await mod_chan.send(
+                    f"🔑 [{server_name}] Password for **{playername}** has been "
+                    f"reset by {interaction.user.mention}"
+                )
         else:
-            await interaction.followup.send(response, ephemeral=False)
+            await interaction.followup.send(response, ephemeral=True)
 
     @account_group.command(name="list")
     @app_commands.describe(player="Player's name or 17-digit SteamID.")
