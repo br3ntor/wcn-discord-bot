@@ -7,6 +7,7 @@ import discord
 from discord import app_commands
 
 from src.config import Config
+from src.services.game_db import StaffRow
 from src.services.item_cache import item_cache
 from src.services.player_cache import PlayerCache
 from src.services.vehicle_cache import vehicle_cache
@@ -124,6 +125,118 @@ def format_player_stats(stats: dict, player_name: str) -> str:
         f" ({restores_admin} admin, {restores_self} self)"
     )
     return "\n" + "  ".join(parts)
+
+
+def group_staff_by_steamid(
+    rows: list[StaffRow],
+) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Group staff rows (username, role, steamid) by SteamID.
+
+    Returns ordered (steamid, accounts) pairs. Groups with multiple
+    accounts come first, then sorted by SteamID. Rows without a SteamID
+    become their own group keyed as "nosteam:<username>". Account names
+    within a group are sorted case-insensitively.
+    """
+    groups: dict[str, list[tuple[str, str]]] = {}
+    for username, role, steamid in rows:
+        key = steamid if steamid else f"nosteam:{username}"
+        groups.setdefault(key, []).append((username, role))
+
+    for accounts in groups.values():
+        accounts.sort(key=lambda account: account[0].casefold())
+
+    return sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
+
+
+def _format_staff_section(server_name: str, rows: list[StaffRow]) -> str:
+    """Format one server's staff rows into a markdown block."""
+    if not rows:
+        return f"**{server_name}** — no privileged users"
+
+    groups = group_staff_by_steamid(rows)
+    lines = [
+        f"**{server_name}** — {len(rows)} account"
+        f"{'s' if len(rows) != 1 else ''} across {len(groups)} "
+        f"SteamID{'s' if len(groups) != 1 else ''}"
+    ]
+    for steamid, accounts in groups:
+        roles = {role for _, role in accounts}
+        if len(roles) == 1:
+            account_part = ", ".join(name for name, _ in accounts) + f" ({roles.pop()})"
+        else:
+            account_part = ", ".join(f"{name} ({role})" for name, role in accounts)
+
+        if steamid.startswith("nosteam:"):
+            lines.append(f"• {account_part} — no SteamID")
+        else:
+            url = f"https://steamcommunity.com/profiles/{steamid}"
+            lines.append(f"• [{steamid}](<{url}>) — {account_part}")
+    return "\n".join(lines)
+
+
+def _split_oversized_section(section: str, limit: int = 2000) -> list[str]:
+    """Split a section longer than *limit* by lines, repeating the header."""
+    if len(section) <= limit:
+        return [section]
+
+    header, _, body = section.partition("\n")
+    room = limit - len(header) - 1
+    chunks: list[str] = []
+    current: list[str] = []
+    size = 0
+    for line in body.split("\n"):
+        for piece in [line[i : i + room] for i in range(0, len(line), room)] or [""]:
+            if current and size + len(piece) + 1 > room:
+                chunks.append(f"{header}\n" + "\n".join(current))
+                current = []
+                size = 0
+            current.append(piece)
+            size += len(piece) + 1
+    if current:
+        chunks.append(f"{header}\n" + "\n".join(current))
+    return chunks
+
+
+def format_staff_listing(
+    staff_by_server: dict[str, list[StaffRow]],
+    errors_by_server: dict[str, str],
+) -> list[str]:
+    """Format privileged users per server into Discord-sized messages.
+
+    Accounts are grouped by SteamID with a profile link per group and
+    failed servers noted with a warning line. Returns a list of messages
+    each within Discord's 2000 character limit (normally just one).
+    """
+    if not any(staff_by_server.values()) and not errors_by_server:
+        return ["No privileged users found on any server."]
+
+    sections = [
+        _format_staff_section(server_name, rows)
+        for server_name, rows in staff_by_server.items()
+    ]
+    sections += [
+        f"⚠️ **{server_name}**: {error}"
+        for server_name, error in errors_by_server.items()
+    ]
+
+    combined = "\n\n".join(sections)
+    if len(combined) <= 2000:
+        return [combined]
+
+    messages: list[str] = []
+    current = ""
+    for section in sections:
+        for part in _split_oversized_section(section):
+            if not current:
+                current = part
+            elif len(current) + 2 + len(part) <= 2000:
+                current = f"{current}\n\n{part}"
+            else:
+                messages.append(current)
+                current = part
+    if current:
+        messages.append(current)
+    return messages
 
 
 def make_player_autocomplete():

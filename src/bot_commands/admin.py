@@ -4,9 +4,10 @@ import discord
 from discord import app_commands
 
 from src.config import Config
-from src.services.game_db import gamedb_get_player_by_name, gamedb_get_staff
+from src.services.game_db import StaffRow, gamedb_get_player_by_name, gamedb_get_staff
 from src.services.pz_server import pz_set_access_level
 from src.services.server import get_game_version, server_isrunning
+from src.utils.helpers import format_staff_listing
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
@@ -91,13 +92,20 @@ async def toggle(
     await interaction.followup.send(status)
 
 
-@admin_group.command()
+@admin_group.command(name="list")
 @app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
-async def list(interaction: discord.Interaction):
+async def list_admins(interaction: discord.Interaction):
     """Get a list of admins on a zomboid server."""
-    the_boys = [
-        f"**{servername} Privileged Users:**:\n{await gamedb_get_staff(username)}"
-        for servername, username in SYSTEM_USERS.items()
-    ]
-    formatted_msg = "\n\n".join(the_boys)
-    await interaction.response.send_message(formatted_msg)
+    await interaction.response.defer()
+
+    staff_by_server: dict[str, list[StaffRow]] = {}
+    errors_by_server: dict[str, str] = {}
+    for server_name, system_user in SYSTEM_USERS.items():
+        result = await gamedb_get_staff(system_user)
+        if isinstance(result, str):
+            errors_by_server[server_name] = result
+        else:
+            staff_by_server[server_name] = result
+
+    for message in format_staff_listing(staff_by_server, errors_by_server):
+        await interaction.followup.send(message)
