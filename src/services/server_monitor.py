@@ -57,7 +57,7 @@ async def monitor_restart(
 
         if up:
             await announce_chan.send(
-                f"✅ The **{server_name}** server is back up! (took {elapsed})"
+                f"✅ The **{server_name}** server is back online! (took {elapsed})"
             )
             return
 

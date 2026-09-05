@@ -136,7 +136,7 @@ class AutoRestart:
                 )
                 return False
 
-            msg = f"Success! The **{server_name}** was restarted and is now loading back up."
+            msg = f"Success! The **{server_name}** was restarted and is now loading back up..."
             await channel.send(msg)
             start_restart_monitor(
                 system_user, server_name, channel, started=restart_started
