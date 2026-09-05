@@ -5,6 +5,7 @@ import discord
 from src.config import Config
 from src.services.pz_server import pz_send_message
 from src.services.server import restart_zomboid_server, server_isrunning
+from src.services.server_monitor import start_restart_monitor
 
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
@@ -135,6 +136,7 @@ class AutoRestart:
 
             msg = f"Success! The **{server_name}** was restarted and is now loading back up."
             await channel.send(msg)
+            start_restart_monitor(system_user, server_name, channel)
             return True
         finally:
             self._countdown_running[system_user] = False

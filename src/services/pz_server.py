@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import time
 
 from rcon.source import rcon
 
@@ -72,6 +73,41 @@ async def pz_send_message(system_user: str, message: str) -> bool:
     valid_msg = re.sub(r"[\"']", "", message)
     server_msg = f'servermsg "{valid_msg}"'
     return await pz_send_command(system_user, server_msg) is not None
+
+
+async def wait_for_server_up(
+    system_user: str,
+    *,
+    interval: float = 15.0,
+    max_wait: float = 900.0,
+    required_successes: int = 2,
+) -> bool:
+    """Polls RCON until the server answers commands, indicating it is back up.
+
+    The PZ server only binds its RCON port after the world finishes loading,
+    so a successful RCON command is a reliable "server is ready" signal.
+
+    Args:
+        system_user: The linux user running the server.
+        interval: Seconds between probe attempts.
+        max_wait: Give up after this many seconds.
+        required_successes: Consecutive successful commands required, to
+            debounce the gap between the port binding and command processing.
+
+    Returns:
+        bool: True if the server is up, False if max_wait was exceeded.
+    """
+    deadline = time.monotonic() + max_wait
+    consecutive = 0
+    while time.monotonic() < deadline:
+        if await pz_players(system_user) is not None:
+            consecutive += 1
+            if consecutive >= required_successes:
+                return True
+        else:
+            consecutive = 0
+        await asyncio.sleep(interval)
+    return False
 
 
 def _is_player_not_found(response: str, player: str) -> bool:

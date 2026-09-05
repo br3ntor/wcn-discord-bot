@@ -5,6 +5,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.services.server import restart_zomboid_server, server_isrunning
+from src.services.server_monitor import start_restart_monitor
 from src.utils.views import Confirm
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,8 @@ async def restart_server(
 
         # Announce restart
         await announce_chan.send(status_msg)
+
+        start_restart_monitor(system_user, server.name, announce_chan)
 
     else:
         logger.info("Restart cancelled for %s...", server.name)
