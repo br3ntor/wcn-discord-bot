@@ -127,25 +127,39 @@ class ModUpdatesCog(commands.Cog):
 
         local_time = ZoneInfo("localtime")
 
-        # Announce each updated mod
+        # Announce all updated mods in one message so admins get a single ping
+        update_count = len(updated_mods)
+        mod_word = "update" if update_count == 1 else "updates"
+        header = f"{admin_role} {update_count} mod {mod_word} detected!"
+
+        blocks: list[str] = []
         for item, servers_with_mod in updated_mods:
             time_updated = datetime.datetime.fromtimestamp(
                 item["time_updated"], tz=local_time
             )
             formatted_time = time_updated.strftime("%b %d @ %I:%M%p %Z")
 
-            update_msg = (
-                f"{admin_role} A mod has updated on **{'** and **'.join(servers_with_mod)}**!\n"
-                f"Title: {item['title'].strip()}\n"
+            blocks.append(
+                f"**{item['title'].strip()}** updated on **{'** and **'.join(servers_with_mod)}**\n"
                 f"Updated: {formatted_time}\n"
                 f"https://steamcommunity.com/sharedfiles/filedetails/?id={item['publishedfileid']}"
             )
 
-            await chan.send(update_msg)
-
             logger.info(
                 f"Mod updated: {item['title'].strip()} ({item['publishedfileid']}) — {formatted_time}"
             )
+
+        # Chunk to stay under Discord's 2000 char limit; only the first
+        # chunk carries the admin ping.
+        chunks: list[str] = [header]
+        for block in blocks:
+            if len(chunks[-1]) + len(block) + 2 > 2000:
+                chunks.append(block)
+            else:
+                chunks[-1] += "\n\n" + block
+
+        for chunk in chunks:
+            await chan.send(chunk)
 
         # Queue a single restart per server for the whole batch of updates.
         mods_per_server: dict[str, int] = {}
