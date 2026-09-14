@@ -6,6 +6,7 @@ from .admin import admin_group
 from .cat_fact import cat_fact
 from .chat_summary import chat_summary
 from .get_playerlist import get_playerlist
+from .godmode import godmode_group
 from .heal_player import heal_player
 from .heal_self import heal_self
 from .kick_player import kick_player
@@ -35,6 +36,7 @@ __all__ = [
     "cat_fact",
     "chat_summary",
     "get_playerlist",
+    "godmode_group",
     "heal_player",
     "heal_self",
     "kick_player",

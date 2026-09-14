@@ -197,41 +197,49 @@ def _is_add_user_success(response: str, player: str) -> bool:
     return any(message in response for message in success_strings)
 
 
-async def pz_heal_player(system_user: str, player: str) -> tuple[bool, str]:
-    """Heals a player by toggling godmode on and off via RCON."""
+def _godmode_command(system_user: str, player: str, enable: bool) -> str:
+    """Build the version-appropriate godmode command for a player."""
     version = get_game_version(system_user)
 
     if version == "B42":
-        god_on = f'godmodeplayer "{player}" -true'
-        god_off = f'godmodeplayer "{player}" -false'
+        command_base = "godmodeplayer"
     else:
-        god_on = f'godmode "{player}" -true'
-        god_off = f'godmode "{player}" -false'
+        command_base = "godmode"
 
-    god_on_response = await pz_send_command(system_user, god_on)
-    if god_on_response is None:
+    state = "true" if enable else "false"
+    return f'{command_base} "{player}" -{state}'
+
+
+async def pz_godmode(system_user: str, player: str, enable: bool) -> tuple[bool, str]:
+    """Sets godmode on or off for a player via RCON."""
+    response = await pz_send_command(
+        system_user, _godmode_command(system_user, player, enable)
+    )
+    if response is None:
         return False, "Could not reach the server via RCON."
 
-    if _is_player_not_found(god_on_response, player):
-        return False, god_on_response
+    if _is_player_not_found(response, player):
+        return False, response
 
-    if not _is_godmode_enabled(god_on_response, player):
-        logger.error("Unexpected godmode enable response: %s", god_on_response)
-        return False, f"Unexpected server response: {god_on_response}"
+    if enable and not _is_godmode_enabled(response, player):
+        logger.error("Unexpected godmode enable response: %s", response)
+        return False, f"Unexpected server response: {response}"
+
+    if not enable and not _is_godmode_disabled(response, player):
+        logger.error("Unexpected godmode disable response: %s", response)
+        return False, f"Unexpected server response: {response}"
+
+    return True, response
+
+
+async def pz_heal_player(system_user: str, player: str) -> tuple[bool, str]:
+    """Heals a player by toggling godmode on and off via RCON."""
+    god_on_result = await pz_godmode(system_user, player, True)
+    if not god_on_result[0]:
+        return god_on_result
 
     await asyncio.sleep(0.2)
-    god_off_response = await pz_send_command(system_user, god_off)
-    if god_off_response is None:
-        return False, "Could not reach the server via RCON."
-
-    if _is_player_not_found(god_off_response, player):
-        return False, god_off_response
-
-    if not _is_godmode_disabled(god_off_response, player):
-        logger.error("Unexpected godmode disable response: %s", god_off_response)
-        return False, f"Unexpected server response: {god_off_response}"
-
-    return True, god_off_response
+    return await pz_godmode(system_user, player, False)
 
 
 async def pz_ban_player(system_user: str, steam_id: str) -> tuple[bool, str]:
