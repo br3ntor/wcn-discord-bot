@@ -6,6 +6,7 @@ from discord import app_commands
 
 from src.config import Config
 from src.services.pz_server import pz_godmode, pz_players
+from src.utils.helpers import make_player_autocomplete
 
 logger = logging.getLogger(__name__)
 
@@ -90,3 +91,38 @@ async def remove_all(
     """Remove godmode from every player currently online."""
     await interaction.response.defer()
     await _toggle_godmode_all(interaction, server, False)
+
+
+@godmode_group.command(name="toggle")
+@app_commands.choices(server=SERVER_CHOICES)
+@app_commands.describe(
+    server="Which server?",
+    player="Who to toggle?",
+    enable="True to enable, False to remove",
+)
+@app_commands.autocomplete(player=make_player_autocomplete())
+@app_commands.checks.has_role(PZ_ADMIN_ROLE_ID)
+async def toggle(
+    interaction: discord.Interaction,
+    server: app_commands.Choice[int],
+    player: str,
+    enable: bool,
+):
+    """Enable or remove godmode for a single player."""
+    if '"' in player or "'" in player:
+        await interaction.response.send_message("Quotes not allowed.")
+        return
+
+    await interaction.response.defer()
+
+    result, message = await pz_godmode(SYSTEM_USERS[server.name], player, enable)
+
+    if result:
+        action = "enabled" if enable else "removed"
+        await interaction.followup.send(
+            f"Godmode **{action}** for **{player}** on the **{server.name}** server."
+        )
+    else:
+        await interaction.followup.send(
+            f"Failed to toggle godmode for **{player}**: {message}"
+        )
