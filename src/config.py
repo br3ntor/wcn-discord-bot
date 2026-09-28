@@ -40,7 +40,6 @@ class CogConfig(TypedDict):
     enabled: bool
     class_name: str
     description: str
-    requires_database: bool
 
 
 def load_server_data(filepath: str) -> List[ServerConfig]:

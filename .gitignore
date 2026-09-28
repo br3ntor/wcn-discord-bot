@@ -6,6 +6,7 @@
 subprocessdemote.py
 test.py
 servers.json
+cogs.json
 data/
 docs/
 __pycache__/

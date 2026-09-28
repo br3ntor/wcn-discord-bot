@@ -1,12 +1,12 @@
 {
   "cogs": {
     "playerlist": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "PlayerlistCog",
       "description": "Updates player list threads every 60 seconds"
     },
     "mod_updates": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "ModUpdatesCog",
       "description": "Checks for mod updates every 5 minutes and handles workshop errors"
     },
@@ -26,7 +26,7 @@
       "description": "Handles Ko-fi donation webhooks"
     },
     "ticket_watcher": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "TicketWatcherCog",
       "description": "Monitors PZ server database for new support tickets"
     },
@@ -36,37 +36,37 @@
       "description": "Links Project Zomboid in-game chat to Discord channels"
     },
     "player_link": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "PlayerLinkCog",
       "description": "Links Discord accounts to Project Zomboid players"
     },
     "ban.listener": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "BanListenerCog",
       "description": "Listens to PocketBase for ban changes and syncs to servers"
     },
     "ban.commands": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "BanCommandsCog",
       "description": "Ban management commands for Project Zomboid servers"
     },
     "account.commands": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "AccountCog",
       "description": "Whitelist account management commands for Project Zomboid servers"
     },
     "gist_updater": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "GistUpdaterCog",
       "description": "Updates GitHub gists with mod lists and sandbox settings hourly"
     },
     "game_cache": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "GameCacheCog",
       "description": "Scans PZ server files and caches item and vehicle definitions for autocomplete"
     },
     "ai_summary": {
-      "enabled": true,
+      "enabled": false,
       "class_name": "AISummaryCog",
       "description": "Posts AI-generated digests of in-game global chat twice daily"
     }
