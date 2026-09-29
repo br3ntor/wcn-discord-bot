@@ -82,7 +82,6 @@ class Config:
     SETTINGS_PATH: Optional[str]
     DB_PATH: Path
 
-    KOFI_BILL_DAY: int
     KOFI_STARTING_AMOUNT: float
     KOFI_DONATION_GOAL: float
 
@@ -132,9 +131,8 @@ class Config:
         db_path_env = os.getenv("DB_PATH")
         cls.DB_PATH = Path(db_path_env) if db_path_env else DATA_DIR / "bot_database.db"
 
-        cls.KOFI_BILL_DAY = int(os.getenv("KOFI_BILL_DAY", 6))
-        cls.KOFI_STARTING_AMOUNT = float(os.getenv("KOFI_STARTING_AMOUNT", 5))
-        cls.KOFI_DONATION_GOAL = float(os.getenv("KOFI_DONATION_GOAL", 80))
+        cls.KOFI_STARTING_AMOUNT = float(os.getenv("KOFI_STARTING_AMOUNT", 0))
+        cls.KOFI_DONATION_GOAL = float(os.getenv("KOFI_DONATION_GOAL", 250))
 
         cls.POCKETBASE_URL = os.getenv("POCKETBASE_URL")
         cls.POCKETBASE_EMAIL = os.getenv("POCKETBASE_EMAIL")

@@ -1,12 +1,14 @@
 import logging
 import secrets
 import string
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
 
 from src.config import Config
+from src.services.bot_db import get_total_donations_since
 from src.services.game_db import StaffRow
 from src.services.item_cache import item_cache
 from src.services.player_cache import PlayerCache
@@ -17,48 +19,56 @@ logger = logging.getLogger(__name__)
 SYSTEM_USERS = Config.SYSTEM_USERS
 SERVER_NAMES = Config.SERVER_NAMES
 
+PACIFIC = ZoneInfo("America/Los_Angeles")
+
+KOFI_GOAL_URL = "https://ko-fi.com/westcoastnoobs/goal"
+
 _player_cache = PlayerCache()
 
 
-def get_last_14th() -> datetime:
-    """Get the date of the most recent 14th (either current month or previous month)."""
-    today = datetime.now()
+def start_of_month_utc(now: datetime | None = None) -> datetime:
+    """Get the start of the current month (Pacific time) converted to UTC.
 
-    if today.day < 14:
-        if today.month == 1:
-            return datetime(today.year - 1, 12, 14)
-        else:
-            return datetime(today.year, today.month - 1, 14)
-    else:
-        return datetime(today.year, today.month, 14)
-
-
-def get_last_occurrence_of_day(day_number: int) -> datetime:
+    Donation rows are stored in UTC, so month boundaries are computed in
+    Pacific time to match how the goal is perceived, then converted.
     """
-    Get the date of the most recent occurrence of a specific day of the month.
-
-    Args:
-        day_number: The day of the month (e.g., 14 for the 14th) you want to find.
-
-    Returns:
-        A datetime object representing the most recent occurrence of that day.
-    """
-    if not 1 <= day_number <= 31:
-        raise ValueError("day_number must be between 1 and 31.")
-
-    today = datetime.now()
-
-    if today.day < day_number:
-        if today.month == 1:
-            return datetime(today.year - 1, 12, day_number)
-        else:
-            return datetime(today.year, today.month - 1, day_number)
+    if now is None:
+        now = datetime.now(PACIFIC)
     else:
-        return datetime(today.year, today.month, day_number)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        now = now.astimezone(PACIFIC)
+
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return month_start.astimezone(timezone.utc)
+
+
+def days_left_in_month(now: datetime | None = None) -> int:
+    """Days remaining in the current month (Pacific time)."""
+    if now is None:
+        now = datetime.now(PACIFIC)
+    else:
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        now = now.astimezone(PACIFIC)
+
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if month_start.month == 12:
+        next_month = month_start.replace(year=month_start.year + 1, month=1)
+    else:
+        next_month = month_start.replace(month=month_start.month + 1)
+
+    return (next_month - now).days
+
+
+async def get_monthly_donation_progress() -> tuple[float, float]:
+    """Return (current_amount, goal_amount) for this month's donation goal."""
+    total = await get_total_donations_since(start_of_month_utc())
+    return total + Config.KOFI_STARTING_AMOUNT, Config.KOFI_DONATION_GOAL
 
 
 def show_donation_progress(current_amount, goal_amount):
-    """Prints a nice progress meter."""
+    """Prints a nice progress meter for the monthly donation goal."""
     percentage = (current_amount / goal_amount) * 100
     percentage = round(percentage, 1)
 
@@ -66,8 +76,14 @@ def show_donation_progress(current_amount, goal_amount):
     filled_length = int(bar_length * min(percentage, 100) / 100)
     bar = "█" * filled_length + "░" * (bar_length - filled_length)
 
+    days = days_left_in_month()
+    day_text = f"{days} day{'s' if days != 1 else ''} left"
+
     message = f"Donation Progress: [{bar}] {percentage}%\n"
-    message += f"We are {percentage}% towards our goal of ${goal_amount}!\n"
+    message += (
+        f"We are {percentage}% towards our goal of ${goal_amount:g} "
+        f"by the end of the month ({day_text})!\n"
+    )
     message += f"Current amount raised: ${current_amount:.2f}"
 
     if percentage == 100:

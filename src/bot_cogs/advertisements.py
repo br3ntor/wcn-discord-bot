@@ -4,11 +4,16 @@ import logging
 import discord
 from discord.ext import commands, tasks
 
-from src.config import Config
+from src.utils.helpers import (
+    KOFI_GOAL_URL,
+    get_monthly_donation_progress,
+    show_donation_progress,
+)
 
 logger = logging.getLogger(__name__)
 
-ANNOUNCE_CHANNEL = Config.ANNOUNCE_CHANNEL
+# TODO: switch to Config.ANNOUNCE_CHANNEL when moving off the test server
+ANNOUNCE_CHANNEL_ID = 948548630439165956
 
 california = datetime.timezone(datetime.timedelta(hours=-8))
 
@@ -35,21 +40,23 @@ class AdvertisementCog(commands.Cog):
     @tasks.loop(time=times)
     async def send_advertisement(self):
         """Sends the donation goal advertisement message to Discord."""
-        ad_msg = "Help us reach our monthly goal!\n"
-
-        # This shows our goal but in a picture and we cant access the data
-        # So if we want to stop ad if goal is reached we can access the db
-        # To write a condition for it, TODO
-        goal_url = "https://ko-fi.com/westcoastnoobs/goal"
-        # chan = self.bot.get_channel(ANNOUNCE_CHANNEL)
-        chan = self.bot.get_channel(948548630439165956)
-
-        if not chan:
-            logger.warning("Unable to get discord channel.")
+        current_amount, goal_amount = await get_monthly_donation_progress()
+        if current_amount >= goal_amount:
+            logger.info(
+                "Donation goal met (%.2f/%.2f), skipping advertisement.",
+                current_amount,
+                goal_amount,
+            )
             return
+
+        chan = self.bot.get_channel(ANNOUNCE_CHANNEL_ID)
         if not isinstance(chan, discord.TextChannel):
-            logger.warning("Chan is not TextChannel?")
+            logger.warning("Unable to get announce TextChannel for advertisement.")
             return
 
-        await chan.send(ad_msg + goal_url)
-        logger.info("My ad is running!")
+        await chan.send(
+            "Help us reach our monthly goal!\n"
+            f"{show_donation_progress(current_amount, goal_amount)}\n"
+            f"{KOFI_GOAL_URL}"
+        )
+        logger.info("Donation advertisement posted.")
