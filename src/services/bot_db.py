@@ -16,7 +16,7 @@ db_path = (
     or Path(__file__).parent.parent.parent / "data" / "bot_database.db"
 )
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 1
 
 MIGRATIONS: List[Tuple[int, str, Callable[[aiosqlite.Connection], Coroutine]]] = []
 
@@ -36,7 +36,7 @@ def _migration(version: int, description: str) -> Callable[
     return decorator
 
 
-@_migration(1, "Create initial tables")
+@_migration(1, "Create initial schema")
 async def _migrate_v1(db: aiosqlite.Connection) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS banned_players (
@@ -133,51 +133,6 @@ async def _migrate_v1(db: aiosqlite.Connection) -> None:
         """)
 
 
-@_migration(2, "Add server_name to ticket_notifications (multi-server support)")
-async def _migrate_v2(db: aiosqlite.Connection) -> None:
-    async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
-        columns = {row[1] for row in await cursor.fetchall()}
-
-    if "server_name" in columns:
-        return
-
-    await db.execute("DROP TABLE IF EXISTS ticket_notifications")
-    await db.execute("""
-        CREATE TABLE ticket_notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            server_name TEXT NOT NULL,
-            ticket_id INTEGER NOT NULL,
-            discord_message_id INTEGER NOT NULL,
-            thread_id INTEGER NOT NULL,
-            processed_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_state TEXT DEFAULT 'unanswered',
-            resolved_in_discord INTEGER DEFAULT 0,
-            resolved_by TEXT DEFAULT NULL,
-            UNIQUE(server_name, ticket_id)
-        )
-        """)
-
-
-@_migration(3, "Add resolved_in_discord and resolved_by to ticket_notifications")
-async def _migrate_v3(db: aiosqlite.Connection) -> None:
-    async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
-        columns = {row[1] for row in await cursor.fetchall()}
-
-    if "resolved_in_discord" not in columns:
-        await db.execute(
-            "ALTER TABLE ticket_notifications ADD COLUMN resolved_in_discord INTEGER DEFAULT 0"
-        )
-    if "resolved_by" not in columns:
-        await db.execute(
-            "ALTER TABLE ticket_notifications ADD COLUMN resolved_by TEXT DEFAULT NULL"
-        )
-
-
-@_migration(4, "Drop deprecated player_command_cooldowns table")
-async def _migrate_v4(db: aiosqlite.Connection) -> None:
-    await db.execute("DROP TABLE IF EXISTS player_command_cooldowns")
-
-
 async def _get_schema_version(db: aiosqlite.Connection) -> int:
     cursor = await db.execute(
         "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1"
@@ -191,33 +146,17 @@ async def _set_schema_version(db: aiosqlite.Connection, version: int) -> None:
     await db.execute("INSERT INTO schema_version (version) VALUES (?)", (version,))
 
 
-async def _detect_legacy_version(db: aiosqlite.Connection) -> int:
-    """Detect schema version for databases created before schema_version table existed."""
-    cursor = await db.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='ticket_notifications'"
-    )
-    if not await cursor.fetchone():
-        return 0
-
-    async with db.execute("PRAGMA table_info(ticket_notifications)") as cursor:
-        columns = {row[1] for row in await cursor.fetchall()}
-
-    if "server_name" not in columns:
-        return 1
-    if "resolved_in_discord" not in columns:
-        return 2
-
-    cursor = await db.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='player_command_cooldowns'"
-    )
-    if await cursor.fetchone():
-        return 3
-
-    return 4
+async def _has_legacy_tables(db: aiosqlite.Connection) -> bool:
+    """Check for tables from a pre-v1 database that carries no version stamp."""
+    async with db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_version'"
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return bool(rows)
 
 
 async def init_db():
-    """Initialize the database and run pending migrations."""
+    """Initialize the database and apply any pending migrations."""
     global db_path
 
     db_path = db_path.resolve()
@@ -233,11 +172,13 @@ async def init_db():
 
         current_version = await _get_schema_version(db)
 
-        if current_version == 0:
-            current_version = await _detect_legacy_version(db)
-            if current_version > 0:
-                await _set_schema_version(db, current_version)
-                await db.commit()
+        if current_version == 0 and await _has_legacy_tables(db):
+            logger.warning(
+                f"Database at {db_path} has tables but no schema version stamp. "
+                "The initial migration only creates missing tables, so it cannot "
+                "add columns to existing ones. Delete this file to rebuild the "
+                "schema from scratch."
+            )
 
         if current_version < SCHEMA_VERSION:
             logger.info(
