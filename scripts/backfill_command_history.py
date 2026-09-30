@@ -46,13 +46,11 @@ async def main() -> None:
             print(f"Aborting: {existing} backfilled rows already exist.")
             return
 
-        async with db.execute(
-            """
+        async with db.execute("""
             SELECT steam_id, server_name, player_name, heal_count,
                    restore_levels_count, last_updated
             FROM player_command_stats
-            """
-        ) as cursor:
+            """) as cursor:
             old_rows = await cursor.fetchall()
 
         inserted = 0
@@ -85,7 +83,9 @@ async def main() -> None:
 
         await db.commit()
 
-    print(f"Done: inserted {inserted} rows from {len(old_rows)} player_command_stats rows.")
+    print(
+        f"Done: inserted {inserted} rows from {len(old_rows)} player_command_stats rows."
+    )
 
 
 if __name__ == "__main__":

@@ -181,7 +181,9 @@ class CommandHistoryTests(unittest.IsolatedAsyncioTestCase):
         await self.log("restore_self", steam_id, player_name="br3ntor")
         await self.log("heal_player", steam_id, player_name="br3ntor", success=False)
 
-        result = await bot_db.get_player_command_counts_by_character(steam_id, "Server One")
+        result = await bot_db.get_player_command_counts_by_character(
+            steam_id, "Server One"
+        )
         self.assertEqual(
             result,
             {
@@ -206,9 +208,7 @@ class ServerWorldTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(await bot_db.get_server_world_start("Server One"))
 
         self.assertTrue(await bot_db.upsert_server_world("Server One", started))
-        self.assertEqual(
-            await bot_db.get_server_world_start("Server One"), started
-        )
+        self.assertEqual(await bot_db.get_server_world_start("Server One"), started)
 
         # Upsert overwrites with a newer world
         newer = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
@@ -230,9 +230,7 @@ class ServerWorldTests(unittest.IsolatedAsyncioTestCase):
         finally:
             bot_db._stat_birth_time = original
 
-        self.assertEqual(
-            await bot_db.get_server_world_start("Server One"), started
-        )
+        self.assertEqual(await bot_db.get_server_world_start("Server One"), started)
         # Failed stat keeps the server unrecorded
         self.assertIsNone(await bot_db.get_server_world_start("Server Two"))
 
