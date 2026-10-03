@@ -82,9 +82,8 @@ def show_donation_progress(current_amount, goal_amount):
     message = f"Donation Progress: [{bar}] {percentage}%\n"
     message += (
         f"We are {percentage}% towards our goal of ${goal_amount:g} "
-        f"by the end of the month ({day_text})!\n"
+        f"by the end of the month ({day_text})!"
     )
-    message += f"Current amount raised: ${current_amount:.2f}"
 
     if percentage == 100:
         message += "\n🎉 Congratulations! We've met our donation goal! 🎉"

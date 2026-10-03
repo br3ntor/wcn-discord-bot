@@ -71,7 +71,8 @@ class ShowDonationProgressTests(unittest.TestCase):
         self.assertIn(f"[{'█' * 8}{'░' * 12}] 40.0%", message)
         self.assertIn("goal of $250", message)
         self.assertIn("by the end of the month", message)
-        self.assertIn("Current amount raised: $100.00", message)
+        self.assertNotIn("Current amount raised", message)
+        self.assertNotIn("$100.00", message)
         self.assertNotIn("Congratulations", message)
 
     def test_exactly_at_goal(self):
