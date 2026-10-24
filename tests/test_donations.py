@@ -146,6 +146,25 @@ class MonthlyDonationProgressTests(unittest.IsolatedAsyncioTestCase):
             12.5,
         )
 
+    async def test_duplicate_transaction_id_is_rejected(self):
+        self.assertTrue(
+            await bot_db.add_donation("New", "new@example.com", 5.0, "txn-123")
+        )
+        self.assertFalse(
+            await bot_db.add_donation("New", "new@example.com", 5.0, "txn-123")
+        )
+
+        current, _ = await helpers.get_monthly_donation_progress()
+        self.assertEqual(current, 15.0)
+
+    async def test_same_donation_without_transaction_id_is_allowed(self):
+        # Legacy payloads without a transaction id must not be deduplicated
+        self.assertTrue(await bot_db.add_donation("New", "new@example.com", 5.0))
+        self.assertTrue(await bot_db.add_donation("New", "new@example.com", 5.0))
+
+        current, _ = await helpers.get_monthly_donation_progress()
+        self.assertEqual(current, 20.0)
+
 
 if __name__ == "__main__":
     unittest.main()

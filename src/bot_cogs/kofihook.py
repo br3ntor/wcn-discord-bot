@@ -16,7 +16,8 @@ from src.utils.helpers import (
 logger = logging.getLogger(__name__)
 
 # TODO: switch to Config.ANNOUNCE_CHANNEL when moving off the test server
-ANNOUNCE_CHANNEL_ID = 948548630439165956
+# ANNOUNCE_CHANNEL_ID = 948548630439165956
+ANNOUNCE_CHANNEL_ID = Config.ANNOUNCE_CHANNEL
 WEBHOOK_SECRET = Config.WEBHOOK_SECRET
 WEBHOOK_PATH = "/hook"
 
@@ -60,6 +61,7 @@ class KoFiDonationCog(commands.Cog):
             amount = float(donation.get("amount", 0))
             donator = donation.get("from_name", "Someone")
             email = donation.get("email", "")
+            transaction_id = donation.get("kofi_transaction_id")
         except Exception:
             logger.exception("Failed to parse Ko-fi webhook payload")
             logger.debug("%s", request)
@@ -69,6 +71,9 @@ class KoFiDonationCog(commands.Cog):
             logger.warning("Ko-fi webhook: verification token not valid")
             logger.debug("%s", data)
             return web.Response()
+
+        if transaction_id is None:
+            logger.warning("Ko-fi webhook: payload missing kofi_transaction_id")
 
         # Publish donation action, thank user by given name
         if donation.get("is_public"):
@@ -90,12 +95,16 @@ class KoFiDonationCog(commands.Cog):
             return web.Response()
 
         try:
+            # Record the donation before sending anything. A duplicate
+            # (Ko-fi webhook retry) is absorbed here and skipped entirely.
+            if not await add_donation(donator, email, amount, transaction_id):
+                logger.info(
+                    "Ko-fi webhook: duplicate transaction %s, skipping", transaction_id
+                )
+                return web.Response()
+
             await discord_channel.send(thanks_msg)
             logger.info(thanks_msg)
-
-            # Add the donation to the database
-            if not await add_donation(donator, email, amount):
-                logger.error("ERROR: Donation was not added to the db.")
 
             current_amount, goal_amount = await get_monthly_donation_progress()
             donation_progress = show_donation_progress(current_amount, goal_amount)
@@ -108,5 +117,6 @@ class KoFiDonationCog(commands.Cog):
             await discord_channel.send(donation_progress)
         except Exception:
             logger.exception("Failed to process Ko-fi donation")
+            return web.Response(status=500)
 
         return web.Response()

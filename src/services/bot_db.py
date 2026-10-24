@@ -16,7 +16,7 @@ db_path = (
     or Path(__file__).parent.parent.parent / "data" / "bot_database.db"
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 MIGRATIONS: List[Tuple[int, str, Callable[[aiosqlite.Connection], Coroutine]]] = []
 
@@ -130,6 +130,16 @@ async def _migrate_v1(db: aiosqlite.Connection) -> None:
     await db.execute("""
         CREATE INDEX IF NOT EXISTS idx_pending_player_links_active
         ON pending_player_links(discord_id, server_name, consumed_at)
+        """)
+
+
+@_migration(2, "Add transaction_id to donations")
+async def _migrate_v2(db: aiosqlite.Connection) -> None:
+    await db.execute("ALTER TABLE donations ADD COLUMN transaction_id TEXT")
+    await db.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_donations_transaction_id
+        ON donations(transaction_id)
+        WHERE transaction_id IS NOT NULL
         """)
 
 
@@ -397,18 +407,28 @@ async def cleanup_pending_player_links() -> None:
         await db.commit()
 
 
-async def add_donation(player_name: str, email: str, amount: float) -> bool:
-    """Record a donation from a player."""
+async def add_donation(
+    player_name: str, email: str, amount: float, transaction_id: str | None = None
+) -> bool:
+    """Record a donation from a player.
+
+    Returns False if a donation with the same transaction_id already exists
+    (e.g. a Ko-fi webhook retry), so callers can skip duplicate processing.
+    """
     try:
         async with aiosqlite.connect(db_path) as db:
             await db.execute(
-                "INSERT INTO donations (player_name, email, amount) VALUES (?, ?, ?)",
-                (player_name, email, amount),
+                "INSERT INTO donations (player_name, email, amount, transaction_id)"
+                " VALUES (?, ?, ?, ?)",
+                (player_name, email, amount, transaction_id),
             )
             await db.commit()
             return True
-    except Exception:
+    except aiosqlite.IntegrityError:
         return False
+    except Exception:
+        logger.exception("Failed to add donation to the db")
+        raise
 
 
 async def get_total_donations_since(from_date: datetime) -> float:
