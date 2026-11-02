@@ -108,11 +108,29 @@ class BanListenerCog(commands.Cog):
 
         logger.info("Running startup ban sync...")
 
+        # Determine which servers are up once, so the sync steps below don't
+        # re-probe every server for every ban.
+        running_users = [
+            system_user
+            for system_user in Config.SYSTEM_USERS.values()
+            if await server_isrunning(system_user)
+        ]
+        offline_users = [
+            system_user
+            for system_user in Config.SYSTEM_USERS.values()
+            if system_user not in running_users
+        ]
+        if offline_users:
+            logger.info(
+                "Skipping offline server(s) during sync: %s",
+                ", ".join(offline_users),
+            )
+
         # Step 1: Sync unbans — handle bans deactivated while bot was offline
-        await self._sync_unbans()
+        await self._sync_unbans(running_users)
 
         # Step 2: Sync active bans from PocketBase to servers
-        await self._sync_active_bans()
+        await self._sync_active_bans(running_users)
 
         # Step 3: Backfill local server bans into PocketBase (new records only)
         await self._backfill_local_bans()
@@ -121,8 +139,8 @@ class BanListenerCog(commands.Cog):
         logger.info("Startup sync complete, subscribing to SSE...")
         await self.start_sse_listener()
 
-    async def _sync_unbans(self):
-        """Fetch inactive bans from PB and unban on servers."""
+    async def _sync_unbans(self, running_users: list[str]):
+        """Fetch inactive bans from PB and unban on running servers."""
         logger.info("Step 1/3: Syncing unbans from PocketBase...")
 
         inactive_bans = await pb_client.get_bans(is_active=False)
@@ -135,10 +153,7 @@ class BanListenerCog(commands.Cog):
             steamid = ban.get("steamid")
             if not steamid:
                 continue
-            for system_user in Config.SYSTEM_USERS.values():
-                if not await server_isrunning(system_user):
-                    continue
-
+            for system_user in running_users:
                 existing_ban = await gamedb_get_ban_by_steamid(system_user, steamid)
                 if isinstance(existing_ban, str):
                     logger.warning(
@@ -155,8 +170,8 @@ class BanListenerCog(commands.Cog):
 
         logger.info("Step 1/3 complete: unbanned %d player(s)", unbanned)
 
-    async def _sync_active_bans(self):
-        """Fetch active bans from PB and apply to servers."""
+    async def _sync_active_bans(self, running_users: list[str]):
+        """Fetch active bans from PB and apply to running servers."""
         logger.info("Step 2/3: Syncing active bans from PocketBase...")
 
         bans = await pb_client.get_bans(is_active=True)
@@ -167,17 +182,13 @@ class BanListenerCog(commands.Cog):
         synced = 0
         already_present = 0
         db_lookup_failed = 0
-        offline_servers = set()
+        offline_servers = set(Config.SYSTEM_USERS.values()) - set(running_users)
 
         for ban in bans:
             steamid = ban.get("steamid")
             if not steamid:
                 continue
-            for system_user in Config.SYSTEM_USERS.values():
-                if not await server_isrunning(system_user):
-                    offline_servers.add(system_user)
-                    continue
-
+            for system_user in running_users:
                 existing_ban = await gamedb_get_ban_by_steamid(system_user, steamid)
                 if isinstance(existing_ban, str):
                     db_lookup_failed += 1

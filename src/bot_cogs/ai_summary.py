@@ -36,6 +36,9 @@ class AISummaryCog(commands.Cog):
             self.digest_loop.cancel()
 
     def _summary_channel_id(self) -> int:
+        # Hmm I don't think I want this.
+        # If ai_summary channgel is falsy we use ANNOUNCE_CHANNEL? But what if we dont
+        # want that or what if thats falsy as well?
         return Config.AI_SUMMARY_CHANNEL or Config.ANNOUNCE_CHANNEL
 
     @tasks.loop(time=DIGEST_TIMES)
